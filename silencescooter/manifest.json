@@ -2,9 +2,10 @@
   "domain": "silencescooter",
   "name": "Silence Scooter",
   "config_flow": true,
-  "documentation": "",
+  "documentation": "https://github.com/noiwid/silence-scooter-homeassistant",
+  "issue_tracker": "https://github.com/noiwid/silence-scooter-homeassistant/issues",
   "dependencies": [],
-  "codeowners": [],
+  "codeowners": ["@noiwid"],
   "requirements": [
     "PyYAML>=6.0"
   ],
