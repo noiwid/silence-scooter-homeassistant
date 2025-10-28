@@ -1,0 +1,896 @@
+views:
+  - title: Silence Scooter
+    type: masonry
+    badges: []
+    cards:
+      - type: custom:vertical-stack-in-card
+        card_mod:
+          style: |
+            ha-card {
+              overflow: hidden;
+            }
+        cards:
+          - type: custom:stack-in-card
+            mode: vertical
+            card_mod:
+              style: |
+                ha-card {
+                  border: none !important;
+                  box-shadow: none !important;
+                  border-radius: 0 !important;
+                  margin: 0 !important;
+                  background: none !important;
+                }
+            cards:
+              - type: horizontal-stack
+                cards:
+                  - type: custom:button-card
+                    size: 35%
+                    icon: mdi:power-off
+                    name: 'OFF'
+                    entity: button.silence_scooter_command_off
+                    tap_action:
+                      action: toggle
+                      confirmation:
+                        text: Confirmer l'extinction ?
+                    styles:
+                      card:
+                        - font-size: 12px
+                        - background: transparent
+                        - box-shadow: none
+                  - type: custom:button-card
+                    size: 35%
+                    icon: mdi:power-on
+                    entity: button.silence_scooter_command_on
+                    name: 'ON'
+                    tap_action:
+                      action: toggle
+                      confirmation:
+                        text: Confirmer l'allumage ?
+                    styles:
+                      card:
+                        - font-size: 12px
+                        - background: transparent
+                        - box-shadow: none
+              - type: horizontal-stack
+                cards:
+                  - type: custom:button-card
+                    size: 25%
+                    name: OPEN SEAT
+                    icon: mdi:lock-open-outline
+                    entity: button.silence_scooter_command_open_seat
+                    tap_action:
+                      action: toggle
+                      confirmation:
+                        text: Confirmer l'ouverture de selle ?
+                    styles:
+                      card:
+                        - font-size: 12px
+                        - background: transparent
+                        - box-shadow: none
+                  - type: custom:button-card
+                    size: 25%
+                    entity: button.silence_scooter_command_flash
+                    name: FLASH
+                    icon: mdi:alert-outline
+                    tap_action:
+                      action: toggle
+                      confirmation:
+                        text: Confirmer le warning ?
+                    styles:
+                      card:
+                        - font-size: 12px
+                        - background: transparent
+                        - box-shadow: none
+                  - type: custom:button-card
+                    size: 25%
+                    entity: button.silence_scooter_command_beep_flash
+                    name: BEEP FLASH
+                    icon: mdi:air-horn
+                    tap_action:
+                      action: toggle
+                      confirmation:
+                        text: Confirmer l'alarme ?
+                    styles:
+                      card:
+                        - font-size: 12px
+                        - background: transparent
+                        - box-shadow: none
+          - type: picture
+            image: /local/silence/scooter.png
+            card_mod:
+              style: |
+                ha-card {
+                  border: none !important;
+                  box-shadow: none !important;
+                  border-radius: 0 !important;
+                  margin: 0 !important;
+                  padding: 0 !important;
+                  background: transparent !important;
+                }              
+          - type: glance
+            entities:
+              - entity: sensor.scooter_status_display
+                name: Status
+              - entity: sensor.silence_scooter_speed
+                icon: mdi:speedometer
+                name: Vitesse
+              - entity: sensor.scooter_battery_status
+                name: Batterie
+              - entity: sensor.scooter_odo_display
+                icon: mdi:counter
+                name: Odomètre
+            card_mod:
+              style: |
+                ha-card {
+                  border: none !important;
+                  box-shadow: none !important;
+                  border-radius: 0 !important;
+                  margin: 0 !important;
+                  background: none !important;
+                }
+                .name {
+                  font-size: 11px;
+                  text-transform: uppercase;
+                  letter-spacing: 1.5px;
+                  line-height: 20px;
+                }
+      - type: custom:vertical-stack-in-card
+        cards:
+          - type: horizontal-stack
+            cards:
+              - type: gauge
+                entity: sensor.scooter_battery_display
+                name: Niveau de batterie
+                severity:
+                  green: 70
+                  yellow: 30
+                  red: 0
+                needle: true
+                unit: '%'
+                min: 0
+                card_mod:
+                  style: |
+                    ha-card {
+                      background: none !important;
+                      box-shadow: none !important;
+                      border: none !important;
+                      border-right: 1px solid rgba(152, 152, 157, 0.3) !important;
+                      border-radius: 0 !important;
+                    }
+              - type: custom:button-card
+                entity: sensor.silence_scooter_last_update
+                name: Dernière mise à jour
+                show_state: true
+                show_name: true
+                show_label: false
+                icon: |
+                  [[[
+                    const lastChanged = states['sensor.silence_scooter_last_update'].last_changed;
+                    if (!lastChanged) return 'mdi:clock-alert';
+                    
+                    const delta = Math.round((new Date() - new Date(lastChanged)) / 1000);
+                    
+                    if (delta < 60) {
+                      return 'mdi:check-circle';
+                    } else if (delta < 300) {
+                      return 'mdi:clock-alert-outline';
+                    } else {
+                      return 'mdi:alert-circle';
+                    }
+                  ]]]
+                state_display: |
+                  [[[
+                    const lastChanged = states['sensor.silence_scooter_last_update'].last_changed;
+                    if (!lastChanged) return 'Inconnue';
+                    
+                    const delta = Math.round((new Date() - new Date(lastChanged)) / 1000);
+                    
+                    if (delta < 60) {
+                      return delta + ' secondes';
+                    } else if (delta < 3600) {
+                      const minutes = Math.floor(delta / 60);
+                      return minutes + ' minute' + (minutes > 1 ? 's' : '');
+                    } else if (delta < 86400) {
+                      const hours = Math.floor(delta / 3600);
+                      return hours + ' heure' + (hours > 1 ? 's' : '');
+                    } else {
+                      const days = Math.floor(delta / 86400);
+                      return days + ' jour' + (days > 1 ? 's' : '');
+                    }
+                  ]]]
+                styles:
+                  card:
+                    - height: 100%
+                    - display: flex
+                    - flex-direction: column
+                    - justify-content: center
+                    - align-items: center
+                    - background: none
+                    - box-shadow: none
+                    - border: none
+                  icon:
+                    - height: 85px
+                    - color: |
+                        [[[
+                          const lastChanged = states['sensor.silence_scooter_last_update'].last_changed;
+                          if (!lastChanged) return 'var(--disabled-color)';
+                          
+                          const delta = Math.round((new Date() - new Date(lastChanged)) / 1000);
+                          
+                          if (delta < 60) {
+                            return 'var(--success-color)';
+                          } else if (delta < 300) {
+                            return 'var(--warning-color)';
+                          } else {
+                            return 'var(--error-color)';
+                          }
+                        ]]]
+                  name:
+                    - font-size: 14px
+                  state:
+                    - font-size: 12px
+                    - opacity: 0.7
+        card_mod:
+          style: |
+            ha-card {
+              background-color: var(--ha-card-background, var(--card-background-color, white));
+            }
+      - type: custom:stack-in-card
+        mode: vertical
+        cards:
+          - type: glance
+            entities:
+              - entity: sensor.scooter_estimated_range
+                name: Autonomie
+                icon: mdi:road-variant
+                card_mod:
+                  style: |
+                    .name {
+                      font-size: 11px;
+                      text-transform: uppercase;
+                      letter-spacing: 1.5px;
+                      line-height: 20px;
+                    }
+              - entity: sensor.scooter_battery_per_km
+                name: Conso / km
+                icon: mdi:battery-clock-outline
+                card_mod:
+                  style: |
+                    .name {
+                      font-size: 11px;
+                      text-transform: uppercase;
+                      letter-spacing: 1.5px;
+                      line-height: 20px;
+                    }                        
+              - entity: sensor.scooter_battery_percentage_regeneration
+                icon: mdi:battery-charging
+                name: Récupération
+                card_mod:
+                  style: |
+                    .name {
+                      font-size: 11px;
+                      text-transform: uppercase;
+                      letter-spacing: 1.5px;
+                      line-height: 20px;
+                    }
+            show_state: true
+            show_name: true
+            state_color: true
+            card_mod:
+              style: |
+                ha-card {
+                  border-top: none !important;
+                  border-left: none !important;
+                  border-right: none !important;
+                  border-bottom: 1px solid var(--divider-color) !important;
+                  background: none !important;
+                }
+          - type: glance
+            entities:
+              - entity: sensor.scooter_cost_per_km
+                name: Coût / km
+                icon: mdi:currency-eur
+                card_mod:
+                  style: |
+                    .name {
+                      font-size: 11px;
+                      text-transform: uppercase;
+                      letter-spacing: 1.5px;
+                      line-height: 20px;
+                    }
+              - entity: sensor.scooter_energy_cost_weekly
+                name: Semaine
+                icon: mdi:calendar-week
+                card_mod:
+                  style: |
+                    .name {
+                      font-size: 11px;
+                      text-transform: uppercase;
+                      letter-spacing: 1.5px;
+                      line-height: 20px;
+                    }
+              - entity: sensor.scooter_energy_cost_monthly
+                name: Mois
+                icon: mdi:calendar-month
+                card_mod:
+                  style: |
+                    .name {
+                      font-size: 11px;
+                      text-transform: uppercase;
+                      letter-spacing: 1.5px;
+                      line-height: 20px;
+                    }
+              - entity: sensor.scooter_energy_cost_yearly
+                name: Année
+                icon: mdi:calendar
+                card_mod:
+                  style: |
+                    .name {
+                      font-size: 11px;
+                      text-transform: uppercase;
+                      letter-spacing: 1.5px;
+                      line-height: 20px;
+                    }
+            show_state: true
+            show_name: true
+            state_color: true
+            card_mod:
+              style: |
+                ha-card {
+                  border:0;
+                }
+      - type: custom:vertical-stack-in-card
+        cards:
+          - type: custom:vertical-stack-in-card
+            card_mod:
+              style: |
+                ha-card {
+                  border-top: none !important;
+                  border-left: none !important;
+                  border-right: none !important;
+                  background: none !important;
+                  overflow: hidden;
+                }
+            cards:
+              - type: picture-elements
+                image: /local/Last_ride.png
+                elements:
+                  - type: state-label
+                    entity: sensor.scooter_last_trip_distance
+                    style:
+                      top: 30%
+                      left: 25%
+                      font: roboto
+                      font-size: 2.7em
+                      color: white
+                  - type: state-label
+                    entity: sensor.scooter_last_trip_duration
+                    style:
+                      top: 40%
+                      left: 85%
+                      font: roboto
+                      font-size: 0.9em
+                      color: '#F92672'
+                  - type: state-label
+                    entity: sensor.scooter_last_trip_avg_speed
+                    style:
+                      top: 50%
+                      left: 65%
+                      font-size: 0.9em
+                      font: roboto
+                      color: '#F92672'
+              - type: custom:map-card
+                card_mod:
+                  style: |
+                    ha-card {
+                      border-top: none !important;
+                      border-left: none !important;
+                      border-right: none !important;
+                      background: none !important;
+                      overflow: hidden;
+                    }
+                aspect_ratio: '16:9'
+                auto_fit: true
+                entities:
+                  - entity: device_tracker.silence_scooter_2
+                    css: 'border-radius: 0'
+                    display: icon
+                    size: 35
+                    color: purple
+                    history_start: sensor.scooter_start_time_iso
+                    history_show_dots: false
+                    history_line_color: purple
+                focus_entity: device_tracker.silence_scooter_2
+                theme_mode: auto
+                zoom: 16
+                card_size: 6
+                tile_layer_url: https://mt0.google.com/vt/lyrs=m&x={x}&y={y}&z={z}
+                geo_location_enabled: true
+              - type: markdown
+                card_mod:
+                  style: |
+                    ha-card {
+                      border-top: none !important;
+                      border-left: none !important;
+                      border-right: none !important;
+                      background: none !important;
+                      overflow: hidden;
+                    }
+                content: >-
+                  <ha-icon icon="mdi:map-marker"></ha-icon>  [{{
+                  states('sensor.silence_scooter_address')
+                  }}](https://maps.google.com?q={{
+                  state_attr('device_tracker.silence_scooter_2','latitude')
+                  }},{{ state_attr('device_tracker.silence_scooter_2',
+                  'longitude') }})
+              - type: divider
+              - type: conditional
+                conditions:
+                  - condition: or
+                    conditions:
+                      - entity: sensor.scooter_is_moving
+                        state: 'on'
+                      - entity: timer.scooter_stop_trip_tolerance
+                        state: active
+                card:
+                  type: entities
+                  entities:
+                    - type: custom:template-entity-row
+                      entity: switch.stop_trip_now
+                      name: >
+                        {% set start_time =
+                        states('datetime.scooter_start_time') %} {% if
+                        start_time != 'unknown' %}
+                          {% set duration = ((as_timestamp(now()) - as_timestamp(start_time)) / 60) | int %}
+                          {% if is_state('timer.scooter_stop_trip_tolerance', 'active') %}
+                            En pause depuis {{ duration }} min.
+                          {% else %}
+                            En route depuis {{ duration }} min.
+                          {% endif %}
+                        {% else %}
+                          Trajet en cours
+                        {% endif %}
+                      icon: mdi:stop-circle-outline
+                      color: crimson
+                      state: ARRÊTER
+                      tap_action:
+                        action: call-service
+                        service: switch.turn_on
+                        service_data:
+                          entity_id: switch.stop_trip_now
+                        confirmation:
+                          text: Arrêter le trajet en cours ?
+              - type: entities
+                card_mod:
+                  style: |
+                    ha-card {
+                      border-top: none !important;
+                      border-left: none !important;
+                      border-right: none !important;
+                      background: none !important;
+                      overflow: hidden;
+                    }
+                entities:
+                  - entity: sensor.scooter_end_time_relative
+                    name: Dernier trajet
+                    icon: mdi:watch
+                  - entity: sensor.scooter_last_trip_duration
+                    name: Durée du trajet
+                    icon: mdi:clock
+                  - entity: sensor.scooter_last_trip_battery_consumption
+                    name: Batterie consommée
+                    icon: mdi:battery-clock
+                  - entity: sensor.scooter_last_trip_avg_speed
+                    name: Vitesse moyenne
+                    icon: mdi:speedometer-medium
+                    secondary_info: none
+                  - entity: sensor.scooter_last_trip_max_speed
+                    name: Vitesse maximum
+                    icon: mdi:speedometer
+                    secondary_info: none
+      - type: custom:vertical-stack-in-card
+        cards:
+          - type: markdown
+            title: 📅  Derniers trajets
+            content: >
+              {% set trips = state_attr('sensor.scooter_trips','history') |
+              default([]) %}<center>
+
+              <table>
+                <tr>
+                  <th>Date</th>
+                  <th>Durée</th>
+                  <th>Dist.</th>
+                  <th>Moy.</th>
+                </tr>
+                {% for trip in trips[:10] %}
+                {% set dt = trip.start_time | as_datetime %}
+
+                <tr>
+                  <td>
+                  {{ dt.day }}/{{ dt.month }}, 
+                  {{ '%02d'|format(dt.hour) }}h{{ '%02d'|format(dt.minute) }}
+                  </td>
+                  <td>{{ trip.duration | round }}<span>min</span></td>
+                  <td>{{ trip.distance | round }}<span>km</span></td>
+                  <td>{{ trip.avg_speed }}<span>km/h</span></td>
+                </tr>
+                {% endfor %}
+              </table></center>
+            card_mod:
+              style:
+                ha-markdown:
+                  $:
+                    ha-markdown-element: |
+                      table {
+                        font-size:13px;
+                        border-spacing: 0;
+                        width: 100%;
+                      }
+                      th {
+                        letter-spacing: 1.5px;
+                        font-size: 11px;
+                        font-weight: 400 !important;
+                        text-transform:uppercase;
+                        border-bottom: 1px solid rgba(255,255,255,.3);
+                      }
+                      th:first-child, td:first-child {
+                        border-left:0px;
+                        border-right:0px;
+                        border-top:0px;
+                        text-align:left;
+                      } th:first-child {
+                        border-top-left-radius:10px;
+                      }
+                      td:first-child {
+                        font-weight:normal;
+                      } th:last-child {
+                        border-top-right-radius:7px;
+                      } td, th  {
+                        border-top-right-radius: min(var(--ha-card-border-radius)/2, 5px);
+                        text-align:right;
+                        padding: 4px 8px;
+                        font-weight:bold
+                      }
+                      tr:nth-child(odd) {
+                        background-color: rgba(var(--rgb-primary-text-color), 0.05);
+                      } span { 
+                        padding-left:2px;
+                        font-size:8px;
+                        color:#666;
+                        font-weight:normal;
+                      }
+        card_mod:
+          style: |
+            ha-card {
+              border-top: none !important;
+              border-left: none !important;
+              border-right: none !important;
+              background: none !important;
+            }
+      - type: custom:vertical-stack-in-card
+        title: 📊  Stats d'utilisation
+        cards:
+          - type: glance
+            entities:
+              - entity: sensor.scooter_distance_per_charge
+                name: Distance / charge
+                icon: mdi:map-marker-distance
+                card_mod:
+                  style: |
+                    .name {
+                      font-size: 11px;
+                      text-transform: uppercase;
+                      letter-spacing: 1.5px;
+                      line-height: 20px;
+                    }
+              - entity: sensor.scooter_average_trip_distance
+                name: Trajet moyen
+                icon: mdi:map-marker-path
+                card_mod:
+                  style: |
+                    .name {
+                      font-size: 11px;
+                      text-transform: uppercase;
+                      letter-spacing: 1.5px;
+                      line-height: 20px;
+                    }
+              - entity: number.scooter_tracked_distance
+                name: Base de calcul
+                icon: mdi:map-marker-path
+                card_mod:
+                  style: |
+                    .name {
+                      font-size: 11px;
+                      text-transform: uppercase;
+                      letter-spacing: 1.5px;
+                      line-height: 20px;
+                    }
+            show_state: true
+            show_name: true
+            state_color: false
+            card_mod:
+              style: |
+                ha-card {
+                  border-top: none !important;
+                  border-left: none !important;
+                  border-right: none !important;
+                  background: none !important;
+                }
+        card_mod: null
+        style: |
+          .card-header {
+            color: var(--primary-color) !important;
+          }
+      - type: custom:vertical-stack-in-card
+        title: 🔋 Santé batterie
+        cards:
+          - type: glance
+            entities:
+              - entity: sensor.scooter_battery_charge_cycles
+                name: Cycles
+                icon: mdi:battery-sync
+                card_mod:
+                  style: |
+                    :host {
+                      {% set cycles = states('sensor.scooter_battery_charge_cycles') | float(0) %}
+                      {% if cycles < 500 %}
+                        --state-icon-color: #4caf50 !important;
+                      {% elif cycles < 800 %}
+                        --state-icon-color: #ff9800 !important;
+                      {% else %}
+                        --state-icon-color: #f44336 !important;
+                      {% endif %}
+                    }
+                    .name {
+                      font-size: 11px;
+                      text-transform: uppercase;
+                      letter-spacing: 1.5px;
+                      line-height: 20px;
+                    }
+              - entity: sensor.scooter_battery_cell_imbalance
+                name: Déséquilibre
+                icon: mdi:battery-alert-variant-outline
+                card_mod:
+                  style: |
+                    :host {
+                      {% set imbalance = states('sensor.scooter_battery_cell_imbalance') | float(0) %}
+                      {% if imbalance < 30 %}
+                        --state-icon-color: #4caf50 !important;
+                      {% elif imbalance < 50 %}
+                        --state-icon-color: #ff9800 !important;
+                      {% else %}
+                        --state-icon-color: #f44336 !important;
+                      {% endif %}
+                    }
+                    .name {
+                      font-size: 11px;
+                      text-transform: uppercase;
+                      letter-spacing: 1.5px;
+                      line-height: 20px;
+                    }
+              - entity: sensor.scooter_battery_soc_deviation
+                name: Écart SOC
+                icon: mdi:delta
+                card_mod:
+                  style: |
+                    :host {
+                      {% set deviation = states('sensor.scooter_battery_soc_deviation') | float(0) | abs %}
+                      {% if deviation < 5 %}
+                        --state-icon-color: #4caf50 !important;
+                      {% elif deviation < 10 %}
+                        --state-icon-color: #ff9800 !important;
+                      {% else %}
+                        --state-icon-color: #f44336 !important;
+                      {% endif %}
+                    }
+                    .name {
+                      font-size: 11px;
+                      text-transform: uppercase;
+                      letter-spacing: 1.5px;
+                      line-height: 20px;
+                    }
+              - entity: sensor.silence_scooter_battery_volt
+                name: Tension
+                icon: mdi:lightning-bolt
+                card_mod:
+                  style: |
+                    .name {
+                      font-size: 11px;
+                      text-transform: uppercase;
+                      letter-spacing: 1.5px;
+                      line-height: 20px;
+                    }
+            show_state: true
+            show_name: true
+            card_mod:
+              style: |
+                ha-card {
+                  border-top: none !important;
+                  border-left: none !important;
+                  border-right: none !important;
+                  background: none !important;
+                }
+          - type: entities
+            card_mod:
+              style: |
+                ha-card {
+                  border-top: none !important;
+                  border-left: none !important;
+                  border-right: none !important;
+                  background: none !important;
+                  overflow: hidden;
+                  box-shadow: none !important;
+                  padding-top: 0 !important;
+                }
+                #states > div {
+                  margin: 0 !important;
+                }
+            entities:
+              - type: custom:fold-entity-row
+                head:
+                  entity: sensor.scooter_battery_charge_cycles
+                  name: 🔍 Voir tous les diagnostics détaillés
+                  icon: mdi:chevron-down
+                padding: 0
+                entities:
+                  - type: custom:hui-markdown-card
+                    content: |
+                      ### 🏥 Santé de la batterie
+                    card_mod:
+                      style: |
+                        ha-card {
+                          box-shadow: none !important;
+                          border: none !important;
+                          background: transparent !important;
+                          padding: 16px 0 4px 0 !important;
+                          margin: 0 !important;
+                        }
+                        ha-markdown {
+                          padding: 0 !important;
+                        }
+                        h3 {
+                          margin: 0 !important;
+                          font-size: 14px !important;
+                          font-weight: 600 !important;
+                          color: var(--primary-text-color) !important;
+                        }
+                  - entity: sensor.scooter_battery_cell_imbalance
+                    name: Déséquilibre cellules
+                    icon: mdi:battery-alert-variant-outline
+                    secondary_info: last-changed
+                  - entity: sensor.scooter_battery_charge_cycles
+                    name: Cycles de charge cumulés
+                    icon: mdi:battery-sync
+                  - entity: sensor.scooter_battery_soc_deviation
+                    name: Écart SOC (Affiché - Calculé)
+                    icon: mdi:delta
+                  - type: custom:mini-graph-card
+                    hours_to_show: 24
+                    points_per_hour: 4
+                    line_width: 2
+                    entities:
+                      - entity: sensor.scooter_battery_display
+                        name: SOC affiché (BMS)
+                        color: '#3498db'
+                      - entity: sensor.scooter_battery_soc_calculated
+                        name: SOC calculé (Voltage)
+                        color: '#e74c3c'
+                    show:
+                      name: false
+                      icon: false
+                      state: false
+                      legend: true
+                      fill: fade
+                    card_mod:
+                      style: |
+                        ha-card {
+                          box-shadow: none !important;
+                          border: none !important;
+                          background: transparent !important;
+                          margin: 16px 0 24px 0 !important;
+                          padding: 0 !important;
+                        }
+                  - type: custom:hui-markdown-card
+                    content: |
+                      ### 🌡️ Températures détaillées
+                    card_mod:
+                      style: |
+                        ha-card {
+                          box-shadow: none !important;
+                          border: none !important;
+                          background: transparent !important;
+                          padding: 24px 0 4px 0 !important;
+                          margin: 0 !important;
+                        }
+                        ha-markdown {
+                          padding: 0 !important;
+                        }
+                        h3 {
+                          margin: 0 !important;
+                          font-size: 14px !important;
+                          font-weight: 600 !important;
+                          color: var(--primary-text-color) !important;
+                        }
+                  - entity: sensor.silence_scooter_battery_temperature_max
+                    name: Température batterie (max)
+                    icon: mdi:thermometer-high
+                  - entity: sensor.silence_scooter_battery_temperature_min
+                    name: Température batterie (min)
+                    icon: mdi:thermometer-low
+                  - type: custom:template-entity-row
+                    entity: sensor.silence_scooter_battery_temp_max
+                    name: Delta température
+                    icon: mdi:thermometer-lines
+                    state: >
+                      {% set temp_max =
+                      states('sensor.silence_scooter_battery_temperature_max') |
+                      float(0) %} {% set temp_min =
+                      states('sensor.silence_scooter_battery_temperature_min') |
+                      float(0) %} {{ (temp_max - temp_min) | round(1) }} °C
+                  - type: custom:mini-graph-card
+                    entities:
+                      - entity: sensor.silence_scooter_battery_temperature_max
+                        name: Batterie
+                      - entity: sensor.silence_scooter_motor_temperature
+                        name: Moteur
+                      - entity: sensor.silence_scooter_inverter_temperature
+                        name: Inverter
+                    upper_bound: 75
+                    hours_to_show: 240
+                    line_width: 3
+                    animate: true
+                    show:
+                      name: false
+                      icon: false
+                      state: false
+                      legend: true
+                      fill: fade
+                      labels: true
+                    card_mod:
+                      style: |
+                        ha-card {
+                          box-shadow: none !important;
+                          border: none !important;
+                          background: transparent !important;
+                          margin: 0 0 24px 0 !important;
+                          padding: 0 !important;
+                        }
+                  - type: custom:hui-markdown-card
+                    content: |
+                      ### ⚡ Données électriques
+                    card_mod:
+                      style: |
+                        ha-card {
+                          box-shadow: none !important;
+                          border: none !important;
+                          background: transparent !important;
+                          padding: 24px 0 4px 0 !important;
+                          margin: 0 !important;
+                        }
+                        ha-markdown {
+                          padding: 0 !important;
+                        }
+                        h3 {
+                          margin: 0 !important;
+                          font-size: 14px !important;
+                          font-weight: 600 !important;
+                          color: var(--primary-text-color) !important;
+                        }
+                  - entity: sensor.silence_scooter_battery_volt
+                    name: Tension batterie
+                    icon: mdi:lightning-bolt
+                  - entity: sensor.silence_scooter_battery_current
+                    name: Courant batterie
+                    icon: mdi:current-dc
+    background:
+      opacity: 70
+      alignment: center
+      size: auto
+      repeat: repeat
+      attachment: fixed
+    visible:
+      - user: d26d8d63f7a0412ba9843788fd479b55
+      - user: f8cb94b697d4447e8244fd9c01568984
+    theme: ios-dark-mode-blue-red

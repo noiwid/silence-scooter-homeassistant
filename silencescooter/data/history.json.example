@@ -1,0 +1,24 @@
+[
+  {
+    "start_time": "2024-01-15T14:30:00+01:00",
+    "end_time": "2024-01-15T15:05:00+01:00",
+    "duration": "35.0",
+    "distance": "18.5",
+    "avg_speed": "31.7",
+    "max_speed": "45.0",
+    "battery": "15.0",
+    "outdoor_temp": "12.0",
+    "efficiency_wh_km": "45.5"
+  },
+  {
+    "start_time": "2024-01-15T18:00:00+01:00",
+    "end_time": "2024-01-15T18:20:00+01:00",
+    "duration": "20.0",
+    "distance": "8.2",
+    "avg_speed": "24.6",
+    "max_speed": "38.0",
+    "battery": "6.5",
+    "outdoor_temp": "10.5",
+    "efficiency_wh_km": "42.8"
+  }
+]

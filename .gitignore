@@ -1,0 +1,42 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+
+# Home Assistant
+*.log
+*.db
+*.db-shm
+*.db-wal
+
+# Personal data
+history_backup.json
+*.perso
+
+# IDE
+.vscode/
+.idea/
+.claude/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+
+# Documentation builds
+docs/_build/
+
+# Old/backup files to exclude
+silence.yaml.bkp
+silence_addon.yaml
+silencescooter/automations.py.backup

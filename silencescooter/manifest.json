@@ -1,0 +1,14 @@
+{
+  "domain": "silencescooter",
+  "name": "Silence Scooter",
+  "config_flow": true,
+  "documentation": "",
+  "dependencies": [],
+  "codeowners": [],
+  "requirements": [
+    "PyYAML>=6.0"
+  ],
+  "version": "1.0.0",
+  "iot_class": "local_polling",
+  "homeassistant": "2024.11.0"
+}

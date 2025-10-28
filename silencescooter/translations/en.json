@@ -1,0 +1,74 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Silence Scooter Configuration",
+        "description": "Configure trip detection parameters and electricity tariff.",
+        "data": {
+          "tariff_sensor": "Electricity tariff sensor (€/kWh)",
+          "use_tracked_distance": "Use manual tracked counters (resettable after scooter mods)",
+          "confirmation_delay": "Stop confirmation delay (seconds)",
+          "pause_max_duration": "Maximum pause duration (minutes)",
+          "watchdog_delay": "Offline watchdog delay (minutes)"
+        },
+        "data_description": {
+          "tariff_sensor": "Select your dynamic tariff sensor (or leave sensor.tarif_base_ttc to use the default one)",
+          "use_tracked_distance": "✅ Enabled: Statistics based on manual counters (resettable after scooter prep/mods)\n❌ Disabled: Statistics based on global odometer (ODO) and MQTT energy counters",
+          "confirmation_delay": "Filters sensor oscillations and network micro-cuts before considering the scooter stopped (recommended: 120s, increase in weak zones)",
+          "pause_max_duration": "Max time with scooter OFF before trip ends. Quick errand < 5min = pause, > 5min = end",
+          "watchdog_delay": "If no communication during this duration, the trip stops (e.g.: garage without network)"
+        }
+      }
+    },
+    "error": {
+      "single_instance_allowed": "Only one instance of this integration is allowed",
+      "confirmation_delay_too_low": "Confirmation delay must be at least 30 seconds",
+      "confirmation_delay_too_high": "Confirmation delay cannot exceed 600 seconds (10 minutes)",
+      "pause_duration_too_low": "Pause duration must be at least 1 minute",
+      "pause_duration_too_high": "Pause duration cannot exceed 60 minutes",
+      "watchdog_delay_too_low": "Watchdog delay must be at least 1 minute",
+      "watchdog_delay_too_high": "Watchdog delay cannot exceed 60 minutes",
+      "sensor_not_found": "The selected sensor does not exist"
+    },
+    "abort": {
+      "single_instance_allowed": "Only one instance of this integration is allowed"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Reconfigure Silence Scooter",
+        "description": "Modify trip detection parameters and electricity tariff.",
+        "data": {
+          "tariff_sensor": "Electricity tariff sensor (€/kWh)",
+          "use_tracked_distance": "Use manual tracked counters (resettable after scooter mods)",
+          "confirmation_delay": "Stop confirmation delay (seconds)",
+          "pause_max_duration": "Maximum pause duration (minutes)",
+          "watchdog_delay": "Offline watchdog delay (minutes)"
+        },
+        "data_description": {
+          "tariff_sensor": "Select your dynamic tariff sensor (or leave sensor.tarif_base_ttc to use the default one)",
+          "use_tracked_distance": "✅ Enabled: Statistics based on manual counters (resettable after scooter prep/mods)\n❌ Disabled: Statistics based on global odometer (ODO) and MQTT energy counters",
+          "confirmation_delay": "Filters sensor oscillations and network micro-cuts before considering the scooter stopped (recommended: 120s, increase in weak zones)",
+          "pause_max_duration": "Max time with scooter OFF before trip ends. Quick errand < 5min = pause, > 5min = end",
+          "watchdog_delay": "If no communication during this duration, the trip stops (e.g.: garage without network)"
+        }
+      }
+    },
+    "error": {
+      "confirmation_delay_too_low": "Confirmation delay must be at least 30 seconds",
+      "confirmation_delay_too_high": "Confirmation delay cannot exceed 600 seconds (10 minutes)",
+      "pause_duration_too_low": "Pause duration must be at least 1 minute",
+      "pause_duration_too_high": "Pause duration cannot exceed 60 minutes",
+      "watchdog_delay_too_low": "Watchdog delay must be at least 1 minute",
+      "watchdog_delay_too_high": "Watchdog delay cannot exceed 60 minutes",
+      "sensor_not_found": "The selected sensor does not exist"
+    }
+  },
+  "services": {
+    "reset_tracked_counters": {
+      "name": "Reset manual counters",
+      "description": "Resets the tracked distance and battery counters to zero. Use this after major scooter modifications (tuning, battery change, etc.) to start fresh statistics."
+    }
+  }
+}

@@ -1,0 +1,83 @@
+reset_tracked_counters:
+  name: Réinitialiser les compteurs manuels
+  description: >
+    Remet à zéro les compteurs de distance et batterie suivis manuellement.
+    Utilisez ce service après une modification majeure de votre scooter
+    (préparation, changement de batterie, etc.) pour repartir sur une base propre.
+  fields: {}
+
+restore_energy_costs:
+  name: Restaurer les coûts énergétiques
+  description: >
+    Restaure les valeurs des compteurs de coûts énergétiques (jour/semaine/mois/année)
+    après une réinitialisation. Ce service modifie le fichier .storage/core.restore_state
+    et nécessite un redémarrage de Home Assistant pour prendre effet.
+    Un backup automatique est créé avant toute modification.
+  fields:
+    daily:
+      name: Coût journalier
+      description: Coût énergétique journalier en EUR
+      required: false
+      default: 0.12
+      example: 0.12
+      selector:
+        number:
+          min: 0
+          max: 100
+          step: 0.01
+          unit_of_measurement: "€"
+          mode: box
+    weekly:
+      name: Coût hebdomadaire
+      description: Coût énergétique hebdomadaire en EUR
+      required: false
+      default: 0.12
+      example: 0.12
+      selector:
+        number:
+          min: 0
+          max: 100
+          step: 0.01
+          unit_of_measurement: "€"
+          mode: box
+    monthly:
+      name: Coût mensuel
+      description: Coût énergétique mensuel en EUR
+      required: false
+      default: 2.26
+      example: 2.26
+      selector:
+        number:
+          min: 0
+          max: 1000
+          step: 0.01
+          unit_of_measurement: "€"
+          mode: box
+    yearly:
+      name: Coût annuel
+      description: Coût énergétique annuel en EUR
+      required: false
+      default: 2.26
+      example: 2.26
+      selector:
+        number:
+          min: 0
+          max: 10000
+          step: 0.01
+          unit_of_measurement: "€"
+          mode: box
+    source_value:
+      name: Valeur source (manuel)
+      description: >
+        Valeur actuelle de sensor.scooter_energy_consumption en kWh.
+        Obligatoire si le scooter est éteint/hors ligne.
+        Utilise la valeur de cycle_start_value visible dans les logs (ex: 724.692)
+      required: false
+      example: 724.692
+      selector:
+        number:
+          min: 0
+          max: 10000
+          step: 0.001
+          unit_of_measurement: "kWh"
+          mode: box

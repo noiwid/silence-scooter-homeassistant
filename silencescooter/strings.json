@@ -1,0 +1,74 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Configuration Silence Scooter",
+        "description": "Configurez les paramètres de détection des trajets et du tarif électrique.",
+        "data": {
+          "tariff_sensor": "Sensor de tarif électrique (€/kWh)",
+          "use_tracked_distance": "Utiliser les compteurs manuels (réinitialisables après modif scooter)",
+          "confirmation_delay": "Délai de confirmation d'arrêt (secondes)",
+          "pause_max_duration": "Durée maximale d'une pause (minutes)",
+          "watchdog_delay": "Délai watchdog hors-ligne (minutes)"
+        },
+        "data_description": {
+          "tariff_sensor": "Sélectionnez votre sensor de tarif dynamique (ou laissez sensor.tarif_base_ttc pour utiliser celui par défaut)",
+          "use_tracked_distance": "✅ Activé : Statistiques basées sur compteurs manuels (réinitialisables après prépa/modif scooter)\n❌ Désactivé : Statistiques basées sur l'odomètre global (ODO) et compteurs MQTT énergie",
+          "confirmation_delay": "Filtre les oscillations capteurs et micro-coupures réseau avant de considérer le scooter arrêté (recommandé: 120s, augmentez en zone faible)",
+          "pause_max_duration": "Temps max avec scooter ÉTEINT avant fin de trajet. Course rapide < 5min = pause, > 5min = fin",
+          "watchdog_delay": "Si aucune communication pendant cette durée, le trajet s'arrête (ex: garage sans réseau)"
+        }
+      }
+    },
+    "error": {
+      "single_instance_allowed": "Une seule instance de cette intégration est autorisée",
+      "confirmation_delay_too_low": "Le délai de confirmation doit être d'au moins 30 secondes",
+      "confirmation_delay_too_high": "Le délai de confirmation ne peut pas dépasser 600 secondes (10 minutes)",
+      "pause_duration_too_low": "La durée de pause doit être d'au moins 1 minute",
+      "pause_duration_too_high": "La durée de pause ne peut pas dépasser 60 minutes",
+      "watchdog_delay_too_low": "Le délai watchdog doit être d'au moins 1 minute",
+      "watchdog_delay_too_high": "Le délai watchdog ne peut pas dépasser 60 minutes",
+      "sensor_not_found": "Le sensor sélectionné n'existe pas"
+    },
+    "abort": {
+      "single_instance_allowed": "Une seule instance de cette intégration est autorisée"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Reconfigurer Silence Scooter",
+        "description": "Modifiez les paramètres de détection des trajets et du tarif électrique.",
+        "data": {
+          "tariff_sensor": "Sensor de tarif électrique (€/kWh)",
+          "use_tracked_distance": "Utiliser les compteurs manuels (réinitialisables après modif scooter)",
+          "confirmation_delay": "Délai de confirmation d'arrêt (secondes)",
+          "pause_max_duration": "Durée maximale d'une pause (minutes)",
+          "watchdog_delay": "Délai watchdog hors-ligne (minutes)"
+        },
+        "data_description": {
+          "tariff_sensor": "Sélectionnez votre sensor de tarif dynamique (ou laissez sensor.tarif_base_ttc pour utiliser celui par défaut)",
+          "use_tracked_distance": "✅ Activé : Statistiques basées sur compteurs manuels (réinitialisables après prépa/modif scooter)\n❌ Désactivé : Statistiques basées sur l'odomètre global (ODO) et compteurs MQTT énergie",
+          "confirmation_delay": "Filtre les oscillations capteurs et micro-coupures réseau avant de considérer le scooter arrêté (recommandé: 120s, augmentez en zone faible)",
+          "pause_max_duration": "Temps max avec scooter ÉTEINT avant fin de trajet. Course rapide < 5min = pause, > 5min = fin",
+          "watchdog_delay": "Si aucune communication pendant cette durée, le trajet s'arrête (ex: garage sans réseau)"
+        }
+      }
+    },
+    "error": {
+      "confirmation_delay_too_low": "Le délai de confirmation doit être d'au moins 30 secondes",
+      "confirmation_delay_too_high": "Le délai de confirmation ne peut pas dépasser 600 secondes (10 minutes)",
+      "pause_duration_too_low": "La durée de pause doit être d'au moins 1 minute",
+      "pause_duration_too_high": "La durée de pause ne peut pas dépasser 60 minutes",
+      "watchdog_delay_too_low": "Le délai watchdog doit être d'au moins 1 minute",
+      "watchdog_delay_too_high": "Le délai watchdog ne peut pas dépasser 60 minutes",
+      "sensor_not_found": "Le sensor sélectionné n'existe pas"
+    }
+  },
+  "services": {
+    "reset_tracked_counters": {
+      "name": "Réinitialiser les compteurs manuels",
+      "description": "Remet à zéro les compteurs de distance et batterie suivis manuellement. Utilisez ce service après une modification majeure de votre scooter (préparation, changement de batterie, etc.) pour repartir sur une base propre."
+    }
+  }
+}
