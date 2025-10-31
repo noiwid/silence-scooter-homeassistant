@@ -150,9 +150,9 @@ class ScooterDefaultTariffSensor(SensorEntity):
         self.entity_id = "sensor.silencescooter_default_electricity_price"
         self._attr_native_unit_of_measurement = "€/kWh"
         self._attr_device_class = SensorDeviceClass.MONETARY
-        self._attr_state_class = SensorStateClass.MEASUREMENT
+        # Note: monetary device_class cannot have state_class
         self._attr_icon = "mdi:currency-eur"
-        self._attr_device_info = get_device_info()
+        # Default tariff sensor is internal, not shown on device page
 
     @property
     def native_value(self) -> float:
@@ -175,6 +175,11 @@ class ScooterTemplateSensor(SensorEntity, RestoreEntity):
         self._attr_state_class = config.get("state_class")
         self._template = Template(config["value_template"], hass)
         self._icon_template = Template(config["icon_template"], hass) if "icon_template" in config else None
+
+        # Hide internal sensors from device page
+        internal_sensors = ["scooter_is_moving", "scooter_trip_status"]
+        if sensor_id not in internal_sensors:
+            self._attr_device_info = get_device_info()
 
     async def async_added_to_hass(self) -> None:
         """Handle entity added to Home Assistant."""
@@ -309,6 +314,7 @@ class ScooterTripsSensor(SensorEntity, RestoreEntity):
         self._attr_icon = "mdi:scooter"
         self._attr_native_value = 0
         self._attr_extra_state_attributes = {"history": []}
+        self._attr_device_info = get_device_info()
 
     async def async_added_to_hass(self) -> None:
         """Handle entity which will be added."""

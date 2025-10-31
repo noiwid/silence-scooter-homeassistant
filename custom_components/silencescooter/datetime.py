@@ -14,7 +14,6 @@ from homeassistant.util import dt as dt_util
 
 from .const import DOMAIN
 from .definitions import INPUT_DATETIMES
-from .helpers import get_device_info
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -48,8 +47,8 @@ class ScooterDateTimeEntity(DateTimeEntity, RestoreEntity):
         # Configuration
         self._has_date = config.get("has_date", True)
         self._has_time = config.get("has_time", True)
-        self._attr_device_info = get_device_info()
-        
+        # Datetimes are internal entities, not shown on device page
+
         # Valeur initiale avec timezone
         self._value = dt_util.now()
         self._attr_native_value = self._value

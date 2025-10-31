@@ -341,7 +341,75 @@ async def async_setup_automations(hass: HomeAssistant) -> bool:
             return end_dt and dt_util.as_local(end_dt) > dt_util.now()
         except:
             return False    
-    
+
+    #
+    # 0. "Scooter - Auto-initialisation de la base d'énergie"
+    #    La première fois qu'on reçoit des données valides du scooter,
+    #    on capture la valeur actuelle comme baseline
+    #
+    @callback
+    def handle_energy_baseline_init(event):
+        """Auto-initialize energy consumption baseline on first valid MQTT data."""
+        new_state = event.data.get("new_state")
+        if not new_state or new_state.state in ("unknown", "unavailable"):
+            return
+
+        # Vérifier si la base est déjà initialisée
+        base_state = hass.states.get(NUMBER_ENERGY_BASE)
+        if not base_state:
+            return
+
+        try:
+            base_value = float(base_state.state)
+        except (ValueError, TypeError):
+            base_value = 0
+
+        # Si la base n'est pas à 0, c'est qu'elle est déjà initialisée
+        if base_value != 0:
+            _LOGGER.debug("Energy baseline already initialized (%s kWh), skipping", base_value)
+            return
+
+        # Récupérer les valeurs discharged et regenerated
+        discharged_state = hass.states.get("sensor.silence_scooter_discharged_energy")
+        regenerated_state = hass.states.get("sensor.silence_scooter_regenerated_energy")
+
+        if not discharged_state or not regenerated_state:
+            return
+
+        if discharged_state.state in ("unknown", "unavailable") or \
+           regenerated_state.state in ("unknown", "unavailable"):
+            return
+
+        try:
+            discharged = float(discharged_state.state)
+            regenerated = float(regenerated_state.state)
+
+            # Si les valeurs sont valides (au moins une > 0), initialiser la base
+            if discharged > 0 or regenerated > 0:
+                baseline = discharged - regenerated
+                _LOGGER.info("🎯 Auto-initializing energy baseline: %.3f kWh (discharged: %.3f - regenerated: %.3f)",
+                            baseline, discharged, regenerated)
+
+                hass.loop.create_task(
+                    hass.services.async_call(
+                        "number",
+                        SERVICE_SET_VALUE,
+                        {
+                            "entity_id": NUMBER_ENERGY_BASE,
+                            "value": baseline
+                        },
+                        blocking=True
+                    )
+                )
+        except (ValueError, TypeError) as e:
+            _LOGGER.debug("Could not initialize baseline: %s", e)
+
+    # Écouter les changements sur les sensors d'énergie pour l'initialisation automatique
+    remove_energy_baseline_init = async_track_state_change_event(
+        hass,
+        ["sensor.silence_scooter_discharged_energy", "sensor.silence_scooter_regenerated_energy"],
+        handle_energy_baseline_init
+    )
 
     #
     # 1. "Scooter - Tracker dernier mouvement"
@@ -952,6 +1020,7 @@ async def async_setup_automations(hass: HomeAssistant) -> bool:
     if "silence_automations" not in hass.data:
         hass.data["silence_automations"] = []
     hass.data["silence_automations"].extend([
+        remove_energy_baseline_init,
         remove_tracker_dernier_mouvement,
         remove_trip_status_off,
         remove_stop_timer_if_restart,

@@ -29,50 +29,51 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         _LOGGER.info("Platforms loaded")
 
         # Create timer helper for trip stop tolerance
+        # Note: timer.configure service requires Home Assistant 2024.11.0+
         try:
-            from .const import CONF_PAUSE_MAX_DURATION, DEFAULT_PAUSE_MAX_DURATION
-            pause_duration = entry.data.get(CONF_PAUSE_MAX_DURATION, DEFAULT_PAUSE_MAX_DURATION)
-            duration_str = f"00:{pause_duration:02d}:00"
+            # Check if timer.configure service is available
+            if not hass.services.has_service("timer", "configure"):
+                _LOGGER.warning(
+                    "Timer service 'timer.configure' not available. "
+                    "Please create the timer manually in configuration.yaml:\n"
+                    "timer:\n"
+                    "  scooter_stop_trip_tolerance:\n"
+                    "    name: Scooter Stop Trip Tolerance\n"
+                    "    duration: '00:05:00'\n"
+                    "    icon: mdi:timer-pause-outline\n"
+                    "    restore: true"
+                )
+            else:
+                from .const import CONF_PAUSE_MAX_DURATION, DEFAULT_PAUSE_MAX_DURATION
+                pause_duration = entry.data.get(CONF_PAUSE_MAX_DURATION, DEFAULT_PAUSE_MAX_DURATION)
+                duration_str = f"00:{pause_duration:02d}:00"
 
-            # Create timer via timer.configure service
-            await hass.services.async_call(
-                "timer",
-                "configure",
-                {
-                    "id": "scooter_stop_trip_tolerance",
-                    "name": "Scooter Stop Trip Tolerance",
-                    "duration": duration_str,
-                    "icon": "mdi:timer-pause-outline",
-                    "restore": True,
-                },
-                blocking=False,
-            )
-            _LOGGER.info("Timer created: timer.scooter_stop_trip_tolerance (%s)", duration_str)
+                # Create timer via timer.configure service
+                await hass.services.async_call(
+                    "timer",
+                    "configure",
+                    {
+                        "id": "scooter_stop_trip_tolerance",
+                        "name": "Scooter Stop Trip Tolerance",
+                        "duration": duration_str,
+                        "icon": "mdi:timer-pause-outline",
+                        "restore": True,
+                    },
+                    blocking=False,
+                )
+                _LOGGER.info("Timer created: timer.scooter_stop_trip_tolerance (%s)", duration_str)
         except Exception as e:
-            _LOGGER.warning("Could not create timer (may already exist): %s", e)
-
-        # Create timer helper for trip stop tolerance
-        try:
-            from .const import CONF_PAUSE_MAX_DURATION, DEFAULT_PAUSE_MAX_DURATION
-            pause_duration = entry.data.get(CONF_PAUSE_MAX_DURATION, DEFAULT_PAUSE_MAX_DURATION)
-            duration_str = f"00:{pause_duration:02d}:00"
-
-            # Create timer via timer.configure service
-            await hass.services.async_call(
-                "timer",
-                "configure",
-                {
-                    "id": "scooter_stop_trip_tolerance",
-                    "name": "Scooter Stop Trip Tolerance",
-                    "duration": duration_str,
-                    "icon": "mdi:timer-pause-outline",
-                    "restore": True,
-                },
-                blocking=False,
+            _LOGGER.warning(
+                "Could not create timer automatically: %s\n"
+                "Please create the timer manually in configuration.yaml:\n"
+                "timer:\n"
+                "  scooter_stop_trip_tolerance:\n"
+                "    name: Scooter Stop Trip Tolerance\n"
+                "    duration: '00:05:00'\n"
+                "    icon: mdi:timer-pause-outline\n"
+                "    restore: true",
+                e
             )
-            _LOGGER.info("Timer created: timer.scooter_stop_trip_tolerance (%s)", duration_str)
-        except Exception as e:
-            _LOGGER.warning("Could not create timer (may already exist): %s", e)
 
         # Setup automations
         try:

@@ -9,7 +9,6 @@ from homeassistant.helpers.restore_state import RestoreEntity
 
 from .const import DOMAIN
 from .definitions import INPUT_NUMBERS
-from .helpers import get_device_info
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -41,7 +40,7 @@ class ScooterNumberEntity(NumberEntity, RestoreEntity):
         self._attr_native_max_value = config["max"]
         self._attr_native_step = config["step"]
         self._attr_native_unit_of_measurement = config.get("unit_of_measurement")
-        self._attr_device_info = get_device_info()
+        # Numbers are internal entities, not shown on device page
 
         # Initial value
         self._value = float(config.get("initial", config["min"]))

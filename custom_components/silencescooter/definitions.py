@@ -111,7 +111,7 @@ INPUT_NUMBERS = {
         "max": 1000,
         "step": 0.001,
         "unit_of_measurement": "kWh",
-        "initial": 441.387
+        "initial": 0
     },
 }
 
