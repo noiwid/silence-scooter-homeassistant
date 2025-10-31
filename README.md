@@ -148,7 +148,9 @@ mqtt:
 
 ### Step 3: Optional Dashboard
 
-Import the example Lovelace dashboard from `examples/lovelace_silence.yaml` for a ready-to-use interface.
+Import the example Lovelace dashboard for a ready-to-use interface:
+- **French version**: `examples/lovelace_silence.yaml`
+- **English version**: `examples/lovelace_silence_en.yaml`
 
 **Dashboard Image Setup:**
 The dashboard includes a scooter image. To use it:
@@ -157,6 +159,8 @@ The dashboard includes a scooter image. To use it:
 3. The dashboard will reference it as: `/local/silence/scooter.png`
 
 **Note:** The `scooter.png` file is included in this repository (`images/` folder) for display in this README and as a reference image for your dashboard.
+
+For detailed installation instructions, see [INSTALLATION.md](INSTALLATION.md).
 
 See [CONFIGURATION.md](docs/CONFIGURATION.md) for detailed configuration options.
 
