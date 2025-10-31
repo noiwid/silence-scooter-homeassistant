@@ -5,7 +5,7 @@
 [![hacs][hacsbadge]][hacs]
 
 <p align="center">
-  <img src="images/scooter.png" alt="Silence Scooter" width="400">
+  <img src="https://raw.githubusercontent.com/noiwid/silence-scooter-homeassistant/main/images/scooter.png" alt="Silence Scooter" width="400">
 </p>
 
 _Advanced Home Assistant integration for Silence/Seat electric scooters with comprehensive trip tracking, energy monitoring, and intelligent automation._
@@ -63,13 +63,13 @@ All models use the same Astra telemetry module and are fully compatible with thi
 Get a complete overview of your scooter status, trip statistics, and battery health:
 
 <p align="center">
-  <img src="images/dashboard-overview.png" alt="Dashboard Overview" width="800">
+  <img src="https://raw.githubusercontent.com/noiwid/silence-scooter-homeassistant/main/images/dashboard-overview.png" alt="Dashboard Overview" width="800">
 </p>
 
 **Expanded battery health diagnostics:**
 
 <p align="center">
-  <img src="images/dashboard-details.png" alt="Dashboard Details" width="800">
+  <img src="https://raw.githubusercontent.com/noiwid/silence-scooter-homeassistant/main/images/dashboard-details.png" alt="Dashboard Details" width="800">
 </p>
 
 The example dashboard includes:

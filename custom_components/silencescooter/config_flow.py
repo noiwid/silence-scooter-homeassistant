@@ -108,7 +108,6 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         data_schema = vol.Schema({
             vol.Optional(
                 CONF_TARIFF_SENSOR,
-                default=DEFAULT_TARIFF_SENSOR,
             ): selector.EntitySelector(
                 selector.EntitySelectorConfig(
                     domain="sensor",
@@ -179,11 +178,15 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
 
         current_data = self.config_entry.data
 
+        # Only set default for tariff sensor if one is configured
+        tariff_default = current_data.get(CONF_TARIFF_SENSOR)
+        if tariff_default:
+            tariff_optional = vol.Optional(CONF_TARIFF_SENSOR, default=tariff_default)
+        else:
+            tariff_optional = vol.Optional(CONF_TARIFF_SENSOR)
+
         data_schema = vol.Schema({
-            vol.Optional(
-                CONF_TARIFF_SENSOR,
-                default=current_data.get(CONF_TARIFF_SENSOR, DEFAULT_TARIFF_SENSOR),
-            ): selector.EntitySelector(
+            tariff_optional: selector.EntitySelector(
                 selector.EntitySelectorConfig(
                     domain="sensor",
                     multiple=False,

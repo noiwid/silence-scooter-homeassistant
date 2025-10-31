@@ -54,6 +54,12 @@ async def async_setup_entry(
     configured_tariff_sensor = hass.data.get(DOMAIN, {}).get("config", {}).get(
         CONF_TARIFF_SENSOR, DEFAULT_TARIFF_SENSOR
     )
+
+    # If no tariff sensor configured, create a default one
+    if not configured_tariff_sensor or configured_tariff_sensor == "":
+        entities.append(ScooterDefaultTariffSensor(hass))
+        configured_tariff_sensor = "sensor.silencescooter_default_electricity_price"
+
     use_tracked_distance = hass.data.get(DOMAIN, {}).get("config", {}).get(
         CONF_USE_TRACKED_DISTANCE, DEFAULT_USE_TRACKED_DISTANCE
     )
@@ -131,6 +137,28 @@ async def async_setup_entry(
     _LOGGER.info("Initialized %d sensors (%d writable, %d template, %d trigger, %d energy cost, %d utility meters)",
                  len(entities), len(WRITABLE_SENSORS), len(TEMPLATE_SENSORS), len(TRIGGER_SENSORS),
                  len(ENERGY_COST_SENSORS), len(UTILITY_METERS))
+
+
+class ScooterDefaultTariffSensor(SensorEntity):
+    """Default electricity tariff sensor when none is configured."""
+
+    def __init__(self, hass: HomeAssistant) -> None:
+        """Initialize the sensor."""
+        self.hass = hass
+        self._attr_unique_id = f"{DOMAIN}_default_electricity_price"
+        self._attr_name = "Silencescooter Default Electricity Price"
+        self.entity_id = "sensor.silencescooter_default_electricity_price"
+        self._attr_native_unit_of_measurement = "€/kWh"
+        self._attr_device_class = SensorDeviceClass.MONETARY
+        self._attr_state_class = SensorStateClass.MEASUREMENT
+        self._attr_icon = "mdi:currency-eur"
+        self._attr_device_info = get_device_info()
+
+    @property
+    def native_value(self) -> float:
+        """Return the default electricity price."""
+        from .const import DEFAULT_ELECTRICITY_PRICE
+        return DEFAULT_ELECTRICITY_PRICE
 
 
 class ScooterTemplateSensor(SensorEntity, RestoreEntity):
