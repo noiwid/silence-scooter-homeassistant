@@ -393,7 +393,7 @@ views:
                 aspect_ratio: '16:9'
                 auto_fit: true
                 entities:
-                  - entity: device_tracker.silence_scooter_2
+                  - entity: device_tracker.silence_scooter
                     css: 'border-radius: 0'
                     display: icon
                     size: 35
@@ -401,7 +401,7 @@ views:
                     history_start: sensor.scooter_start_time_iso
                     history_show_dots: false
                     history_line_color: purple
-                focus_entity: device_tracker.silence_scooter_2
+                focus_entity: device_tracker.silence_scooter
                 theme_mode: auto
                 zoom: 16
                 card_size: 6
