@@ -364,3 +364,20 @@ mqtt:
       unique_id: silence_scooter_longitude
       device:
         identifiers: "Silence Scooter"
+
+automation:
+  - alias: Update Silence Scooter Device Tracker Position
+    trigger:
+      platform: state
+      entity_id:
+        - sensor.silence_scooter_silence_latitude
+        - sensor.silence_scooter_silence_longitude
+        - sensor.silence_scooter_battery_soc
+    action:
+      service: device_tracker.see
+      data:
+        dev_id: silence_scooter
+        gps:
+          - "{{ states('sensor.silence_scooter_silence_latitude') | float(0) }}"
+          - "{{ states('sensor.silence_scooter_silence_longitude') | float(0) }}"
+        battery: "{{ states('sensor.silence_scooter_device_battery_soc') | int(0) }}"
