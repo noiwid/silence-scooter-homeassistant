@@ -154,11 +154,15 @@ Import the example Lovelace dashboard for a ready-to-use interface:
 - **French version**: `examples/lovelace_silence.yaml`
 - **English version**: `examples/lovelace_silence_en.yaml`
 
-**Dashboard Image Setup:**
-The dashboard includes a scooter image. To use it:
-1. Create the directory in Home Assistant: `/config/www/silence/`
-2. Copy the scooter image from the repository (`images/scooter.png`) to: `/config/www/silence/scooter.png`
-3. The dashboard will reference it as: `/local/silence/scooter.png`
+**Dashboard Image Setup (condensed)**
+1. Create the folder: `\`/config/www/silence/``
+2. Copy the images:
+   * `images/scooter.png` → `\`/config/www/silence/scooter.png``
+   * `images/Last_ride.png` → `\`/config/www/silence/Last_ride.png``
+3. Reference them in the dashboard:
+   * `\`/local/silence/scooter.png``
+   * `\`/local/silence/Last_ride.png``
+> Reminder: `\`/local``maps to``/config/www``.
 
 **Note:** The `scooter.png` file is included in this repository (`images/` folder) for display in this README and as a reference image for your dashboard.
 
