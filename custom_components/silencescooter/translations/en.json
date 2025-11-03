@@ -6,6 +6,8 @@
         "description": "Configure trip detection parameters and electricity tariff.",
         "data": {
           "tariff_sensor": "Electricity tariff sensor (€/kWh)",
+          "outdoor_temp_source": "Outdoor temperature source",
+          "outdoor_temp_entity": "External temperature sensor",
           "use_tracked_distance": "Use manual tracked counters (resettable after scooter mods)",
           "confirmation_delay": "Stop confirmation delay (seconds)",
           "pause_max_duration": "Maximum pause duration (minutes)",
@@ -13,6 +15,8 @@
         },
         "data_description": {
           "tariff_sensor": "Select your dynamic tariff sensor (or leave sensor.tarif_base_ttc to use the default one)",
+          "outdoor_temp_source": "Choose the temperature sensor for trip history: scooter's built-in sensor (available when connected) or an external weather sensor",
+          "outdoor_temp_entity": "Select an external temperature sensor (required if 'External weather sensor' is selected above)",
           "use_tracked_distance": "✅ Enabled: Statistics based on manual counters (resettable after scooter prep/mods)\n❌ Disabled: Statistics based on global odometer (ODO) and MQTT energy counters",
           "confirmation_delay": "Filters sensor oscillations and network micro-cuts before considering the scooter stopped (recommended: 120s, increase in weak zones)",
           "pause_max_duration": "Max time with scooter OFF before trip ends. Quick errand < 5min = pause, > 5min = end",
@@ -28,7 +32,8 @@
       "pause_duration_too_high": "Pause duration cannot exceed 60 minutes",
       "watchdog_delay_too_low": "Watchdog delay must be at least 1 minute",
       "watchdog_delay_too_high": "Watchdog delay cannot exceed 60 minutes",
-      "sensor_not_found": "The selected sensor does not exist"
+      "sensor_not_found": "The selected sensor does not exist",
+      "temp_entity_required": "You must select an external temperature sensor when 'External weather sensor' is chosen"
     },
     "abort": {
       "single_instance_allowed": "Only one instance of this integration is allowed"
@@ -41,6 +46,8 @@
         "description": "Modify trip detection parameters and electricity tariff.",
         "data": {
           "tariff_sensor": "Electricity tariff sensor (€/kWh)",
+          "outdoor_temp_source": "Outdoor temperature source",
+          "outdoor_temp_entity": "External temperature sensor",
           "use_tracked_distance": "Use manual tracked counters (resettable after scooter mods)",
           "confirmation_delay": "Stop confirmation delay (seconds)",
           "pause_max_duration": "Maximum pause duration (minutes)",
@@ -48,6 +55,8 @@
         },
         "data_description": {
           "tariff_sensor": "Select your dynamic tariff sensor (or leave sensor.tarif_base_ttc to use the default one)",
+          "outdoor_temp_source": "Choose the temperature sensor for trip history: scooter's built-in sensor (available when connected) or an external weather sensor",
+          "outdoor_temp_entity": "Select an external temperature sensor (required if 'External weather sensor' is selected above)",
           "use_tracked_distance": "✅ Enabled: Statistics based on manual counters (resettable after scooter prep/mods)\n❌ Disabled: Statistics based on global odometer (ODO) and MQTT energy counters",
           "confirmation_delay": "Filters sensor oscillations and network micro-cuts before considering the scooter stopped (recommended: 120s, increase in weak zones)",
           "pause_max_duration": "Max time with scooter OFF before trip ends. Quick errand < 5min = pause, > 5min = end",
@@ -62,7 +71,8 @@
       "pause_duration_too_high": "Pause duration cannot exceed 60 minutes",
       "watchdog_delay_too_low": "Watchdog delay must be at least 1 minute",
       "watchdog_delay_too_high": "Watchdog delay cannot exceed 60 minutes",
-      "sensor_not_found": "The selected sensor does not exist"
+      "sensor_not_found": "The selected sensor does not exist",
+      "temp_entity_required": "You must select an external temperature sensor when 'External weather sensor' is chosen"
     }
   },
   "services": {

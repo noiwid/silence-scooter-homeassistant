@@ -17,9 +17,15 @@ from .const import (
     CONF_CONFIRMATION_DELAY,
     CONF_PAUSE_MAX_DURATION,
     CONF_WATCHDOG_DELAY,
+    CONF_OUTDOOR_TEMP_SOURCE,
+    CONF_OUTDOOR_TEMP_ENTITY,
     DEFAULT_CONFIRMATION_DELAY,
     DEFAULT_PAUSE_MAX_DURATION,
     DEFAULT_WATCHDOG_DELAY,
+    DEFAULT_OUTDOOR_TEMP_SOURCE,
+    OUTDOOR_TEMP_SOURCE_SCOOTER,
+    OUTDOOR_TEMP_SOURCE_EXTERNAL,
+    SENSOR_SCOOTER_AMBIENT_TEMP,
 )
 from homeassistant.util import dt as dt_util
 from .helpers import log_event, update_history
@@ -37,6 +43,27 @@ def get_config_value(hass: HomeAssistant, key: str, default: any) -> any:
     except Exception as e:
         _LOGGER.warning(f"Error getting config value {key}: {e}, using default {default}")
         return default
+
+
+def get_outdoor_temperature_entity_id(hass: HomeAssistant) -> str:
+    """Get the outdoor temperature sensor entity ID based on configuration.
+
+    Returns:
+        Entity ID of the temperature sensor to use (scooter or external)
+    """
+    temp_source = get_config_value(hass, CONF_OUTDOOR_TEMP_SOURCE, DEFAULT_OUTDOOR_TEMP_SOURCE)
+
+    if temp_source == OUTDOOR_TEMP_SOURCE_EXTERNAL:
+        # Use external weather sensor if configured
+        external_entity = get_config_value(hass, CONF_OUTDOOR_TEMP_ENTITY, "")
+        if external_entity:
+            return external_entity
+        else:
+            _LOGGER.warning("External temperature source selected but no entity configured, falling back to scooter sensor")
+            return SENSOR_SCOOTER_AMBIENT_TEMP
+    else:
+        # Use scooter ambient temperature sensor (default)
+        return SENSOR_SCOOTER_AMBIENT_TEMP
 
 
 def get_sensor_float_value(hass: HomeAssistant, entity_id: str, default: float = 0.0) -> float:
@@ -1254,8 +1281,11 @@ async def do_update_trips_history(hass: HomeAssistant):
         # Autres valeurs
         battery_debut = hass.states.get("number.scooter_battery_soc_debut")
         battery_fin = hass.states.get("number.scooter_battery_soc_fin")
-        outdoor_temp = hass.states.get("sensor.silence_scooter_ambient_temperature")
-        
+
+        # Get outdoor temperature from configured source (scooter or external)
+        outdoor_temp_entity_id = get_outdoor_temperature_entity_id(hass)
+        outdoor_temp = hass.states.get(outdoor_temp_entity_id)
+
         batt_debut_val = float(battery_debut.state) if battery_debut and battery_debut.state not in ["unknown","unavailable"] else 0
         batt_fin_val = float(battery_fin.state) if battery_fin and battery_fin.state not in ["unknown","unavailable"] else 0
         temp_val = float(outdoor_temp.state) if outdoor_temp and outdoor_temp.state not in ["unknown","unavailable"] else 0

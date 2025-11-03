@@ -139,6 +139,8 @@ mqtt:
 | Parameter | Default | Description |
 |-----------|---------|-------------|
 | **Tariff Sensor** | `sensor.tarif_base_ttc` | (Optional) Electricity tariff sensor for cost calculation. Can be any sensor providing EUR/kWh rate. |
+| **Outdoor Temperature Source** | Scooter sensor | Choose between scooter's built-in ambient temperature sensor or an external weather sensor for trip history. |
+| **External Temperature Sensor** | - | (Required if external source selected) Select a temperature sensor entity from your Home Assistant installation. |
 | **Confirmation Delay** | 120 seconds | Anti-bounce delay before confirming trip stop. Prevents false stops from brief signal loss or sensor oscillations. |
 | **Pause Max Duration** | 5 minutes | Maximum pause duration before ending trip. Pauses shorter than this (e.g., quick errands) keep the trip active. |
 | **Watchdog Delay** | 5 minutes | Offline detection timeout. Automatically ends trip if scooter doesn't communicate for this duration (e.g., parked in underground garage without signal). |
