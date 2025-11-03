@@ -138,7 +138,7 @@ To use the provided dashboards, install these custom cards via HACS:
 The dashboard uses two images:
 
 1. **Scooter image**: Place your scooter image at `/config/www/silence/scooter.png`
-2. **Last ride image**: Place the last ride header image at `/config/www/Last_ride.png`
+2. **Last ride image**: Place the last ride header image at `/config/www/silence/Last_ride.png`
 
 Example images are available in the `images/` folder of this repository.
 
