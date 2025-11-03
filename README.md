@@ -179,11 +179,17 @@ To use the example dashboard, install these HACS frontend integrations:
 - [**button-card**](https://github.com/custom-cards/button-card) - Custom buttons
 - [**mini-graph-card**](https://github.com/kalkih/mini-graph-card) - Compact graphs
 - [**vertical-stack-in-card**](https://github.com/ofekashery/vertical-stack-in-card) - Card layouts
+- [**ha-map-card**](https://github.com/nathan-gs/ha-map-card) - Map card
 
 ### Optional (for advanced features)
 - [**template-entity-row**](https://github.com/thomasloven/lovelace-template-entity-row) - Template rows
 - [**fold-entity-row**](https://github.com/thomasloven/lovelace-fold-entity-row) - Collapsible rows
 - [**stack-in-card**](https://github.com/custom-cards/stack-in-card) - Advanced stacking
+
+> **Note about `ha-map-card`**
+> There’s a known bug in `ha-map-card` **v1.12+** where using `history_start` as an **entity** draws a **duplicate history line**. Bug URL: https://github.com/nathan-gs/ha-map-card/issues/174  
+> Until a fix lands, **pin the card to `v1.11.x` (e.g., `v1.11.0`)** in HACS (or use that tag for manual install).
+
 
 ## 📱 Entities Created
 
