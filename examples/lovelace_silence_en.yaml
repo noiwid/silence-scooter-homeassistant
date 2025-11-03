@@ -354,7 +354,7 @@ views:
                 }
             cards:
               - type: picture-elements
-                image: /local/Last_ride.png
+                image: /local/silence/Last_ride.png
                 elements:
                   - type: state-label
                     entity: sensor.scooter_last_trip_distance
