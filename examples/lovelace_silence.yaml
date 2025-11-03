@@ -421,8 +421,8 @@ views:
                   <ha-icon icon="mdi:map-marker"></ha-icon>  [{{
                   states('sensor.silence_scooter_address')
                   }}](https://maps.google.com?q={{
-                  state_attr('device_tracker.silence_scooter_2','latitude')
-                  }},{{ state_attr('device_tracker.silence_scooter_2',
+                  state_attr('device_tracker.silence_scooter','latitude')
+                  }},{{ state_attr('device_tracker.silence_scooter',
                   'longitude') }})
               - type: divider
               - type: conditional
