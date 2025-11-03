@@ -9,7 +9,6 @@ from homeassistant.helpers.event import (
     async_track_state_change_event,
     async_track_time_interval,
 )
-from homeassistant.components.timer import EVENT_TIMER_FINISHED
 from homeassistant.components.number import SERVICE_SET_VALUE
 from homeassistant.helpers.restore_state import RestoreEntity
 from homeassistant.exceptions import HomeAssistantError
@@ -244,10 +243,9 @@ async def update_trip_statistics(
 # END OF HELPER FUNCTIONS
 # ============================================================================
 
-# Entités et timers concernés
+# Entités concernées
 SENSOR_IS_MOVING = "sensor.scooter_is_moving"
 SENSOR_TRIP_STATUS = "sensor.scooter_trip_status"
-TIMER_STOP_TOLERANCE = "timer.scooter_stop_trip_tolerance"
 INPUT_DT_LAST_MOVING = "datetime.scooter_last_moving_time"
 SWITCH_STOP_NOW = "switch.stop_trip_now"
 
@@ -513,26 +511,28 @@ async def async_setup_automations(hass: HomeAssistant) -> bool:
                 _LOGGER.info("⏰ DELAYED STOP triggered (2min + 5min timer)")
                 
                 # Définir les fonctions async AVANT de les utiliser
-                async def _start_tolerance_timer():
+                def _start_tolerance_timer():
                     """Démarre le timer de tolérance (durée configurable)."""
-                    try:
-                        # Get configured pause duration (in minutes)
-                        pause_duration_min = get_config_value(hass, CONF_PAUSE_MAX_DURATION, DEFAULT_PAUSE_MAX_DURATION)
-                        # Convert to HH:MM:SS format
-                        duration_str = f"00:{pause_duration_min:02d}:00"
+                    # Get configured pause duration (in minutes)
+                    pause_duration_min = get_config_value(hass, CONF_PAUSE_MAX_DURATION, DEFAULT_PAUSE_MAX_DURATION)
+                    # Convert to seconds
+                    duration_seconds = pause_duration_min * 60
 
-                        await hass.services.async_call(
-                            "timer",
-                            "start",
-                            {
-                                "entity_id": TIMER_STOP_TOLERANCE,
-                                "duration": duration_str
-                            },
-                            blocking=True
-                        )
-                        _LOGGER.info(f"✓ Timer started successfully ({duration_str})")
-                    except Exception as e:
-                        _LOGGER.warning("Could not start timer: %s", e)
+                    # Cancel any existing tolerance timer
+                    if "tolerance_timer" in scheduled_tasks:
+                        scheduled_tasks["tolerance_timer"].cancel()
+
+                    # Schedule the callback that will stop the trip when timer expires
+                    async def _on_tolerance_expired():
+                        """Appelé quand le timer de tolérance arrive à expiration."""
+                        scheduled_tasks.pop("tolerance_timer", None)
+                        _LOGGER.info("⏱️ Timer de tolérance terminé (%d min), arrêt définitif du trajet", pause_duration_min)
+                        await do_log_event(hass, f"Trip auto-stopped: tolerance timer expired ({pause_duration_min}min)")
+                        await do_stop_trip(hass, reason="tolerance-timeout")
+
+                    task = hass.loop.call_later(duration_seconds, lambda: hass.loop.create_task(_on_tolerance_expired()))
+                    scheduled_tasks["tolerance_timer"] = task
+                    _LOGGER.info(f"✓ Tolerance timer started successfully ({pause_duration_min} min = {duration_seconds}s)")
 
                 async def _immediate_stop():
                     """Arrêt immédiat du trajet sans délai."""
@@ -566,13 +566,10 @@ async def async_setup_automations(hass: HomeAssistant) -> bool:
                     scheduled_tasks.pop("trip_off_delay", None)
 
                     # Annulation du timer de tolérance s'il est encore actif
-                    timer_state = hass.states.get(TIMER_STOP_TOLERANCE)
-                    if timer_state and timer_state.state == "active":
-                        await hass.services.async_call(
-                            "timer", "cancel",
-                            {"entity_id": TIMER_STOP_TOLERANCE},
-                            blocking=True
-                        )
+                    tolerance_task = scheduled_tasks.pop("tolerance_timer", None)
+                    if tolerance_task:
+                        tolerance_task.cancel()
+                        _LOGGER.debug("Timer de tolérance annulé (arrêt confirmé)")
 
                     state = hass.states.get(SENSOR_TRIP_STATUS)
                     # On considère unavailable/unknown comme un vrai arrêt aussi
@@ -614,7 +611,7 @@ async def async_setup_automations(hass: HomeAssistant) -> bool:
                 scheduled_tasks["trip_off_delay"] = task
 
                 # 2) Démarre le timer de tolérance (durée configurable)
-                hass.loop.create_task(_start_tolerance_timer())
+                _start_tolerance_timer()
 
                 _LOGGER.info("📋 Tâches planifiées : %s", list(scheduled_tasks.keys()))
     #
@@ -623,8 +620,8 @@ async def async_setup_automations(hass: HomeAssistant) -> bool:
         hass, [SENSOR_TRIP_STATUS], handle_trip_status_off
     )
 
-    # 3. "Scooter - Arrêter le timer si le scooter redémarre"
-    #    => sensor.scooter_trip_status to 'on' & timer actif
+    # 3. "Scooter - Annuler les tâches d'arrêt si le scooter redémarre"
+    #    => sensor.scooter_trip_status to 'on' : annule trip_off_delay + tolerance_timer
     #
     @callback
     def handle_stop_timer_if_restart(event):
@@ -646,22 +643,17 @@ async def async_setup_automations(hass: HomeAssistant) -> bool:
                 _LOGGER.info("🔄 Trip status → ON : annulation du délai d'arrêt automatique (2 min).")
 
             # Si le timer de tolérance est actif, on le stoppe aussi
-            timer_state = hass.states.get(TIMER_STOP_TOLERANCE)
-            if timer_state and timer_state.state == "active":
+            tolerance_task = scheduled_tasks.pop("tolerance_timer", None)
+            if tolerance_task:
+                tolerance_task.cancel()
+                _LOGGER.info("🔄 Timer de tolérance annulé (scooter redémarré)")
+
                 # Enregistrer la fin de la pause
                 pause_start = hass.states.get("datetime.scooter_pause_start")
                 if pause_start and pause_start.state not in ["unknown", "unavailable"]:
                     hass.loop.create_task(_record_pause_end())
-                
+
                 hass.loop.create_task(do_log_event(hass, "Pause stopped, trip restarted"))
-                hass.loop.create_task(
-                    hass.services.async_call(
-                        "timer",
-                        "cancel",
-                        {"entity_id": TIMER_STOP_TOLERANCE},
-                        blocking=True
-                    )
-                )
     
     async def _record_pause_end():
         """Enregistre la durée de la pause qui vient de se terminer."""
@@ -714,7 +706,7 @@ async def async_setup_automations(hass: HomeAssistant) -> bool:
 
         if old_state.state == "off" and new_state.state == "on":
             # => log_event("Manual stop button clicked")
-            # => timer.cancel
+            # => Annuler toutes les tâches d'arrêt en cours
             # => datetime.scooter_end_time = datetime.scooter_last_moving_time
             # => do_stop_trip
             # => input_boolean.stop_trip_now = off
@@ -723,10 +715,14 @@ async def async_setup_automations(hass: HomeAssistant) -> bool:
     async def _process_stop_trip_now():
         await do_log_event(hass, "Manual stop button clicked")
 
-        # Annuler la tâche programmée si existante
+        # Annuler toutes les tâches programmées si existantes
         if scheduled_tasks.get("trip_off_delay"):
             scheduled_tasks["trip_off_delay"].cancel()
             scheduled_tasks.pop("trip_off_delay", None)
+
+        if scheduled_tasks.get("tolerance_timer"):
+            scheduled_tasks["tolerance_timer"].cancel()
+            scheduled_tasks.pop("tolerance_timer", None)
 
         # datetime.scooter_end_time = scooter_last_moving_time
         last_moving = hass.states.get(INPUT_DT_LAST_MOVING)
@@ -1030,23 +1026,6 @@ async def async_setup_automations(hass: HomeAssistant) -> bool:
         remove_update_tracker,
         watchdog_remove,
     ])
-
-    @callback
-    def handle_timer_finished(event):
-        """Appelé quand timer.scooter_stop_trip_tolerance arrive à expiration."""
-        _LOGGER.info("▶ handle_timer_finished appelé pour %s", event.data)
-        entity = event.data.get("entity_id")
-        if entity == TIMER_STOP_TOLERANCE:
-            _LOGGER.info("⏱️ Timer de tolérance terminé, on confirme l'arrêt du trajet")
-            hass.async_create_task(_confirm_off())
-
-    # Écoute la fin du timer de tolérance
-    remove_timer_listener = hass.bus.async_listen(
-        EVENT_TIMER_FINISHED,
-        handle_timer_finished
-    )
-
-    hass.data["silence_automations"].append(remove_timer_listener)
 
     _LOGGER.info("All custom automations for Silence Scooter have been set up")
     return True
