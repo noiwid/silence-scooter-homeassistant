@@ -193,34 +193,41 @@ To use the example dashboard, install these HACS frontend integrations:
 
 ## 📱 Entities Created
 
-Once configured, the integration creates the following entities:
+Once configured, the integration creates **39+ entities** organized into several categories:
 
-### Numbers
+### Quick Summary
+
+| Category | Count | Description |
+|----------|-------|-------------|
+| **Numbers** | 11 | Trip metrics, odometer, battery tracking |
+| **Sensors** | 23+ | Energy, costs, battery health, statistics |
+| **DateTimes** | 4 | Trip timestamps and pause tracking |
+| **Switch** | 1 | Manual trip stop control |
+
+### Main Entities
+
+**Trip Tracking:**
 - `number.scooter_odo_debut` / `number.scooter_odo_fin` - Trip odometer start/end
 - `number.scooter_battery_soc_debut` / `number.scooter_battery_soc_fin` - Battery level start/end
-- `number.scooter_last_trip_distance` - Last trip distance
-- `number.scooter_last_trip_duration` - Last trip duration
-- `number.scooter_last_trip_avg_speed` / `max_speed` - Speed statistics
-- And more... (see [ENTITIES.md](docs/ENTITIES.md) for complete list)
+- `datetime.scooter_start_time` / `datetime.scooter_end_time` - Trip timestamps
+- `sensor.scooter_last_trip_distance` - Last trip distance
+- `sensor.scooter_last_trip_duration` - Last trip duration
+- `sensor.scooter_last_trip_avg_speed` / `max_speed` - Speed statistics
 
-### Sensors
-- `sensor.scooter_energy_consumption` - Total energy consumption
+**Energy & Costs:**
+- `sensor.scooter_energy_consumption` - Total energy consumption (kWh)
 - `sensor.scooter_energy_consumption_daily/weekly/monthly/yearly` - Utility meters
-- `sensor.scooter_energy_cost_*` - Energy cost sensors
-- `sensor.scooter_trips_history` - Trip history with JSON attributes
-- `sensor.scooter_battery_health` - Battery health metrics
-- And more...
+- `sensor.scooter_energy_cost_daily/weekly/monthly/yearly` - Energy cost sensors
 
-### DateTime
-- `datetime.scooter_start_time` / `end_time` - Trip timestamps
-- `datetime.scooter_last_moving_time` - Last movement timestamp
-- `datetime.scooter_pause_start` - Pause detection
+**Battery Health:**
+- `sensor.scooter_battery_cell_imbalance` - Cell voltage difference (mV)
+- `sensor.scooter_battery_soc_calculated` - Voltage-based SOC
+- `sensor.scooter_battery_charge_cycles` - Total charge cycles
 
-### Switch
+**Controls:**
 - `switch.stop_trip_now` - Manual trip stop button
 
-### Timer
-- `timer.scooter_stop_trip_tolerance` - Pause tolerance timer (auto-created)
+> **📖 See the complete list:** [ENTITIES.md](docs/ENTITIES.md)
 
 ## 🔄 How It Works
 
@@ -306,11 +313,12 @@ history.json + HA State Machine
 
 ## 📚 Documentation
 
-- [Installation Guide](docs/INSTALLATION.md)
-- [Configuration Options](docs/CONFIGURATION.md)
-- [Entity Reference](docs/ENTITIES.md)
-- [Debugging Guide](docs/DEBUGGING.md)
-- [FAQ](docs/FAQ.md)
+- [Installation Guide](INSTALLATION.md) - Step-by-step setup instructions
+- [Configuration Options](docs/CONFIGURATION.md) - Detailed configuration parameters
+- [Entity Reference](docs/ENTITIES.md) - **Complete list of all 39+ entities**
+- [Trip History Structure](docs/HISTORY.md) - **Understanding the history.json file**
+- [Debugging Guide](docs/DEBUGGING.md) - Troubleshooting and logging
+- [FAQ](docs/FAQ.md) - Frequently asked questions
 
 ## 🙏 Credits
 
