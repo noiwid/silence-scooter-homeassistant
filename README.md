@@ -195,32 +195,76 @@ To use the example dashboard, install these HACS frontend integrations:
 
 Once configured, the integration creates the following entities:
 
-### Numbers
-- `number.scooter_odo_debut` / `number.scooter_odo_fin` - Trip odometer start/end
-- `number.scooter_battery_soc_debut` / `number.scooter_battery_soc_fin` - Battery level start/end
-- `number.scooter_last_trip_distance` - Last trip distance
-- `number.scooter_last_trip_duration` - Last trip duration
-- `number.scooter_last_trip_avg_speed` / `max_speed` - Speed statistics
-- And more... (see [ENTITIES.md](docs/ENTITIES.md) for complete list)
+### 📊 Sensors
 
-### Sensors
-- `sensor.scooter_energy_consumption` - Total energy consumption
-- `sensor.scooter_energy_consumption_daily/weekly/monthly/yearly` - Utility meters
-- `sensor.scooter_energy_cost_*` - Energy cost sensors
-- `sensor.scooter_trips_history` - Trip history with JSON attributes
-- `sensor.scooter_battery_health` - Battery health metrics
-- And more...
+#### Trip Tracking (Writable Sensors)
+- `sensor.scooter_last_trip_distance` (km) - Last trip distance
+- `sensor.scooter_last_trip_duration` (min) - Last trip duration
+- `sensor.scooter_last_trip_avg_speed` (km/h) - Last trip average speed
+- `sensor.scooter_last_trip_max_speed` (km/h) - Last trip maximum speed
+- `sensor.scooter_last_trip_battery_consumption` (%) - Battery consumed during last trip
 
-### DateTime
-- `datetime.scooter_start_time` / `end_time` - Trip timestamps
-- `datetime.scooter_last_moving_time` - Last movement timestamp
-- `datetime.scooter_pause_start` - Pause detection
+#### Scooter Status
+- `sensor.scooter_battery_display` (%) - Current battery level (persistent)
+- `sensor.scooter_odo_display` (km) - Odometer reading (persistent)
+- `sensor.scooter_status_display` - Scooter status (Off/Starting/Ready/Moving/Charging)
+- `sensor.scooter_battery_status` - Battery presence status
+- `sensor.scooter_is_moving` - Real-time movement detection
+- `sensor.scooter_trip_status` - Current trip status
+- `sensor.scooter_end_time_relative` - Time since last trip
 
-### Switch
-- `switch.stop_trip_now` - Manual trip stop button
+#### Energy & Efficiency
+- `sensor.scooter_energy_consumption` (kWh) - Total energy consumed
+- `sensor.scooter_energy_consumption_daily` (kWh) - Daily energy consumption
+- `sensor.scooter_energy_consumption_weekly` (kWh) - Weekly energy consumption
+- `sensor.scooter_energy_consumption_monthly` (kWh) - Monthly energy consumption
+- `sensor.scooter_energy_consumption_yearly` (kWh) - Yearly energy consumption
+- `sensor.scooter_energy_cost_daily` (€) - Daily charging cost
+- `sensor.scooter_energy_cost_weekly` (€) - Weekly charging cost
+- `sensor.scooter_energy_cost_monthly` (€) - Monthly charging cost
+- `sensor.scooter_energy_cost_yearly` (€) - Yearly charging cost
+- `sensor.scooter_battery_per_km` (%/km) - Battery consumption per kilometer
+- `sensor.scooter_battery_percentage_regeneration` (%) - Regenerative braking efficiency
+- `sensor.scooter_estimated_range` (km) - Estimated remaining range
 
-### Timer
-- `timer.scooter_stop_trip_tolerance` - Pause tolerance timer (auto-created)
+#### Battery Health
+- `sensor.scooter_battery_cell_imbalance` (mV) - Cell voltage imbalance
+- `sensor.scooter_battery_soc_calculated` (%) - SOC calculated from voltage
+- `sensor.scooter_battery_soc_deviation` (%) - Difference between displayed and calculated SOC
+- `sensor.scooter_battery_charge_cycles` (cycles) - Cumulative charge cycles
+
+#### Usage Statistics
+- `sensor.scooter_distance_per_charge` (km) - Average distance per full charge
+- `sensor.scooter_cost_per_km` (€/km) - Average cost per kilometer
+- `sensor.scooter_average_trip_distance` (km) - Average trip distance
+- `sensor.scooter_active_trip_duration` (min) - Duration of current active trip
+
+#### Trip History
+- `sensor.scooter_trips` - Total trip count with history attributes (last 10 trips)
+- `sensor.scooter_start_time_iso` - Trip start time in ISO format
+- `sensor.scooter_history_start` - History start time for map display
+
+### 🔢 Numbers (Internal State)
+- `number.scooter_odo_debut` (km) - Trip start odometer reading
+- `number.scooter_odo_fin` (km) - Trip end odometer reading
+- `number.scooter_battery_soc_debut` (%) - Trip start battery level
+- `number.scooter_battery_soc_fin` (%) - Trip end battery level
+- `number.scooter_pause_duration` (min) - Total pause duration during trip
+- `number.scooter_tracked_distance` (km) - Manually tracked distance (alternative mode)
+- `number.scooter_tracked_battery_used` (%) - Manually tracked battery (alternative mode)
+- `number.scooter_energy_consumption_base` (kWh) - Baseline energy consumption
+
+### 📅 DateTime
+- `datetime.scooter_start_time` - Current/last trip start time
+- `datetime.scooter_end_time` - Current/last trip end time
+- `datetime.scooter_last_moving_time` - Last time scooter was moving
+- `datetime.scooter_pause_start` - Current pause start time
+
+### 🔘 Switch
+- `switch.stop_trip_now` - Manual trip stop button (turn ON to stop current trip)
+
+### 📍 Device Tracker
+- `device_tracker.silence_scooter` - GPS location tracker with route history
 
 ## 🔄 How It Works
 
@@ -285,6 +329,76 @@ Silence Scooter Integration (Python)
 Trip Tracking & Statistics
     ↓ Storage
 history.json + HA State Machine
+```
+
+## 📝 Trip History Data
+
+### History JSON File
+
+All trips are stored in `/config/custom_components/silencescooter/data/history.json` with the following structure:
+
+```json
+[
+  {
+    "start_time": "2025-01-15T14:23:45+01:00",
+    "end_time": "2025-01-15T14:48:12+01:00",
+    "duration": "22",
+    "distance": "8.5",
+    "avg_speed": "23.2",
+    "max_speed": "45.0",
+    "battery": "18.5",
+    "outdoor_temp": "12.0",
+    "efficiency_wh_km": "121.8"
+  },
+  {
+    "start_time": "2025-01-15T09:15:30+01:00",
+    "end_time": "2025-01-15T09:27:45+01:00",
+    "duration": "12",
+    "distance": "3.2",
+    "avg_speed": "16.0",
+    "max_speed": "35.0",
+    "battery": "8.2",
+    "outdoor_temp": "8.5",
+    "efficiency_wh_km": "143.8"
+  }
+]
+```
+
+### Field Descriptions
+
+| Field | Type | Unit | Description |
+|-------|------|------|-------------|
+| `start_time` | ISO 8601 | - | Trip start timestamp with timezone |
+| `end_time` | ISO 8601 | - | Trip end timestamp with timezone |
+| `duration` | String | minutes | Net trip duration (excluding pauses) |
+| `distance` | String | km | Distance traveled (ODO end - ODO start) |
+| `avg_speed` | String | km/h | Average speed (distance / duration * 60) |
+| `max_speed` | String | km/h | Maximum speed recorded during trip |
+| `battery` | String | % | Battery consumed (SOC start - SOC end) |
+| `outdoor_temp` | String | °C | Outdoor temperature (from scooter or external sensor) |
+| `efficiency_wh_km` | String | Wh/km | Energy efficiency: (battery% / 100 * 5600 Wh) / distance |
+
+### Accessing Trip History
+
+The `sensor.scooter_trips` entity provides:
+- **State**: Total number of trips
+- **Attributes**: Array of the last 10 trips in the `history` attribute
+
+Example automation to access trip data:
+
+```yaml
+automation:
+  - alias: "Notify on trip completion"
+    trigger:
+      - platform: state
+        entity_id: sensor.scooter_trips
+    action:
+      - service: notify.mobile_app
+        data:
+          message: >
+            Trip completed: {{ state_attr('sensor.scooter_trips', 'history')[0].distance }}km
+            in {{ state_attr('sensor.scooter_trips', 'history')[0].duration }}min
+            ({{ state_attr('sensor.scooter_trips', 'history')[0].efficiency_wh_km }} Wh/km)
 ```
 
 ## 🐛 Troubleshooting
