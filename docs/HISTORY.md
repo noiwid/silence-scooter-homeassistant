@@ -1,268 +1,239 @@
-# Structure du fichier history.json
+# Structure of the `history.json` File
 
-Cette page documente la structure et le contenu du fichier `history.json` qui stocke l'historique des trajets de votre scooter.
+This page documents the structure and content of the `history.json` file, which stores the trip history of your scooter.
 
-## Emplacement
+## Location
 
-Le fichier est situé à :
-```
-/config/custom_components/silencescooter/data/history.json
-```
+The file is located at:
 
-## Structure générale
+    /config/custom_components/silencescooter/data/history.json
 
-Le fichier contient un tableau JSON où chaque élément représente un trajet. Les trajets sont stockés dans l'ordre **anti-chronologique** (le plus récent en premier).
+## General Structure
 
-```json
-[
-  { "trajet le plus récent" },
-  { "trajet précédent" },
-  { "..." }
-]
-```
+The file contains a JSON array where each element represents a trip.  
+Trips are stored in **reverse chronological order** (most recent first).
 
-## Structure d'un trajet
+    [
+      { "most recent trip" },
+      { "previous trip" },
+      { "..." }
+    ]
 
-Chaque trajet contient les champs suivants :
+## Trip Structure
 
-| Champ | Type | Unité | Description |
-|-------|------|-------|-------------|
-| `start_time` | string (ISO 8601) | - | Date et heure de début du trajet |
-| `end_time` | string (ISO 8601) | - | Date et heure de fin du trajet |
-| `duration` | string (number) | minutes | Durée nette du trajet (hors pauses) |
-| `distance` | string (number) | km | Distance parcourue |
-| `avg_speed` | string (number) | km/h | Vitesse moyenne |
-| `max_speed` | string (number) | km/h | Vitesse maximale atteinte |
-| `battery` | string (number) | % | Batterie consommée pendant le trajet |
-| `outdoor_temp` | string (number) | °C | Température extérieure pendant le trajet |
-| `efficiency_wh_km` | string (number) | Wh/km | Efficacité énergétique (calculée automatiquement) |
+Each trip includes the following fields:
 
-### Calcul de l'efficacité
+| Field               | Type               | Unit  | Description                                      |
+|---------------------|--------------------|-------|--------------------------------------------------|
+| `start_time`        | string (ISO 8601)  | –     | Start date and time of the trip                  |
+| `end_time`          | string (ISO 8601)  | –     | End date and time of the trip                    |
+| `duration`          | string (number)    | minutes | Net duration of the trip (excluding pauses)     |
+| `distance`          | string (number)    | km    | Distance traveled                                 |
+| `avg_speed`         | string (number)    | km/h  | Average speed                                     |
+| `max_speed`         | string (number)    | km/h  | Maximum speed reached                             |
+| `battery`           | string (number)    | %     | Battery consumed during the trip                  |
+| `outdoor_temp`      | string (number)    | °C    | Outside temperature during the trip               |
+| `efficiency_wh_km`  | string (number)    | Wh/km | Energy efficiency (automatically calculated)      |
 
-L'efficacité énergétique est calculée automatiquement par le script `history.sh` selon la formule :
+### Efficiency Calculation
 
-```
-Efficacité (Wh/km) = (Battery% / 100 × 5600 Wh) / Distance (km)
-```
+Energy efficiency is automatically calculated by the `history.sh` script using the formula:
 
-> **Note**: La capacité de la batterie est de 5.6 kWh (5600 Wh).
+    Efficiency (Wh/km) = (Battery% / 100 × 5600 Wh) / Distance (km)
 
-## Exemple de fichier complet
+> **Note:** Battery capacity is 5.6 kWh (5600 Wh).
 
-Voici un exemple de fichier `history.json` contenant 3 trajets :
+## Full Example File
 
-```json
-[
-  {
-    "start_time": "2025-11-06T14:30:15+01:00",
-    "end_time": "2025-11-06T14:52:38+01:00",
-    "duration": "20",
-    "distance": "8.3",
-    "avg_speed": "24.9",
-    "max_speed": "48.5",
-    "battery": "18.2",
-    "outdoor_temp": "16.5",
-    "efficiency_wh_km": "122.9"
-  },
-  {
-    "start_time": "2025-11-06T09:15:42+01:00",
-    "end_time": "2025-11-06T09:28:10+01:00",
-    "duration": "10",
-    "distance": "3.7",
-    "avg_speed": "22.2",
-    "max_speed": "42.0",
-    "battery": "8.5",
-    "outdoor_temp": "12.8",
-    "efficiency_wh_km": "128.6"
-  },
-  {
-    "start_time": "2025-11-05T18:05:20+01:00",
-    "end_time": "2025-11-05T18:35:45+01:00",
-    "duration": "28",
-    "distance": "12.1",
-    "avg_speed": "25.9",
-    "max_speed": "51.2",
-    "battery": "24.8",
-    "outdoor_temp": "14.2",
-    "efficiency_wh_km": "114.9"
-  }
-]
-```
+Here’s an example of a `history.json` file containing 3 trips:
 
-## Exemple de trajet détaillé
+    [
+      {
+        "start_time": "2025-11-06T14:30:15+01:00",
+        "end_time": "2025-11-06T14:52:38+01:00",
+        "duration": "20",
+        "distance": "8.3",
+        "avg_speed": "24.9",
+        "max_speed": "48.5",
+        "battery": "18.2",
+        "outdoor_temp": "16.5",
+        "efficiency_wh_km": "122.9"
+      },
+      {
+        "start_time": "2025-11-06T09:15:42+01:00",
+        "end_time": "2025-11-06T09:28:10+01:00",
+        "duration": "10",
+        "distance": "3.7",
+        "avg_speed": "22.2",
+        "max_speed": "42.0",
+        "battery": "8.5",
+        "outdoor_temp": "12.8",
+        "efficiency_wh_km": "128.6"
+      },
+      {
+        "start_time": "2025-11-05T18:05:20+01:00",
+        "end_time": "2025-11-05T18:35:45+01:00",
+        "duration": "28",
+        "distance": "12.1",
+        "avg_speed": "25.9",
+        "max_speed": "51.2",
+        "battery": "24.8",
+        "outdoor_temp": "14.2",
+        "efficiency_wh_km": "114.9"
+      }
+    ]
 
-Analysons un trajet en détail :
+## Detailed Trip Example
 
-```json
-{
-  "start_time": "2025-11-06T14:30:15+01:00",
-  "end_time": "2025-11-06T14:52:38+01:00",
-  "duration": "20",
-  "distance": "8.3",
-  "avg_speed": "24.9",
-  "max_speed": "48.5",
-  "battery": "18.2",
-  "outdoor_temp": "16.5",
-  "efficiency_wh_km": "122.9"
-}
-```
+Let’s analyze one trip in detail:
 
-### Interprétation
+    {
+      "start_time": "2025-11-06T14:30:15+01:00",
+      "end_time": "2025-11-06T14:52:38+01:00",
+      "duration": "20",
+      "distance": "8.3",
+      "avg_speed": "24.9",
+      "max_speed": "48.5",
+      "battery": "18.2",
+      "outdoor_temp": "16.5",
+      "efficiency_wh_km": "122.9"
+    }
 
-- **Trajet effectué le** : 6 novembre 2025
-- **Heure de départ** : 14h30:15
-- **Heure d'arrivée** : 14h52:38
-- **Durée totale écoulée** : ~22 minutes
-- **Durée nette** : 20 minutes (2 minutes de pauses cumulées)
-- **Distance** : 8.3 km
-- **Vitesse moyenne** : 24.9 km/h (sur la durée nette de 20 min)
-- **Vitesse max** : 48.5 km/h
-- **Batterie consommée** : 18.2%
-- **Température** : 16.5°C
-- **Efficacité** : 122.9 Wh/km (soit ~1019 Wh consommés pour ce trajet)
+### Interpretation
 
-### Vérification de cohérence
+- **Trip date:** November 6, 2025  
+- **Start time:** 14:30:15  
+- **End time:** 14:52:38  
+- **Elapsed duration:** ~22 minutes  
+- **Net duration:** 20 minutes (2 minutes of cumulative pauses)  
+- **Distance:** 8.3 km  
+- **Average speed:** 24.9 km/h (over the 20 min net duration)  
+- **Max speed:** 48.5 km/h  
+- **Battery consumed:** 18.2 %  
+- **Temperature:** 16.5 °C  
+- **Efficiency:** 122.9 Wh/km (≈ 1019 Wh consumed for this trip)
 
-On peut vérifier la cohérence des données :
+### Consistency Check
 
-1. **Vitesse moyenne** = Distance / Durée = 8.3 km / (20 min / 60) = 24.9 km/h ✓
-2. **Énergie consommée** = 18.2% × 5.6 kWh = 1.019 kWh = 1019 Wh
-3. **Efficacité** = 1019 Wh / 8.3 km = 122.8 Wh/km ≈ 122.9 Wh/km ✓
+You can verify the data consistency:
 
-## Validation des trajets
+1. **Average speed** = Distance / Duration = 8.3 km / (20 min / 60) = 24.9 km/h ✓  
+2. **Energy consumed** = 18.2 % × 5.6 kWh = 1.019 kWh = 1019 Wh  
+3. **Efficiency** = 1019 Wh / 8.3 km = 122.8 Wh/km ≈ 122.9 Wh/km ✓  
 
-L'intégration effectue plusieurs validations avant d'enregistrer un trajet dans l'historique :
+## Trip Validation
 
-### Validations automatiques
+Before recording a trip, the integration performs multiple data checks.
 
-1. **Durée minimale** : Rejet si `duration < 1.5 min` ET `distance > 2 km` (physiquement impossible)
-2. **Vitesse maximale** : Rejet si `avg_speed > 120 km/h` (dépassement limite scooter)
-3. **Cohérence vitesse** : Rejet si écart > 30% entre vitesse calculée et enregistrée
-4. **Vitesse max cohérente** : Rejet si `max_speed = 0` alors que `avg_speed > 10 km/h`
+### Automatic Validations
 
-### Exemple de trajet rejeté
+1. **Minimum duration:** Reject if `duration < 1.5 min` **and** `distance > 2 km` (physically impossible)  
+2. **Maximum speed:** Reject if `avg_speed > 120 km/h` (beyond scooter limit)  
+3. **Speed consistency:** Reject if deviation > 30 % between calculated and recorded speed  
+4. **Valid max speed:** Reject if `max_speed = 0` while `avg_speed > 10 km/h`  
 
-```
-⚠️ TRIP REJECTED - Data validation failed:
-  - Trip too short: 0.8 min for 5.2 km
-  - Speed inconsistency: calculated=390.0 vs recorded=24.9
-Trip data: distance=5.2 km, duration=0.8 min, avg_speed=24.9 km/h, battery=5.2%
-```
+### Example of a Rejected Trip
 
-## Accéder aux données depuis Home Assistant
+    ⚠️ TRIP REJECTED – Data validation failed:
+      - Trip too short: 0.8 min for 5.2 km
+      - Speed inconsistency: calculated = 390.0 vs recorded = 24.9
+    Trip data: distance = 5.2 km, duration = 0.8 min, avg_speed = 24.9 km/h, battery = 5.2 %
 
-### Via sensor
+## Accessing Data from Home Assistant
 
-Le sensor `sensor.scooter_trips` expose l'historique complet dans son attribut `history` :
+### Via Sensor
 
-```yaml
-{{ state_attr('sensor.scooter_trips', 'history') }}
-```
+The `sensor.scooter_trips` entity exposes the full history in its `history` attribute:
 
-### Via template
+    {{ state_attr('sensor.scooter_trips', 'history') }}
 
-Vous pouvez extraire des statistiques avec des templates :
+### Via Template
 
-```yaml
-# Nombre total de trajets
-{{ state_attr('sensor.scooter_trips', 'history') | length }}
+You can extract statistics using templates:
 
-# Distance totale parcourue
-{{ state_attr('sensor.scooter_trips', 'history') | map(attribute='distance') | map('float') | sum }}
+    # Total number of trips
+    {{ state_attr('sensor.scooter_trips', 'history') | length }}
 
-# Efficacité moyenne
-{% set trips = state_attr('sensor.scooter_trips', 'history') %}
-{{ (trips | map(attribute='efficiency_wh_km') | map('float') | sum / trips | length) | round(1) }}
-```
+    # Total distance traveled
+    {{ state_attr('sensor.scooter_trips', 'history') | map(attribute='distance') | map('float') | sum }}
+
+    # Average efficiency
+    {% set trips = state_attr('sensor.scooter_trips', 'history') %}
+    {{ (trips | map(attribute='efficiency_wh_km') | map('float') | sum / trips | length) | round(1) }}
 
 ### Via Lovelace
 
-Utilisez l'exemple de dashboard fourni (`examples/lovelace_silence.yaml`) qui affiche l'historique sous forme de tableau.
+Use the provided example dashboard (`examples/lovelace_silence.yaml`) which displays the trip history in a table format.
 
-## Maintenance du fichier
+## File Maintenance
 
-### Sauvegarde
+### Backup
 
-Nous recommandons de sauvegarder régulièrement le fichier :
+It’s recommended to back up the file regularly:
 
-```bash
-cp /config/custom_components/silencescooter/data/history.json \
-   /config/backups/history_$(date +%Y%m%d).json
-```
+    cp /config/custom_components/silencescooter/data/history.json \
+       /config/backups/history_$(date +%Y%m%d).json
 
-### Nettoyage
+### Cleanup
 
-Pour supprimer les anciens trajets (> 6 mois) :
+To delete trips older than 6 months:
 
-```bash
-jq '[.[] | select(
-  (.start_time | fromdateiso8601) > (now - 15552000)
-)]' history.json > history_cleaned.json
-mv history_cleaned.json history.json
-```
+    jq '[.[] | select(
+      (.start_time | fromdateiso8601) > (now - 15552000)
+    )]' history.json > history_cleaned.json
+    mv history_cleaned.json history.json
 
-### Réinitialisation
+### Reset
 
-Pour repartir avec un historique vide :
+To start with an empty history:
 
-```bash
-echo "[]" > /config/custom_components/silencescooter/data/history.json
-```
+    echo "[]" > /config/custom_components/silencescooter/data/history.json
 
-## Format des dates
+## Date Format
 
-Les dates utilisent le format **ISO 8601** avec timezone :
+Dates use the **ISO 8601** format with timezone:
 
-```
-YYYY-MM-DDTHH:MM:SS+TZ:TZ
-```
+    YYYY-MM-DDTHH:MM:SS+TZ:TZ
 
-Exemples :
-- `2025-11-06T14:30:15+01:00` (heure d'hiver Europe/Paris)
-- `2025-07-15T14:30:15+02:00` (heure d'été Europe/Paris)
+Examples:
+- `2025-11-06T14:30:15+01:00` (winter time Europe/Paris)
+- `2025-07-15T14:30:15+02:00` (summer time Europe/Paris)
 
-> **Important** : Le timezone est toujours inclus pour éviter les ambiguïtés.
+> **Important:** The timezone is always included to avoid ambiguity.
 
 ## Troubleshooting
 
-### Le fichier est vide ou corrompu
+### The file is empty or corrupted
 
-Si le fichier est vide (`[]`) ou corrompu, l'intégration le réinitialisera automatiquement au prochain trajet.
+If the file is empty (`[]`) or corrupted, the integration will automatically recreate it on the next trip.
 
-### Les trajets ne s'enregistrent pas
+### Trips are not being recorded
 
-1. Vérifiez les permissions du fichier :
-   ```bash
-   ls -l /config/custom_components/silencescooter/data/history.json
-   ```
+1. Check file permissions:
 
-2. Vérifiez les logs Home Assistant :
-   ```
-   grep "update_history" /config/home-assistant.log
-   ```
+       ls -l /config/custom_components/silencescooter/data/history.json
 
-3. Vérifiez que le script bash existe :
-   ```bash
-   ls -l /config/custom_components/silencescooter/scripts/history.sh
-   ```
+2. Check Home Assistant logs:
 
-### Format JSON invalide
+       grep "update_history" /config/home-assistant.log
 
-Validez manuellement le fichier :
+3. Check that the bash script exists:
 
-```bash
-jq . /config/custom_components/silencescooter/data/history.json
-```
+       ls -l /config/custom_components/silencescooter/scripts/history.sh
 
-Si erreur, sauvegardez et réinitialisez :
+### Invalid JSON Format
 
-```bash
-cp history.json history.json.backup
-echo "[]" > history.json
-```
+Validate the file manually:
 
-## Voir aussi
+       jq . /config/custom_components/silencescooter/data/history.json
 
-- [Liste complète des entités](ENTITIES.md)
-- [Guide de configuration](CONFIGURATION.md)
-- [Guide de débogage](DEBUGGING.md)
+If there’s an error, back up and reset:
+
+       cp history.json history.json.backup
+       echo "[]" > history.json
+
+## See Also
+
+- [Complete list of entities](ENTITIES.md)
+- [Configuration guide](CONFIGURATION.md)
+- [Debugging guide](DEBUGGING.md)
