@@ -4,7 +4,14 @@ reset_tracked_counters:
     Remet à zéro les compteurs de distance et batterie suivis manuellement.
     Utilisez ce service après une modification majeure de votre scooter
     (préparation, changement de batterie, etc.) pour repartir sur une base propre.
-  fields: {}
+  fields:
+    device_id:
+      name: Device
+      description: Select the scooter to reset (optional - if not provided, resets all scooters)
+      required: false
+      selector:
+        device:
+          integration: silencescooter
 
 restore_energy_costs:
   name: Restaurer les coûts énergétiques
@@ -14,6 +21,13 @@ restore_energy_costs:
     et nécessite un redémarrage de Home Assistant pour prendre effet.
     Un backup automatique est créé avant toute modification.
   fields:
+    device_id:
+      name: Device
+      description: Select the scooter to restore costs for (optional - if not provided, uses legacy mode)
+      required: false
+      selector:
+        device:
+          integration: silencescooter
     daily:
       name: Coût journalier
       description: Coût énergétique journalier en EUR

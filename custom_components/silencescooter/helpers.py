@@ -12,11 +12,21 @@ from .const import DOMAIN, HISTORY_SCRIPT, LOG_FILE
 _LOGGER = logging.getLogger(__name__)
 
 
-def get_device_info() -> DeviceInfo:
-    """Return device info for Silence Scooter."""
+def get_device_info(imei: str) -> DeviceInfo:
+    """Return device info for Silence Scooter with IMEI.
+
+    Args:
+        imei: The IMEI of the scooter
+
+    Returns:
+        DeviceInfo with IMEI-based identifiers
+    """
+    # Use last 4 digits for display name
+    imei_short = imei[-4:] if len(imei) >= 4 else imei
+
     return DeviceInfo(
-        identifiers={("silence_scooter", "Silence Scooter")},
-        name="Silence Scooter",
+        identifiers={(DOMAIN, imei)},  # Use full IMEI for unique identification
+        name=f"Silence Scooter ({imei_short})",
         manufacturer="Seat",
         model="Mo",
     )
