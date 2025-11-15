@@ -4,12 +4,13 @@
   "config_flow": true,
   "documentation": "https://github.com/noiwid/silence-scooter-homeassistant",
   "issue_tracker": "https://github.com/noiwid/silence-scooter-homeassistant/issues",
-  "dependencies": [],
+  "dependencies": ["mqtt"],
   "codeowners": ["@noiwid"],
   "requirements": [
     "PyYAML>=6.0"
   ],
   "version": "2.0.0",
+  "integration_type": "device",
   "iot_class": "local_polling",
   "homeassistant": "2024.11.0"
 }

@@ -124,12 +124,12 @@ INPUT_BOOLEANS = {
 
 INPUT_DATETIMES = {
     "scooter_start_time": {
-        "name": "Scooter Heure de départ dernier trajet",
+        "name": "Heure de départ dernier trajet",
         "has_date": True,
         "has_time": True
     },
     "scooter_end_time": {
-        "name": "Scooter Heure de fin du dernier trajet",
+        "name": "Heure de fin du dernier trajet",
         "has_date": True,
         "has_time": True
     },
@@ -147,7 +147,7 @@ INPUT_DATETIMES = {
 
 TRIGGER_SENSORS = {
     "scooter_start_time_iso": {
-        "name": "Scooter - Heure de départ ISO",
+        "name": "Heure de départ ISO",
         "triggers": [
             {"platform": "state", "entity_id": "datetime.scooter_start_time"},
             {"platform": "time_pattern", "minutes": "/1"}
@@ -162,7 +162,7 @@ TRIGGER_SENSORS = {
         """
     },
     "scooter_history_start": {
-        "name": "Scooter - History Start",
+        "name": "History Start",
         "triggers": [
             {
                 "platform": "time_pattern",
@@ -196,14 +196,14 @@ TRIGGER_SENSORS = {
         """
     },
     "scooter_trip_status": {
-        "name": "Scooter - État du trajet",
+        "name": "État du trajet",
         "triggers": [
             {
                 "platform": "state",
                 "entity_id": "sensor.silence_scooter_status"
             },
             {
-                "platform": "state", 
+                "platform": "state",
                 "entity_id": "sensor.silence_scooter_last_update"
             }
         ],
@@ -226,7 +226,7 @@ TRIGGER_SENSORS = {
         """
     },
     "scooter_active_trip_duration": {
-        "name": "Scooter - Durée du trajet en cours",
+        "name": "Durée du trajet en cours",
         "unit_of_measurement": "minutes",
         "triggers": [
             {
@@ -263,7 +263,7 @@ TRIGGER_SENSORS = {
         """
     },
     "scooter_energy_consumption": {
-        "name": "Scooter - Consommation d'énergie",
+        "name": "Consommation d'énergie",
         "unit_of_measurement": "kWh",
         "device_class": "energy",
         "state_class": "total_increasing",
@@ -312,7 +312,7 @@ TRIGGER_SENSORS = {
 
 TEMPLATE_SENSORS = {
     "scooter_status_display": {
-        "name": "Scooter - Status",
+        "name": "Status",
         "value_template": """
             {% set status_raw = states('sensor.silence_scooter_status') %}
             {% set status = status_raw | int(default=-1) %}
@@ -354,7 +354,7 @@ TEMPLATE_SENSORS = {
         """
     },
     "scooter_estimated_range": {
-        "name": "Scooter - Autonomie estimée",
+        "name": "Autonomie estimée",
         "unit_of_measurement": "km",
         "icon": "mdi:map-marker-distance",
         "value_template": """
@@ -368,7 +368,7 @@ TEMPLATE_SENSORS = {
         """
     },
     "scooter_battery_status": {
-        "name": "Scooter - Battery Status",
+        "name": "Battery Status",
         "value_template": """
             {% if is_state('binary_sensor.silence_scooter_battery_in', 'on') %}
                 Présente
@@ -389,7 +389,7 @@ TEMPLATE_SENSORS = {
         """
     },
     "scooter_battery_per_km": {
-        "name": "Scooter - Consommation par km",
+        "name": "Consommation par km",
         "unit_of_measurement": "%/km",
         "state_class": "measurement",
         "icon": "mdi:battery-clock-outline",
@@ -406,7 +406,7 @@ TEMPLATE_SENSORS = {
         """
     },
     "scooter_is_moving": {
-        "name": "Scooter - En mouvement",
+        "name": "En mouvement",
         "value_template": """
             {% set status_raw = states('sensor.silence_scooter_status') %}
             {% set status = status_raw | float(default=None) %}
@@ -425,7 +425,7 @@ TEMPLATE_SENSORS = {
         """
     },
     "scooter_end_time_relative": {
-        "name": "Scooter - Dernier trajet",
+        "name": "Dernier trajet",
         "value_template": """
             {% set end_time = states('datetime.scooter_last_moving_time') %}
             {% if end_time != 'unknown' and end_time != '1970-01-01 00:00:00' %}
@@ -439,7 +439,7 @@ TEMPLATE_SENSORS = {
 
 ENERGY_COST_SENSORS = {
     "scooter_energy_cost_daily": {
-        "name": "Scooter - Coût quotidien de la recharge",
+        "name": "Coût quotidien de la recharge",
         "unit_of_measurement": "€",
         "state_class": "measurement",
         "value_template": """
@@ -449,7 +449,7 @@ ENERGY_COST_SENSORS = {
         """
     },
     "scooter_energy_cost_weekly": {
-        "name": "Scooter - Coût hebdo de la recharge",
+        "name": "Coût hebdo de la recharge",
         "unit_of_measurement": "€",
         "state_class": "measurement",
         "value_template": """
@@ -459,7 +459,7 @@ ENERGY_COST_SENSORS = {
         """
     },
     "scooter_energy_cost_monthly": {
-        "name": "Scooter - Coût mensuel de la recharge",
+        "name": "Coût mensuel de la recharge",
         "unit_of_measurement": "€",
         "state_class": "measurement",
         "value_template": """
@@ -469,7 +469,7 @@ ENERGY_COST_SENSORS = {
         """
     },
     "scooter_energy_cost_yearly": {
-        "name": "Scooter - Coût annuel de la recharge",
+        "name": "Coût annuel de la recharge",
         "unit_of_measurement": "€",
         "state_class": "measurement",
         "value_template": """
