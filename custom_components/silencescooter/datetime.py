@@ -46,6 +46,8 @@ async def async_setup_entry(
 class ScooterDateTimeEntity(DateTimeEntity, RestoreEntity):
     """Representation of a Scooter DateTime entity."""
 
+    _attr_has_entity_name = True
+
     def __init__(self, hass: HomeAssistant, datetime_id: str, config: dict, imei: str, multi_device: bool = False):
         """Initialize the datetime entity."""
         self.hass = hass
@@ -54,19 +56,11 @@ class ScooterDateTimeEntity(DateTimeEntity, RestoreEntity):
         self._imei = imei
         self._multi_device = multi_device
 
-        # Build entity_id with IMEI in correct position if multi_device mode
-        modified_entity_id = insert_imei_in_entity_id(datetime_id, imei, multi_device)
+        # Simplified unique_id using IMEI + sensor type
+        self._attr_unique_id = f"{imei}_{datetime_id}"
 
-        # CRITICAL: Use full IMEI for unique_id
-        self._attr_unique_id = f"{modified_entity_id}_{imei}"
-
-        # Display name
-        base_name = config['name']
-        if multi_device:
-            imei_short = imei[-4:] if len(imei) >= 4 else imei
-            self._attr_name = f"{base_name} ({imei_short})"
-        else:
-            self._attr_name = base_name
+        # Entity name - just the data point name from config
+        self._attr_name = config['name']
 
         # DO NOT set self.entity_id - let HA generate it
 

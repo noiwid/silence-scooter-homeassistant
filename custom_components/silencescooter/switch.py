@@ -37,25 +37,19 @@ async def async_setup_entry(
 class ScooterSwitchEntity(SwitchEntity, RestoreEntity):
     """A SwitchEntity to replace the old input_boolean usage."""
 
+    _attr_has_entity_name = True
+
     def __init__(self, bool_id: str, config: dict, imei: str, multi_device: bool = False):
         self._bool_id = bool_id
         self._config = config
         self._imei = imei
         self._multi_device = multi_device
 
-        # Build entity_id with IMEI in correct position if multi_device mode
-        modified_entity_id = insert_imei_in_entity_id(bool_id, imei, multi_device)
+        # Simplified unique_id using IMEI + sensor type
+        self._attr_unique_id = f"{imei}_{bool_id}"
 
-        # CRITICAL: Use full IMEI for unique_id
-        self._attr_unique_id = f"{modified_entity_id}_{imei}"
-
-        # Display name
-        base_name = config['name']
-        if multi_device:
-            imei_short = imei[-4:] if len(imei) >= 4 else imei
-            self._attr_name = f"{base_name} ({imei_short})"
-        else:
-            self._attr_name = base_name
+        # Entity name - just the data point name from config
+        self._attr_name = config['name']
 
         # DO NOT set self.entity_id - let HA generate it
 
@@ -81,10 +75,10 @@ class ScooterSwitchEntity(SwitchEntity, RestoreEntity):
     def is_on(self) -> bool:
         return self._is_on
 
-    def turn_on(self, **kwargs):
+    async def async_turn_on(self, **kwargs):
         self._is_on = True
-        self.schedule_update_ha_state()
+        await self.async_schedule_update_ha_state()
 
-    def turn_off(self, **kwargs):
+    async def async_turn_off(self, **kwargs):
         self._is_on = False
-        self.schedule_update_ha_state()
+        await self.async_schedule_update_ha_state()
