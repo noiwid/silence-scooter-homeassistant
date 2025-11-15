@@ -3,8 +3,9 @@
     "step": {
       "user": {
         "title": "Configuration Silence Scooter",
-        "description": "Configurez les paramètres de détection des trajets et du tarif électrique.",
+        "description": "Entrez l'IMEI de votre scooter pour configurer cette instance. Vous pouvez ajouter plusieurs scooters en installant l'intégration plusieurs fois.",
         "data": {
+          "imei": "IMEI (14-15 chiffres)",
           "tariff_sensor": "Sensor de tarif électrique (€/kWh)",
           "use_tracked_distance": "Utiliser les compteurs manuels (réinitialisables après modif scooter)",
           "confirmation_delay": "Délai de confirmation d'arrêt (secondes)",
@@ -19,8 +20,18 @@
           "watchdog_delay": "Si aucune communication pendant cette durée, le trajet s'arrête (ex: garage sans réseau)"
         }
       }
+      },
+      "reauth": {
+        "title": "Migration Requise",
+        "description": "Cette intégration nécessite maintenant un IMEI pour le support multi-appareils. Veuillez entrer l'IMEI de votre scooter pour continuer.",
+        "data": {
+          "imei": "IMEI (14-15 chiffres)"
+        }
+      }
     },
     "error": {
+      "invalid_imei": "Format IMEI invalide. Doit contenir 14-15 chiffres.",
+      "already_configured": "Cet IMEI est déjà configuré.",
       "single_instance_allowed": "Une seule instance de cette intégration est autorisée",
       "confirmation_delay_too_low": "Le délai de confirmation doit être d'au moins 30 secondes",
       "confirmation_delay_too_high": "Le délai de confirmation ne peut pas dépasser 600 secondes (10 minutes)",
@@ -68,7 +79,13 @@
   "services": {
     "reset_tracked_counters": {
       "name": "Réinitialiser les compteurs manuels",
-      "description": "Remet à zéro les compteurs de distance et batterie suivis manuellement. Utilisez ce service après une modification majeure de votre scooter (préparation, changement de batterie, etc.) pour repartir sur une base propre."
+      "description": "Remet à zéro les compteurs de distance et batterie suivis manuellement. Utilisez ce service après une modification majeure de votre scooter (préparation, changement de batterie, etc.) pour repartir sur une base propre.",
+      "fields": {
+        "device_id": {
+          "name": "Appareil",
+          "description": "Sélectionnez le scooter"
+        }
+      }
     }
   }
 }
