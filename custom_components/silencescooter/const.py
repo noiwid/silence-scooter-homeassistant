@@ -3,6 +3,7 @@ from pathlib import Path
 from homeassistant.const import Platform
 
 DOMAIN = "silencescooter"
+CONF_IMEI = "imei"
 
 COMPONENT_PATH = Path(__file__).parent
 DATA_PATH = COMPONENT_PATH / "data"
