@@ -4,6 +4,7 @@ from homeassistant.const import Platform
 
 DOMAIN = "silencescooter"
 CONF_IMEI = "imei"
+CONF_MULTI_DEVICE = "multi_device"
 
 COMPONENT_PATH = Path(__file__).parent
 DATA_PATH = COMPONENT_PATH / "data"
@@ -39,6 +40,7 @@ DEFAULT_WATCHDOG_DELAY = 5
 DEFAULT_USE_TRACKED_DISTANCE = False
 DEFAULT_OUTDOOR_TEMP_SOURCE = "scooter"
 DEFAULT_OUTDOOR_TEMP_ENTITY = ""
+DEFAULT_MULTI_DEVICE = False
 
 # Outdoor temperature sources
 OUTDOOR_TEMP_SOURCE_SCOOTER = "scooter"

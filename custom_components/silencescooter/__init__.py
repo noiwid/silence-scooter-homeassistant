@@ -10,7 +10,7 @@ from homeassistant.helpers import config_validation as cv
 import homeassistant.helpers.device_registry as dr
 import homeassistant.helpers.entity_registry as er
 
-from .const import DOMAIN, PLATFORMS, CONF_IMEI
+from .const import DOMAIN, PLATFORMS, CONF_IMEI, CONF_MULTI_DEVICE, DEFAULT_MULTI_DEVICE
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -622,10 +622,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             )
             return False
 
+        # Get multi_device flag
+        multi_device = entry.data.get(CONF_MULTI_DEVICE, DEFAULT_MULTI_DEVICE)
+
         # Initialize storage with IMEI (isolated per entry)
         hass.data.setdefault(DOMAIN, {})
         hass.data[DOMAIN][entry.entry_id] = {
             "imei": imei,
+            "multi_device": multi_device,
             "sensors": {},
             "config": entry.data,
         }
@@ -640,15 +644,15 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             _LOGGER.info("Setting up automations for IMEI %s...", imei[-4:])
             from .automations import async_setup_automations, setup_persistent_sensors_update
 
-            # Pass IMEI to automations for isolation
-            cancel_listeners = await async_setup_automations(hass, entry, imei)
+            # Pass IMEI and multi_device to automations for isolation
+            cancel_listeners = await async_setup_automations(hass, entry, imei, multi_device)
 
             # Store listeners per entry for proper cleanup
             hass.data[DOMAIN][entry.entry_id]["cancel_listeners"] = cancel_listeners
 
             _LOGGER.info("Automations setup completed for IMEI %s", imei[-4:])
 
-            await setup_persistent_sensors_update(hass)
+            await setup_persistent_sensors_update(hass, imei, multi_device)
             _LOGGER.info("Persistent sensors auto-update configured")
         except Exception as e:
             _LOGGER.error("Error setting up automations for IMEI %s: %s", imei[-4:], e, exc_info=True)

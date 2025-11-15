@@ -314,6 +314,7 @@ async def async_setup_automations(
     hass: HomeAssistant,
     config_entry,
     imei: str,
+    multi_device: bool = False,
 ) -> list:
     """Installe toutes les automatisations (ex-YAML) pour Silence Scooter.
 
@@ -321,6 +322,7 @@ async def async_setup_automations(
         hass: HomeAssistant instance
         config_entry: ConfigEntry for this scooter
         imei: IMEI of the scooter
+        multi_device: Whether to use multi-device entity naming
 
     Returns:
         List of cancel listeners for cleanup
@@ -329,8 +331,9 @@ async def async_setup_automations(
     # Helper to generate entity IDs with IMEI suffix
     def entity_id(base: str) -> str:
         """Generate entity ID for this scooter's IMEI."""
-        # Use full IMEI to avoid collisions between scooters
-        return f"{base}_{imei}"
+        from .helpers import insert_imei_in_entity_id
+        # Use insert_imei_in_entity_id to place IMEI before last element if multi_device
+        return insert_imei_in_entity_id(base, imei, multi_device)
 
     # Entités concernées - now generated with IMEI suffix
     SENSOR_IS_MOVING = entity_id("sensor.scooter_is_moving")
@@ -1431,7 +1434,7 @@ async def do_update_trips_history(hass: HomeAssistant, imei: str):
             )
 
 
-async def setup_persistent_sensors_update(hass: HomeAssistant, imei: str):
+async def setup_persistent_sensors_update(hass: HomeAssistant, imei: str, multi_device: bool = False):
     """Setup persistent sensors auto-update.
 
     Updates persistent sensors (battery, odo, regeneration) when MQTT data changes.
@@ -1440,11 +1443,13 @@ async def setup_persistent_sensors_update(hass: HomeAssistant, imei: str):
     Args:
         hass: HomeAssistant instance
         imei: IMEI of the scooter
+        multi_device: Whether to use multi-device entity naming
     """
     _LOGGER.info("Setting up persistent sensors auto-update for IMEI: %s", imei)
 
     def entity_id(base: str) -> str:
-        return f"{base}_{imei}"
+        from .helpers import insert_imei_in_entity_id
+        return insert_imei_in_entity_id(base, imei, multi_device)
 
     # Entity IDs for this scooter
     SENSOR_BATT_SOC = entity_id("sensor.silence_scooter_battery_soc")
