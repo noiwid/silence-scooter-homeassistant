@@ -1,383 +1,570 @@
-# SILENCE PRIVATE SERVER 
+# ==========================================
+# SILENCE SCOOTER - MULTI-DEVICE CONFIGURATION
+# ==========================================
+# Version: 2.0+ with MQTT Discovery support
+#
+# This configuration file shows how to configure multiple Silence S01 scooters
+# with the Silence Private Server.
+
+# ==========================================
+# MQTT DISCOVERY (AUTOMATIC - RECOMMENDED)
+# ==========================================
+#
+# With v2.0+, the integration AUTOMATICALLY publishes MQTT Discovery
+# configurations when you add a scooter. No manual MQTT configuration needed!
+#
+# Setup Steps:
+# 1. Configure your Silence Private Server with multiple IMEIs
+# 2. Add the integration in Home Assistant (Settings → Devices & Services)
+# 3. Enter your scooter's IMEI (15 digits)
+# 4. Done! All sensors and buttons are auto-discovered via MQTT
+#
+# Requirements:
+# - MQTT Broker configured and running
+# - Silence Private Server with multi-IMEI support (PR #8+)
+#   See: https://github.com/lorenzo-deluca/silence-private-server/pull/8
+#
+# If MQTT Discovery doesn't work for some reason, see the manual
+# configuration below as a fallback.
+
+# ==========================================
+# MANUAL MQTT CONFIGURATION (FALLBACK ONLY)
+# ==========================================
+#
+# Only use this if MQTT Discovery fails or is disabled in your setup.
+#
+# Example configuration for 2 scooters:
+# - Scooter 1: IMEI 869123456789012 (last 4 digits: 9012)
+# - Scooter 2: IMEI 869987654321098 (last 4 digits: 1098)
+#
+# Copy this file to your Home Assistant configuration and replace
+# the example IMEIs with your actual scooter IMEIs.
+
+# ===== SCOOTER 1 (IMEI: 869123456789012) =====
 mqtt:
   button:
-    - name: "Command ON"
-      unique_id: silence_scooter_command_on
-      command_topic: "home/silence-server/YOUR_SCOOTER_IMEI/command/TURN_ON_SCOOTER"
+    - name: "Silence Scooter Turn On 9012"
+      unique_id: silencescooter_869123456789012_turn_on
+      command_topic: "home/silence-server/869123456789012/command/TURN_ON_SCOOTER"
       device:
-        identifiers: "Silence Scooter"
+        identifiers: ["869123456789012"]
+        name: "Silence Scooter (9012)"
         manufacturer: "Seat"
-        model: "Mo"
+        model: "Silence S01"
 
-    - name: "Command OFF"
-      unique_id: silence_scooter_command_off
-      command_topic: "home/silence-server/YOUR_SCOOTER_IMEI/command/TURN_OFF_SCOOTER"
+    - name: "Silence Scooter Turn Off 9012"
+      unique_id: silencescooter_869123456789012_turn_off
+      command_topic: "home/silence-server/869123456789012/command/TURN_OFF_SCOOTER"
       device:
-        identifiers: "Silence Scooter"
+        identifiers: ["869123456789012"]
 
-    - name: "Command FLASH"
-      unique_id: silence_scooter_command_flash
-      command_topic: "home/silence-server/YOUR_SCOOTER_IMEI/command/FLASH"
+    - name: "Silence Scooter Flash 9012"
+      unique_id: silencescooter_869123456789012_flash
+      command_topic: "home/silence-server/869123456789012/command/FLASH"
       device:
-        identifiers: "Silence Scooter"
+        identifiers: ["869123456789012"]
 
-    - name: "Command BEEP_FLASH"
-      unique_id: silence_scooter_command_beep_flash
-      command_topic: "home/silence-server/YOUR_SCOOTER_IMEI/command/BEEP_FLASH"
+    - name: "Silence Scooter Beep Flash 9012"
+      unique_id: silencescooter_869123456789012_beep_flash
+      command_topic: "home/silence-server/869123456789012/command/BEEP_FLASH"
       device:
-        identifiers: "Silence Scooter"
+        identifiers: ["869123456789012"]
 
-    - name: "Command OPEN_SEAT"
-      unique_id: silence_scooter_command_open_seat
-      command_topic: "home/silence-server/YOUR_SCOOTER_IMEI/command/OPEN_SEAT"
+    - name: "Silence Scooter Open Seat 9012"
+      unique_id: silencescooter_869123456789012_open_seat
+      command_topic: "home/silence-server/869123456789012/command/OPEN_SEAT"
       device:
-        identifiers: "Silence Scooter"
+        identifiers: ["869123456789012"]
 
   binary_sensor:
-    - name: "Movement Alarm"
-      unique_id: silence_scooter_movement_alarm
-      state_topic: "home/silence-server/YOUR_SCOOTER_IMEI/status/movementAlarm"
+    - name: "Silence Scooter Movement Alarm 9012"
+      unique_id: silencescooter_869123456789012_movement_alarm
+      state_topic: "home/silence-server/869123456789012/status/movementAlarm"
       payload_on: "1"
       payload_off: "0"
       device:
-        identifiers: "Silence Scooter"
+        identifiers: ["869123456789012"]
 
-    - name: "Battery In"
-      unique_id: silence_scooter_battery_in
-      state_topic: "home/silence-server/YOUR_SCOOTER_IMEI/status/batteryIn"
+    - name: "Silence Scooter Battery In 9012"
+      unique_id: silencescooter_869123456789012_battery_in
+      state_topic: "home/silence-server/869123456789012/status/batteryIn"
       payload_on: "1"
       payload_off: "0"
       expire_after: 120
       device:
-        identifiers: "Silence Scooter"
+        identifiers: ["869123456789012"]
 
-    - name: "Sidestand Out"
-      unique_id: silence_scooter_sidestand_out
-      state_topic: "home/silence-server/YOUR_SCOOTER_IMEI/status/sidestandOut"
+    - name: "Silence Scooter Sidestand Out 9012"
+      unique_id: silencescooter_869123456789012_sidestand_out
+      state_topic: "home/silence-server/869123456789012/status/sidestandOut"
       payload_on: "1"
       payload_off: "0"
       device:
-        identifiers: "Silence Scooter"
-    
-    - name: "Bikefall"
-      unique_id: silence_scooter_bikefall
-      state_topic: "home/silence-server/YOUR_SCOOTER_IMEI/status/bikefall"
+        identifiers: ["869123456789012"]
+
+    - name: "Silence Scooter Bikefall 9012"
+      unique_id: silencescooter_869123456789012_bikefall
+      state_topic: "home/silence-server/869123456789012/status/bikefall"
       payload_on: "1"
       payload_off: "0"
       device:
-        identifiers: "Silence Scooter"
-    
-    - name: "Overspeed Alarm"
-      unique_id: silence_scooter_overspeed_alarm
-      state_topic: "home/silence-server/YOUR_SCOOTER_IMEI/status/overspeedAlarm"
+        identifiers: ["869123456789012"]
+
+    - name: "Silence Scooter Overspeed Alarm 9012"
+      unique_id: silencescooter_869123456789012_overspeed_alarm
+      state_topic: "home/silence-server/869123456789012/status/overspeedAlarm"
       payload_on: "1"
       payload_off: "0"
       device:
-        identifiers: "Silence Scooter"
-    
-    - name: "Motion Detected"
-      unique_id: silence_scooter_motion_detected
-      state_topic: "home/silence-server/YOUR_SCOOTER_IMEI/status/motionDetected"
+        identifiers: ["869123456789012"]
+
+    - name: "Silence Scooter Motion Detected 9012"
+      unique_id: silencescooter_869123456789012_motion_detected
+      state_topic: "home/silence-server/869123456789012/status/motionDetected"
       payload_on: "1"
       payload_off: "0"
       device:
-        identifiers: "Silence Scooter"
-    
+        identifiers: ["869123456789012"]
+
   sensor:
-    - name: "Status"
-      unique_id: silence_scooter_status
+    - name: "Silence Scooter Status 9012"
+      unique_id: silencescooter_869123456789012_status
       expire_after: 120
-      state_topic: "home/silence-server/YOUR_SCOOTER_IMEI/status/status"
+      state_topic: "home/silence-server/869123456789012/status/status"
       device:
-        identifiers: "Silence Scooter"
+        identifiers: ["869123456789012"]
 
-    - name: "Astra BatterySOC"
-      unique_id: silence_scooter_astra_battery_soc
-      state_topic: "home/silence-server/YOUR_SCOOTER_IMEI/status/astraBatterySOC"
+    - name: "Silence Scooter Astra Battery SOC 9012"
+      unique_id: silencescooter_869123456789012_astra_battery_soc
+      state_topic: "home/silence-server/869123456789012/status/astraBatterySOC"
       device_class: "battery"
       unit_of_measurement: "%"
       device:
-        identifiers: "Silence Scooter"
+        identifiers: ["869123456789012"]
 
-    - name: "Last-Update"
-      unique_id: silence_scooter_last_update
-      state_topic: "home/silence-server/YOUR_SCOOTER_IMEI/status/last-update"
+    - name: "Silence Scooter Last Update 9012"
+      unique_id: silencescooter_869123456789012_last_update
+      state_topic: "home/silence-server/869123456789012/status/last-update"
       value_template: "{{ (value | as_datetime | as_local).isoformat() }}"
       device:
-        identifiers: "Silence Scooter"
+        identifiers: ["869123456789012"]
 
-    - name: "Inverter Temperature"
-      unique_id: silence_scooter_inverter_temperature
-      state_topic: "home/silence-server/YOUR_SCOOTER_IMEI/status/inverterTemp"
+    - name: "Silence Scooter Inverter Temperature 9012"
+      unique_id: silencescooter_869123456789012_inverter_temperature
+      state_topic: "home/silence-server/869123456789012/status/inverterTemp"
       device_class: "temperature"
       unit_of_measurement: "°C"
       device:
-        identifiers: "Silence Scooter"
+        identifiers: ["869123456789012"]
 
-    - name: "Motor Temperature"
-      unique_id: silence_scooter_motor_temperature
-      state_topic: "home/silence-server/YOUR_SCOOTER_IMEI/status/motorTemp"
+    - name: "Silence Scooter Motor Temperature 9012"
+      unique_id: silencescooter_869123456789012_motor_temperature
+      state_topic: "home/silence-server/869123456789012/status/motorTemp"
       device_class: "temperature"
       unit_of_measurement: "°C"
       device:
-        identifiers: "Silence Scooter"
+        identifiers: ["869123456789012"]
 
-    - name: "Ambient Temperature"
-      unique_id: silence_scooter_ambient_temperature
-      state_topic: "home/silence-server/YOUR_SCOOTER_IMEI/status/ambientTemp"
+    - name: "Silence Scooter Ambient Temperature 9012"
+      unique_id: silencescooter_869123456789012_ambient_temperature
+      state_topic: "home/silence-server/869123456789012/status/ambientTemp"
       device_class: "temperature"
       unit_of_measurement: "°C"
       device:
-        identifiers: "Silence Scooter"
+        identifiers: ["869123456789012"]
 
-    - name: "Battery SoC"
-      unique_id: silence_scooter_battery_soc
-      state_topic: "home/silence-server/YOUR_SCOOTER_IMEI/status/SOCbatteria"
+    - name: "Silence Scooter Battery SOC 9012"
+      unique_id: silencescooter_869123456789012_battery_soc
+      state_topic: "home/silence-server/869123456789012/status/SOCbatteria"
       device_class: "battery"
       unit_of_measurement: "%"
       device:
-        identifiers: "Silence Scooter"
+        identifiers: ["869123456789012"]
 
-    - name: "Battery Volt"
-      unique_id: silence_scooter_battery_volt
+    - name: "Silence Scooter Battery Volt 9012"
+      unique_id: silencescooter_869123456789012_battery_volt
       unit_of_measurement: "V"
       device_class: "voltage"
-      state_topic: "home/silence-server/YOUR_SCOOTER_IMEI/status/VOLTbatteria"
+      state_topic: "home/silence-server/869123456789012/status/VOLTbatteria"
       device:
-        identifiers: "Silence Scooter"
+        identifiers: ["869123456789012"]
 
-    - name: "Battery Temperature Min"
-      unique_id: silence_scooter_battery_temp_min
-      state_topic: "home/silence-server/YOUR_SCOOTER_IMEI/status/BatteryTempMin"
+    - name: "Silence Scooter Battery Temp Min 9012"
+      unique_id: silencescooter_869123456789012_battery_temp_min
+      state_topic: "home/silence-server/869123456789012/status/BatteryTempMin"
       device_class: "temperature"
       unit_of_measurement: "°C"
       device:
-        identifiers: "Silence Scooter"
+        identifiers: ["869123456789012"]
 
-    - name: "Battery Temperature Max"
-      unique_id: silence_scooter_battery_temp_max
-      state_topic: "home/silence-server/YOUR_SCOOTER_IMEI/status/BatteryTempMax"
+    - name: "Silence Scooter Battery Temp Max 9012"
+      unique_id: silencescooter_869123456789012_battery_temp_max
+      state_topic: "home/silence-server/869123456789012/status/BatteryTempMax"
       device_class: "temperature"
       unit_of_measurement: "°C"
       device:
-        identifiers: "Silence Scooter"
+        identifiers: ["869123456789012"]
 
-    - name: "Battery Current"
-      unique_id: silence_scooter_battery_current
-      state_topic: "home/silence-server/YOUR_SCOOTER_IMEI/status/batteryCurrent"
+    - name: "Silence Scooter Battery Current 9012"
+      unique_id: silencescooter_869123456789012_battery_current
+      state_topic: "home/silence-server/869123456789012/status/batteryCurrent"
       unit_of_measurement: "A"
       device_class: "current"
       device:
-        identifiers: "Silence Scooter"
+        identifiers: ["869123456789012"]
 
-    - name: "Charged Energy"
-      unique_id: silence_scooter_charged_energy
-      state_topic: "home/silence-server/YOUR_SCOOTER_IMEI/status/chargedEnergy"
+    - name: "Silence Scooter Charged Energy 9012"
+      unique_id: silencescooter_869123456789012_charged_energy
+      state_topic: "home/silence-server/869123456789012/status/chargedEnergy"
       unit_of_measurement: "kWh"
       device_class: "energy"
       device:
-        identifiers: "Silence Scooter"
+        identifiers: ["869123456789012"]
 
-    - name: "Regenerated Energy"
-      unique_id: silence_scooter_regenerated_energy
-      state_topic: "home/silence-server/YOUR_SCOOTER_IMEI/status/RegeneratedEnergy"
+    - name: "Silence Scooter Regenerated Energy 9012"
+      unique_id: silencescooter_869123456789012_regenerated_energy
+      state_topic: "home/silence-server/869123456789012/status/RegeneratedEnergy"
       unit_of_measurement: "kWh"
-      device_class: energy
-      state_class: total_increasing
+      device_class: "energy"
+      state_class: "total_increasing"
       device:
-        identifiers: "Silence Scooter"
+        identifiers: ["869123456789012"]
 
-    - name: "Discharged Energy"
-      unique_id: silence_scooter_discharged_energy
-      state_topic: "home/silence-server/YOUR_SCOOTER_IMEI/status/DischargedEnergy"
+    - name: "Silence Scooter Discharged Energy 9012"
+      unique_id: silencescooter_869123456789012_discharged_energy
+      state_topic: "home/silence-server/869123456789012/status/DischargedEnergy"
       unit_of_measurement: "kWh"
-      device_class: energy
-      state_class: total_increasing
+      device_class: "energy"
+      state_class: "total_increasing"
       device:
-        identifiers: "Silence Scooter"
+        identifiers: ["869123456789012"]
 
-    - name: "ODO"
-      unique_id: silence_odo
-      state_topic: "home/silence-server/YOUR_SCOOTER_IMEI/status/odo"
+    - name: "Silence Scooter ODO 9012"
+      unique_id: silencescooter_869123456789012_odo
+      state_topic: "home/silence-server/869123456789012/status/odo"
       unit_of_measurement: "km"
       device:
-        identifiers: "Silence Scooter"
+        identifiers: ["869123456789012"]
 
-    - name: "VIN"
-      unique_id: silence_vin
-      state_topic: "home/silence-server/YOUR_SCOOTER_IMEI/status/VIN"
+    - name: "Silence Scooter VIN 9012"
+      unique_id: silencescooter_869123456789012_vin
+      state_topic: "home/silence-server/869123456789012/status/VIN"
       device:
-        identifiers: "Silence Scooter"
+        identifiers: ["869123456789012"]
 
-    - name: "Cell1 Voltage"
-      state_topic: "home/silence-server/YOUR_SCOOTER_IMEI/status/Cell1Voltage"
-      unit_of_measurement: "V"
-      value_template: "{{ (value | float / 1000) | round(3)}}"
-      device_class: "voltage"
-      unique_id: silence_scooter_battery_cell1
-      device:
-        identifiers: "Silence Scooter"
-
-    - name: "Cell2 Voltage"
-      state_topic: "home/silence-server/YOUR_SCOOTER_IMEI/status/Cell2Voltage"
-      unit_of_measurement: "V"
-      value_template: "{{ (value | float / 1000) | round(3)}}"
-      device_class: "voltage"
-      unique_id: silence_scooter_battery_cell2
-      device:
-        identifiers: "Silence Scooter"
-
-    - name: "Cell3 Voltage"
-      state_topic: "home/silence-server/YOUR_SCOOTER_IMEI/status/Cell3Voltage"
-      unit_of_measurement: "V"
-      value_template: "{{ (value | float / 1000) | round(3)}}"
-      device_class: "voltage"
-      unique_id: silence_scooter_battery_cell3
-      device:
-        identifiers: "Silence Scooter"
-
-    - name: "Cell4 Voltage"
-      state_topic: "home/silence-server/YOUR_SCOOTER_IMEI/status/Cell4Voltage"
-      unit_of_measurement: "V"
-      value_template: "{{ (value | float / 1000) | round(3)}}"
-      device_class: "voltage"
-      unique_id: silence_scooter_battery_cell4
-      device:
-        identifiers: "Silence Scooter"
-
-    - name: "Cell5 Voltage"
-      state_topic: "home/silence-server/YOUR_SCOOTER_IMEI/status/Cell5Voltage"
-      unit_of_measurement: "V"
-      value_template: "{{ (value | float / 1000) | round(3)}}"
-      device_class: "voltage"
-      unique_id: silence_scooter_battery_cell5
-      device:
-        identifiers: "Silence Scooter"
-
-    - name: "Cell6 Voltage"
-      state_topic: "home/silence-server/YOUR_SCOOTER_IMEI/status/Cell6Voltage"
-      unit_of_measurement: "V"
-      value_template: "{{ (value | float / 1000) | round(3)}}"
-      device_class: "voltage"
-      unique_id: silence_scooter_battery_cell6
-      device:
-        identifiers: "Silence Scooter"
-
-    - name: "Cell7 Voltage"
-      state_topic: "home/silence-server/YOUR_SCOOTER_IMEI/status/Cell7Voltage"
-      unit_of_measurement: "V"
-      value_template: "{{ (value | float / 1000) | round(3)}}"
-      device_class: "voltage"
-      unique_id: silence_scooter_battery_cell7
-      device:
-        identifiers: "Silence Scooter"
-
-    - name: "Cell8 Voltage"
-      state_topic: "home/silence-server/YOUR_SCOOTER_IMEI/status/Cell8Voltage"
-      unit_of_measurement: "V"
-      value_template: "{{ (value | float / 1000) | round(3)}}"
-      device_class: "voltage"
-      unique_id: silence_scooter_battery_cell8
-      device:
-        identifiers: "Silence Scooter"
-
-    - name: "Cell9 Voltage"
-      state_topic: "home/silence-server/YOUR_SCOOTER_IMEI/status/Cell9Voltage"
-      unit_of_measurement: "V"
-      value_template: "{{ (value | float / 1000) | round(3)}}"
-      device_class: "voltage"
-      unique_id: silence_scooter_battery_cell9
-      device:
-        identifiers: "Silence Scooter"
-
-    - name: "Cell10 Voltage"
-      state_topic: "home/silence-server/YOUR_SCOOTER_IMEI/status/Cell10Voltage"
-      unit_of_measurement: "V"
-      value_template: "{{ (value | float / 1000) | round(3)}}"
-      device_class: "voltage"
-      unique_id: silence_scooter_battery_cell10
-      device:
-        identifiers: "Silence Scooter"
-
-    - name: "Cell11 Voltage"
-      state_topic: "home/silence-server/YOUR_SCOOTER_IMEI/status/Cell11Voltage"
-      unit_of_measurement: "V"
-      value_template: "{{ (value | float / 1000) | round(3)}}"
-      device_class: "voltage"
-      unique_id: silence_scooter_battery_cell11
-      device:
-        identifiers: "Silence Scooter"
-
-    - name: "Cell12 Voltage"
-      state_topic: "home/silence-server/YOUR_SCOOTER_IMEI/status/Cell12Voltage"
-      unit_of_measurement: "V"
-      value_template: "{{ (value | float / 1000) | round(3)}}"
-      device_class: "voltage"
-      unique_id: silence_scooter_battery_cell12
-      device:
-        identifiers: "Silence Scooter"
-
-    - name: "Cell13 Voltage"
-      state_topic: "home/silence-server/YOUR_SCOOTER_IMEI/status/Cell13Voltage"
-      unit_of_measurement: "V"
-      value_template: "{{ (value | float / 1000) | round(3)}}"
-      device_class: "voltage"
-      unique_id: silence_scooter_battery_cell13
-      device:
-        identifiers: "Silence Scooter"
-
-    - name: "Cell14 Voltage"
-      state_topic: "home/silence-server/YOUR_SCOOTER_IMEI/status/Cell14Voltage"
-      unit_of_measurement: "V"
-      value_template: "{{ (value | float / 1000) | round(3)}}"
-      device_class: "voltage"
-      unique_id: silence_scooter_battery_cell14
-      device:
-        identifiers: "Silence Scooter"
-
-    - name: "Speed"
-      state_topic: "home/silence-server/YOUR_SCOOTER_IMEI/status/speed"
+    - name: "Silence Scooter Speed 9012"
+      unique_id: silencescooter_869123456789012_speed
+      state_topic: "home/silence-server/869123456789012/status/speed"
       device_class: "speed"
       unit_of_measurement: "km/h"
-      unique_id: silence_scooter_speed
       device:
-        identifiers: "Silence Scooter"
+        identifiers: ["869123456789012"]
 
-    - name: "Range"
-      state_topic: "home/silence-server/YOUR_SCOOTER_IMEI/status/range"
+    - name: "Silence Scooter Range 9012"
+      unique_id: silencescooter_869123456789012_range
+      state_topic: "home/silence-server/869123456789012/status/range"
       device_class: "distance"
       unit_of_measurement: "km"
-      unique_id: silence_scooter_range
       device:
-        identifiers: "Silence Scooter"
+        identifiers: ["869123456789012"]
 
-    - name: "Latitude"
-      state_topic: "home/silence-server/YOUR_SCOOTER_IMEI/status/latitude"
+    - name: "Silence Scooter Latitude 9012"
+      unique_id: silencescooter_869123456789012_latitude
+      state_topic: "home/silence-server/869123456789012/status/latitude"
       unit_of_measurement: "°"
-      unique_id: silence_scooter_latitude
       device:
-        identifiers: "Silence Scooter"
+        identifiers: ["869123456789012"]
 
-    - name: "Longitude"
-      state_topic: "home/silence-server/YOUR_SCOOTER_IMEI/status/longitude"
+    - name: "Silence Scooter Longitude 9012"
+      unique_id: silencescooter_869123456789012_longitude
+      state_topic: "home/silence-server/869123456789012/status/longitude"
       unit_of_measurement: "°"
-      unique_id: silence_scooter_longitude
       device:
-        identifiers: "Silence Scooter"
+        identifiers: ["869123456789012"]
 
-automation:
-  - alias: Update Silence Scooter Device Tracker Position
-    trigger:
-      platform: state
-      entity_id:
-        - sensor.silence_scooter_silence_latitude
-        - sensor.silence_scooter_silence_longitude
-        - sensor.silence_scooter_battery_soc
-    action:
-      service: device_tracker.see
-      data:
-        dev_id: silence_scooter
-        gps:
-          - "{{ states('sensor.silence_scooter_silence_latitude') | float(0) }}"
-          - "{{ states('sensor.silence_scooter_silence_longitude') | float(0) }}"
-        battery: "{{ states('sensor.silence_scooter_device_battery_soc') | int(0) }}"
+    # Battery cell voltages (14 cells)
+    - name: "Silence Scooter Cell 1 Voltage 9012"
+      unique_id: silencescooter_869123456789012_cell1_voltage
+      state_topic: "home/silence-server/869123456789012/status/Cell1Voltage"
+      unit_of_measurement: "V"
+      value_template: "{{ (value | float / 1000) | round(3) }}"
+      device_class: "voltage"
+      device:
+        identifiers: ["869123456789012"]
+
+    - name: "Silence Scooter Cell 2 Voltage 9012"
+      unique_id: silencescooter_869123456789012_cell2_voltage
+      state_topic: "home/silence-server/869123456789012/status/Cell2Voltage"
+      unit_of_measurement: "V"
+      value_template: "{{ (value | float / 1000) | round(3) }}"
+      device_class: "voltage"
+      device:
+        identifiers: ["869123456789012"]
+
+    - name: "Silence Scooter Cell 3 Voltage 9012"
+      unique_id: silencescooter_869123456789012_cell3_voltage
+      state_topic: "home/silence-server/869123456789012/status/Cell3Voltage"
+      unit_of_measurement: "V"
+      value_template: "{{ (value | float / 1000) | round(3) }}"
+      device_class: "voltage"
+      device:
+        identifiers: ["869123456789012"]
+
+    - name: "Silence Scooter Cell 4 Voltage 9012"
+      unique_id: silencescooter_869123456789012_cell4_voltage
+      state_topic: "home/silence-server/869123456789012/status/Cell4Voltage"
+      unit_of_measurement: "V"
+      value_template: "{{ (value | float / 1000) | round(3) }}"
+      device_class: "voltage"
+      device:
+        identifiers: ["869123456789012"]
+
+    - name: "Silence Scooter Cell 5 Voltage 9012"
+      unique_id: silencescooter_869123456789012_cell5_voltage
+      state_topic: "home/silence-server/869123456789012/status/Cell5Voltage"
+      unit_of_measurement: "V"
+      value_template: "{{ (value | float / 1000) | round(3) }}"
+      device_class: "voltage"
+      device:
+        identifiers: ["869123456789012"]
+
+    - name: "Silence Scooter Cell 6 Voltage 9012"
+      unique_id: silencescooter_869123456789012_cell6_voltage
+      state_topic: "home/silence-server/869123456789012/status/Cell6Voltage"
+      unit_of_measurement: "V"
+      value_template: "{{ (value | float / 1000) | round(3) }}"
+      device_class: "voltage"
+      device:
+        identifiers: ["869123456789012"]
+
+    - name: "Silence Scooter Cell 7 Voltage 9012"
+      unique_id: silencescooter_869123456789012_cell7_voltage
+      state_topic: "home/silence-server/869123456789012/status/Cell7Voltage"
+      unit_of_measurement: "V"
+      value_template: "{{ (value | float / 1000) | round(3) }}"
+      device_class: "voltage"
+      device:
+        identifiers: ["869123456789012"]
+
+    - name: "Silence Scooter Cell 8 Voltage 9012"
+      unique_id: silencescooter_869123456789012_cell8_voltage
+      state_topic: "home/silence-server/869123456789012/status/Cell8Voltage"
+      unit_of_measurement: "V"
+      value_template: "{{ (value | float / 1000) | round(3) }}"
+      device_class: "voltage"
+      device:
+        identifiers: ["869123456789012"]
+
+    - name: "Silence Scooter Cell 9 Voltage 9012"
+      unique_id: silencescooter_869123456789012_cell9_voltage
+      state_topic: "home/silence-server/869123456789012/status/Cell9Voltage"
+      unit_of_measurement: "V"
+      value_template: "{{ (value | float / 1000) | round(3) }}"
+      device_class: "voltage"
+      device:
+        identifiers: ["869123456789012"]
+
+    - name: "Silence Scooter Cell 10 Voltage 9012"
+      unique_id: silencescooter_869123456789012_cell10_voltage
+      state_topic: "home/silence-server/869123456789012/status/Cell10Voltage"
+      unit_of_measurement: "V"
+      value_template: "{{ (value | float / 1000) | round(3) }}"
+      device_class: "voltage"
+      device:
+        identifiers: ["869123456789012"]
+
+    - name: "Silence Scooter Cell 11 Voltage 9012"
+      unique_id: silencescooter_869123456789012_cell11_voltage
+      state_topic: "home/silence-server/869123456789012/status/Cell11Voltage"
+      unit_of_measurement: "V"
+      value_template: "{{ (value | float / 1000) | round(3) }}"
+      device_class: "voltage"
+      device:
+        identifiers: ["869123456789012"]
+
+    - name: "Silence Scooter Cell 12 Voltage 9012"
+      unique_id: silencescooter_869123456789012_cell12_voltage
+      state_topic: "home/silence-server/869123456789012/status/Cell12Voltage"
+      unit_of_measurement: "V"
+      value_template: "{{ (value | float / 1000) | round(3) }}"
+      device_class: "voltage"
+      device:
+        identifiers: ["869123456789012"]
+
+    - name: "Silence Scooter Cell 13 Voltage 9012"
+      unique_id: silencescooter_869123456789012_cell13_voltage
+      state_topic: "home/silence-server/869123456789012/status/Cell13Voltage"
+      unit_of_measurement: "V"
+      value_template: "{{ (value | float / 1000) | round(3) }}"
+      device_class: "voltage"
+      device:
+        identifiers: ["869123456789012"]
+
+    - name: "Silence Scooter Cell 14 Voltage 9012"
+      unique_id: silencescooter_869123456789012_cell14_voltage
+      state_topic: "home/silence-server/869123456789012/status/Cell14Voltage"
+      unit_of_measurement: "V"
+      value_template: "{{ (value | float / 1000) | round(3) }}"
+      device_class: "voltage"
+      device:
+        identifiers: ["869123456789012"]
+
+# ===== SCOOTER 2 (IMEI: 869987654321098) =====
+# Repeat the same pattern for the second scooter with different IMEI
+
+  button:
+    - name: "Silence Scooter Turn On 1098"
+      unique_id: silencescooter_869987654321098_turn_on
+      command_topic: "home/silence-server/869987654321098/command/TURN_ON_SCOOTER"
+      device:
+        identifiers: ["869987654321098"]
+        name: "Silence Scooter (1098)"
+        manufacturer: "Seat"
+        model: "Silence S01"
+
+    - name: "Silence Scooter Turn Off 1098"
+      unique_id: silencescooter_869987654321098_turn_off
+      command_topic: "home/silence-server/869987654321098/command/TURN_OFF_SCOOTER"
+      device:
+        identifiers: ["869987654321098"]
+
+    - name: "Silence Scooter Flash 1098"
+      unique_id: silencescooter_869987654321098_flash
+      command_topic: "home/silence-server/869987654321098/command/FLASH"
+      device:
+        identifiers: ["869987654321098"]
+
+    - name: "Silence Scooter Beep Flash 1098"
+      unique_id: silencescooter_869987654321098_beep_flash
+      command_topic: "home/silence-server/869987654321098/command/BEEP_FLASH"
+      device:
+        identifiers: ["869987654321098"]
+
+    - name: "Silence Scooter Open Seat 1098"
+      unique_id: silencescooter_869987654321098_open_seat
+      command_topic: "home/silence-server/869987654321098/command/OPEN_SEAT"
+      device:
+        identifiers: ["869987654321098"]
+
+  binary_sensor:
+    - name: "Silence Scooter Movement Alarm 1098"
+      unique_id: silencescooter_869987654321098_movement_alarm
+      state_topic: "home/silence-server/869987654321098/status/movementAlarm"
+      payload_on: "1"
+      payload_off: "0"
+      device:
+        identifiers: ["869987654321098"]
+
+    - name: "Silence Scooter Battery In 1098"
+      unique_id: silencescooter_869987654321098_battery_in
+      state_topic: "home/silence-server/869987654321098/status/batteryIn"
+      payload_on: "1"
+      payload_off: "0"
+      expire_after: 120
+      device:
+        identifiers: ["869987654321098"]
+
+    - name: "Silence Scooter Sidestand Out 1098"
+      unique_id: silencescooter_869987654321098_sidestand_out
+      state_topic: "home/silence-server/869987654321098/status/sidestandOut"
+      payload_on: "1"
+      payload_off: "0"
+      device:
+        identifiers: ["869987654321098"]
+
+    - name: "Silence Scooter Bikefall 1098"
+      unique_id: silencescooter_869987654321098_bikefall
+      state_topic: "home/silence-server/869987654321098/status/bikefall"
+      payload_on: "1"
+      payload_off: "0"
+      device:
+        identifiers: ["869987654321098"]
+
+    - name: "Silence Scooter Overspeed Alarm 1098"
+      unique_id: silencescooter_869987654321098_overspeed_alarm
+      state_topic: "home/silence-server/869987654321098/status/overspeedAlarm"
+      payload_on: "1"
+      payload_off: "0"
+      device:
+        identifiers: ["869987654321098"]
+
+    - name: "Silence Scooter Motion Detected 1098"
+      unique_id: silencescooter_869987654321098_motion_detected
+      state_topic: "home/silence-server/869987654321098/status/motionDetected"
+      payload_on: "1"
+      payload_off: "0"
+      device:
+        identifiers: ["869987654321098"]
+
+  sensor:
+    - name: "Silence Scooter Status 1098"
+      unique_id: silencescooter_869987654321098_status
+      expire_after: 120
+      state_topic: "home/silence-server/869987654321098/status/status"
+      device:
+        identifiers: ["869987654321098"]
+
+    - name: "Silence Scooter Battery SOC 1098"
+      unique_id: silencescooter_869987654321098_battery_soc
+      state_topic: "home/silence-server/869987654321098/status/SOCbatteria"
+      device_class: "battery"
+      unit_of_measurement: "%"
+      device:
+        identifiers: ["869987654321098"]
+
+    - name: "Silence Scooter Speed 1098"
+      unique_id: silencescooter_869987654321098_speed
+      state_topic: "home/silence-server/869987654321098/status/speed"
+      device_class: "speed"
+      unit_of_measurement: "km/h"
+      device:
+        identifiers: ["869987654321098"]
+
+    - name: "Silence Scooter ODO 1098"
+      unique_id: silencescooter_869987654321098_odo
+      state_topic: "home/silence-server/869987654321098/status/odo"
+      unit_of_measurement: "km"
+      device:
+        identifiers: ["869987654321098"]
+
+    - name: "Silence Scooter Latitude 1098"
+      unique_id: silencescooter_869987654321098_latitude
+      state_topic: "home/silence-server/869987654321098/status/latitude"
+      unit_of_measurement: "°"
+      device:
+        identifiers: ["869987654321098"]
+
+    - name: "Silence Scooter Longitude 1098"
+      unique_id: silencescooter_869987654321098_longitude
+      state_topic: "home/silence-server/869987654321098/status/longitude"
+      unit_of_measurement: "°"
+      device:
+        identifiers: ["869987654321098"]
+
+    # Add additional sensors as needed (follow same pattern as Scooter 1)
+
+# ==========================================
+# NOTES
+# ==========================================
+#
+# 1. Device Identifiers:
+#    - Must match the IMEI you entered in the integration config
+#    - Used by Home Assistant to group entities under the same device
+#
+# 2. Unique IDs:
+#    - Must be unique across all MQTT entities
+#    - Format: silencescooter_{IMEI}_{sensor_name}
+#
+# 3. MQTT Topics:
+#    - Published by Silence Private Server
+#    - Format: home/silence-server/{IMEI}/status/{metric}
+#
+# 4. For additional scooters:
+#    - Copy the entire button/binary_sensor/sensor block
+#    - Replace IMEI and last 4 digits throughout
+#    - Ensure all unique_ids are updated
+#
+# 5. MQTT Discovery (v2.0+):
+#    - This manual config is NOT needed if MQTT Discovery works
+#    - Integration automatically publishes discovery configs
+#    - Only use manual config if discovery fails

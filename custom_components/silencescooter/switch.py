@@ -7,7 +7,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.restore_state import RestoreEntity
 
-from .const import DOMAIN
+from .const import DOMAIN, CONF_IMEI
 from .definitions import INPUT_BOOLEANS
 from .helpers import get_device_info
 
@@ -19,21 +19,40 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback
 ):
     """Set up the custom Switch entities (ex-input_boolean) for Silence Scooter."""
+    from homeassistant.exceptions import ConfigEntryNotReady
+
+    # Get IMEI from config entry
+    imei = entry.data.get(CONF_IMEI)
+    if not imei:
+        raise ConfigEntryNotReady("IMEI not configured")
+
     entities = []
     for bool_id, config in INPUT_BOOLEANS.items():
-        entities.append(ScooterSwitchEntity(bool_id, config))
+        entities.append(ScooterSwitchEntity(bool_id, config, imei))
     async_add_entities(entities)
 
 
 class ScooterSwitchEntity(SwitchEntity, RestoreEntity):
     """A SwitchEntity to replace the old input_boolean usage."""
 
-    def __init__(self, bool_id: str, config: dict):
+    def __init__(self, bool_id: str, config: dict, imei: str):
         self._bool_id = bool_id
-        self._attr_unique_id = f"{DOMAIN}_{bool_id}"
-        self._attr_name = config["name"]
+        self._config = config
+        self._imei = imei
+
+        # CRITICAL: Use full IMEI for unique_id
+        self._attr_unique_id = f"{bool_id}_{imei}"
+
+        # Display name with last 4 digits
+        imei_short = imei[-4:] if len(imei) >= 4 else imei
+        self._attr_name = f"{config['name']} ({imei_short})"
+
+        # DO NOT set self.entity_id - let HA generate it
+
         self._icon = config.get("icon", "mdi:toggle-switch")
-        self._attr_device_info = get_device_info()
+
+        # Device info with IMEI
+        self._attr_device_info = get_device_info(imei)
 
         # Etat interne initial
         self._is_on = False
