@@ -8,6 +8,7 @@
           "imei": "IMEI (14-15 chiffres)",
           "tariff_sensor": "Sensor de tarif électrique (€/kWh)",
           "use_tracked_distance": "Utiliser les compteurs manuels (réinitialisables après modif scooter)",
+          "multi_device": "Configuration multi-scooters (ajoute l'IMEI aux noms des entités)",
           "confirmation_delay": "Délai de confirmation d'arrêt (secondes)",
           "pause_max_duration": "Durée maximale d'une pause (minutes)",
           "watchdog_delay": "Délai watchdog hors-ligne (minutes)"
@@ -15,6 +16,7 @@
         "data_description": {
           "tariff_sensor": "Sélectionnez votre sensor de tarif dynamique (ou laissez sensor.tarif_base_ttc pour utiliser celui par défaut)",
           "use_tracked_distance": "✅ Activé : Statistiques basées sur compteurs manuels (réinitialisables après prépa/modif scooter)\n❌ Désactivé : Statistiques basées sur l'odomètre global (ODO) et compteurs MQTT énergie",
+          "multi_device": "Cochez si vous avez ou prévoyez d'avoir plusieurs scooters. Les entités seront nommées 'sensor.silence_scooter_9012_speed' au lieu de 'sensor.silence_scooter_speed' pour un meilleur regroupement.",
           "confirmation_delay": "Filtre les oscillations capteurs et micro-coupures réseau avant de considérer le scooter arrêté (recommandé: 120s, augmentez en zone faible)",
           "pause_max_duration": "Temps max avec scooter ÉTEINT avant fin de trajet. Course rapide < 5min = pause, > 5min = fin",
           "watchdog_delay": "Si aucune communication pendant cette durée, le trajet s'arrête (ex: garage sans réseau)"
@@ -53,6 +55,7 @@
         "data": {
           "tariff_sensor": "Sensor de tarif électrique (€/kWh)",
           "use_tracked_distance": "Utiliser les compteurs manuels (réinitialisables après modif scooter)",
+          "multi_device": "Configuration multi-scooters (ajoute l'IMEI aux noms des entités)",
           "confirmation_delay": "Délai de confirmation d'arrêt (secondes)",
           "pause_max_duration": "Durée maximale d'une pause (minutes)",
           "watchdog_delay": "Délai watchdog hors-ligne (minutes)"
@@ -60,6 +63,7 @@
         "data_description": {
           "tariff_sensor": "Sélectionnez votre sensor de tarif dynamique (ou laissez sensor.tarif_base_ttc pour utiliser celui par défaut)",
           "use_tracked_distance": "✅ Activé : Statistiques basées sur compteurs manuels (réinitialisables après prépa/modif scooter)\n❌ Désactivé : Statistiques basées sur l'odomètre global (ODO) et compteurs MQTT énergie",
+          "multi_device": "Cochez si vous avez ou prévoyez d'avoir plusieurs scooters. Les entités seront nommées 'sensor.silence_scooter_9012_speed' au lieu de 'sensor.silence_scooter_speed' pour un meilleur regroupement.",
           "confirmation_delay": "Filtre les oscillations capteurs et micro-coupures réseau avant de considérer le scooter arrêté (recommandé: 120s, augmentez en zone faible)",
           "pause_max_duration": "Temps max avec scooter ÉTEINT avant fin de trajet. Course rapide < 5min = pause, > 5min = fin",
           "watchdog_delay": "Si aucune communication pendant cette durée, le trajet s'arrête (ex: garage sans réseau)"

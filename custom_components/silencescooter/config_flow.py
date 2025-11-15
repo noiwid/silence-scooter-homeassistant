@@ -20,6 +20,7 @@ from .const import (
     CONF_USE_TRACKED_DISTANCE,
     CONF_OUTDOOR_TEMP_SOURCE,
     CONF_OUTDOOR_TEMP_ENTITY,
+    CONF_MULTI_DEVICE,
     DEFAULT_TARIFF_SENSOR,
     DEFAULT_CONFIRMATION_DELAY,
     DEFAULT_PAUSE_MAX_DURATION,
@@ -27,6 +28,7 @@ from .const import (
     DEFAULT_USE_TRACKED_DISTANCE,
     DEFAULT_OUTDOOR_TEMP_SOURCE,
     DEFAULT_OUTDOOR_TEMP_ENTITY,
+    DEFAULT_MULTI_DEVICE,
     OUTDOOR_TEMP_SOURCE_SCOOTER,
     OUTDOOR_TEMP_SOURCE_EXTERNAL,
 )
@@ -234,6 +236,10 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 default=DEFAULT_USE_TRACKED_DISTANCE,
             ): selector.BooleanSelector(),
             vol.Optional(
+                CONF_MULTI_DEVICE,
+                default=DEFAULT_MULTI_DEVICE,
+            ): selector.BooleanSelector(),
+            vol.Optional(
                 CONF_CONFIRMATION_DELAY,
                 default=DEFAULT_CONFIRMATION_DELAY,
             ): vol.All(vol.Coerce(int), vol.Range(min=30, max=600)),
@@ -396,6 +402,10 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
             vol.Optional(
                 CONF_USE_TRACKED_DISTANCE,
                 default=current_data.get(CONF_USE_TRACKED_DISTANCE, DEFAULT_USE_TRACKED_DISTANCE),
+            ): selector.BooleanSelector(),
+            vol.Optional(
+                CONF_MULTI_DEVICE,
+                default=current_data.get(CONF_MULTI_DEVICE, DEFAULT_MULTI_DEVICE),
             ): selector.BooleanSelector(),
             vol.Optional(
                 CONF_CONFIRMATION_DELAY,

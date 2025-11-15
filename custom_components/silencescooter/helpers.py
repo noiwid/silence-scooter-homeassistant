@@ -12,24 +12,80 @@ from .const import DOMAIN, HISTORY_SCRIPT, LOG_FILE
 _LOGGER = logging.getLogger(__name__)
 
 
-def get_device_info(imei: str) -> DeviceInfo:
+def get_device_info(imei: str, multi_device: bool = False) -> DeviceInfo:
     """Return device info for Silence Scooter with IMEI.
 
     Args:
         imei: The IMEI of the scooter
+        multi_device: Whether to include IMEI in device name
 
     Returns:
         DeviceInfo with IMEI-based identifiers
     """
-    # Use last 4 digits for display name
-    imei_short = imei[-4:] if len(imei) >= 4 else imei
+    if multi_device:
+        # Use last 4 digits for display name
+        imei_short = imei[-4:] if len(imei) >= 4 else imei
+        name = f"Silence Scooter ({imei_short})"
+    else:
+        name = "Silence Scooter"
 
     return DeviceInfo(
         identifiers={(DOMAIN, imei)},  # Use full IMEI for unique identification
-        name=f"Silence Scooter ({imei_short})",
+        name=name,
         manufacturer="Seat",
         model="Mo",
     )
+
+
+def generate_entity_id_suffix(imei: str, multi_device: bool) -> str:
+    """Generate entity ID suffix based on multi-device setting.
+
+    Returns empty string if single-device mode.
+    Returns _9012 (last 4 IMEI digits) if multi-device mode.
+
+    Args:
+        imei: Full IMEI (15 digits)
+        multi_device: Whether to add IMEI suffix
+
+    Returns:
+        Empty string or _XXXX suffix
+    """
+    if not multi_device:
+        return ""
+
+    imei_short = imei[-4:] if len(imei) >= 4 else imei
+    return f"_{imei_short}"
+
+
+def insert_imei_in_entity_id(entity_id: str, imei: str, multi_device: bool) -> str:
+    """Insert IMEI suffix BEFORE the last element of entity_id.
+
+    Examples:
+        silence_scooter_speed + 9012 → silence_scooter_9012_speed
+        silence_scooter_battery_soc + 9012 → silence_scooter_9012_battery_soc
+        scooter_tracked_distance + 9012 → scooter_9012_tracked_distance
+
+    Args:
+        entity_id: Base entity ID (e.g., "silence_scooter_speed")
+        imei: Full IMEI (15 digits)
+        multi_device: Whether to add IMEI suffix
+
+    Returns:
+        Modified entity ID with IMEI before last element (or unchanged if multi_device=False)
+    """
+    if not multi_device:
+        return entity_id
+
+    suffix = generate_entity_id_suffix(imei, multi_device)
+
+    # Split on last underscore to insert IMEI before element name
+    parts = entity_id.rsplit('_', 1)
+    if len(parts) == 2:
+        base, element = parts
+        return f"{base}{suffix}_{element}"
+    else:
+        # No underscore found, append at end
+        return f"{entity_id}{suffix}"
 
 
 
