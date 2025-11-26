@@ -462,7 +462,7 @@ automation:
 
 ## 🙏 Credits
 
-- **[Lorenzo Deluca](https://github.com/lorenzo-deluca/)** - Silence Private Server
+- **[Lorenzo De Luca](https://github.com/lorenzo-deluca/)** - Silence Private Server
 - **[Andrea Gasparini](https://github.com/)** - Original Silence Private Server development
 - Silence/Seat Scooter Community
 
