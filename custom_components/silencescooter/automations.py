@@ -29,6 +29,7 @@ from .const import (
 )
 from homeassistant.util import dt as dt_util
 from .helpers import log_event, update_history
+from .errors import ErrorCategory, ErrorSeverity, get_error_detector
 
 STARTUP_TIME = datetime.utcnow()
 
@@ -1026,6 +1027,14 @@ async def async_setup_automations(hass: HomeAssistant) -> bool:
                     
                     # Vérifier qu'on n'a pas déjà une tâche d'arrêt en cours
                     if "trip_off_delay" not in scheduled_tasks:
+                        detector = get_error_detector(hass)
+                        if detector:
+                            detector.record_error(
+                                ErrorCategory.MQTT_DISCONNECT,
+                                ErrorSeverity.WARNING,
+                                f"Watchdog: no scooter update for >{watchdog_delay_min}min, stopping trip",
+                                source="watchdog",
+                            )
                         await do_log_event(hass, "Watchdog: Auto stop trip (no update)")
                         await do_stop_trip(hass, reason="watchdog-no-update")
             except Exception as e:
@@ -1190,6 +1199,14 @@ async def do_stop_trip(hass: HomeAssistant, reason: str = "Manual stop"):
 
     except Exception as e:
         _LOGGER.error("Error in do_stop_trip: %s", e, exc_info=True)
+        detector = get_error_detector(hass)
+        if detector:
+            detector.record_error(
+                ErrorCategory.AUTOMATION_ERROR,
+                ErrorSeverity.ERROR,
+                f"do_stop_trip failed: {e}",
+                source="do_stop_trip",
+            )
 
 async def do_update_trips_history(hass: HomeAssistant):
     """Update trip history with validation."""
@@ -1224,6 +1241,17 @@ async def do_update_trips_history(hass: HomeAssistant):
         # If max speed is 0 but average speed is high, sensors were not working
         if max_val == 0 and avg_val > 10:
             validation_errors.append(f"Max speed is 0 but avg is {avg_val} km/h")
+
+        # Also run error detector trip anomaly checks
+        detector = get_error_detector(hass)
+        if detector:
+            detector.check_trip_anomaly(
+                distance=distance_val,
+                duration=duration_val,
+                avg_speed=avg_val,
+                max_speed=max_val,
+                battery_consumption=battery_consumed,
+            )
 
         if validation_errors:
             _LOGGER.error("⚠️ TRIP REJECTED - Data validation failed:")
@@ -1316,6 +1344,14 @@ async def do_update_trips_history(hass: HomeAssistant):
 
     except Exception as exc:
         _LOGGER.error("Error in do_update_trips_history: %s", exc)
+        detector = get_error_detector(hass)
+        if detector:
+            detector.record_error(
+                ErrorCategory.DATA_INTEGRITY,
+                ErrorSeverity.ERROR,
+                f"Trip history update failed: {exc}",
+                source="do_update_trips_history",
+            )
 
 
 async def setup_persistent_sensors_update(hass: HomeAssistant):
