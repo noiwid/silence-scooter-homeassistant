@@ -45,3 +45,13 @@ OUTDOOR_TEMP_SOURCE_EXTERNAL = "external"
 
 # Scooter ambient temperature sensor
 SENSOR_SCOOTER_AMBIENT_TEMP = "sensor.silence_scooter_ambient_temperature"
+
+# Key MQTT sensors monitored for connectivity health checks
+MQTT_MONITORED_SENSORS = [
+    "sensor.silence_scooter_status",
+    "sensor.silence_scooter_odo",
+    "sensor.silence_scooter_battery_soc",
+    "sensor.silence_scooter_speed",
+    "sensor.silence_scooter_discharged_energy",
+    "sensor.silence_scooter_regenerated_energy",
+]

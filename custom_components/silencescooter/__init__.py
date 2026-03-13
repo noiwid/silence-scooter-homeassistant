@@ -8,6 +8,7 @@ from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import config_validation as cv
 
 from .const import DOMAIN, PLATFORMS
+from .errors import ErrorDetector, ErrorCategory, ErrorSeverity, get_error_detector
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -23,6 +24,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         hass.data[DOMAIN]["sensors"] = {}
         hass.data[DOMAIN]["config"] = entry.data
         _LOGGER.info("Storage initialized with config: %s", entry.data)
+
+        # Initialize error detection system
+        error_detector = ErrorDetector(hass)
+        hass.data[DOMAIN]["error_detector"] = error_detector
+        await error_detector.async_setup()
+        _LOGGER.info("Error detection system initialized")
 
         # Load platforms
         await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
@@ -40,6 +47,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         except Exception as e:
             _LOGGER.error("Error setting up automations: %s", e, exc_info=True)
             _LOGGER.warning("Continuing setup without automations")
+            error_detector.record_error(
+                ErrorCategory.AUTOMATION_ERROR,
+                ErrorSeverity.ERROR,
+                f"Automations setup failed: {e}",
+                source="async_setup_entry",
+            )
 
         # Register services
         async def reset_tracked_counters(call):
@@ -146,6 +159,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 _LOGGER.info("=" * 70)
             else:
                 _LOGGER.error("No sensors were updated!")
+                detector = get_error_detector(hass)
+                if detector:
+                    detector.record_error(
+                        ErrorCategory.SERVICE_CALL,
+                        ErrorSeverity.ERROR,
+                        "restore_energy_costs: no sensors were updated",
+                        source="restore_energy_costs",
+                    )
 
         RESTORE_SCHEMA = vol.Schema({
             vol.Optional("daily", default=0.12): vol.Coerce(float),
@@ -189,6 +210,11 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 except Exception as e:
                     _LOGGER.warning("Error removing automation listener: %s", e)
             hass.data.pop("silence_automations", None)
+
+        # Clean up error detection system
+        detector = get_error_detector(hass)
+        if detector:
+            detector.cleanup()
 
         # Unload platforms
         unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
