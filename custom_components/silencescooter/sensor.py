@@ -22,12 +22,15 @@ from homeassistant.exceptions import TemplateError
 from .const import (
     DOMAIN,
     HISTORY_FILE,
+    CONF_IMEI,
     CONF_TARIFF_SENSOR,
     CONF_USE_TRACKED_DISTANCE,
+    CONF_MULTI_DEVICE,
     DEFAULT_TARIFF_SENSOR,
     DEFAULT_USE_TRACKED_DISTANCE,
+    DEFAULT_MULTI_DEVICE,
 )
-from .helpers import get_device_info
+from .helpers import get_device_info, insert_imei_in_entity_id
 from .errors import ErrorCategory, ErrorSeverity, get_error_detector
 from .definitions import (
     WRITABLE_SENSORS,
@@ -47,10 +50,20 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Set up the Silence Scooter sensor platform."""
+    from homeassistant.exceptions import ConfigEntryNotReady
+
+    # Get IMEI and multi_device from config entry
+    imei = config_entry.data.get(CONF_IMEI, "")
+    multi_device = config_entry.data.get(CONF_MULTI_DEVICE, DEFAULT_MULTI_DEVICE)
+
+    # Multi-device mode requires IMEI
+    if multi_device and not imei:
+        raise ConfigEntryNotReady("Multi-device mode requires IMEI")
+
     entities = []
 
     for sensor_id, config in WRITABLE_SENSORS.items():
-        entities.append(ScooterWritableSensor(hass, sensor_id, config))
+        entities.append(ScooterWritableSensor(hass, sensor_id, config, imei, multi_device))
 
     configured_tariff_sensor = hass.data.get(DOMAIN, {}).get("config", {}).get(
         CONF_TARIFF_SENSOR, DEFAULT_TARIFF_SENSOR
@@ -58,7 +71,7 @@ async def async_setup_entry(
 
     # If no tariff sensor configured, create a default one
     if not configured_tariff_sensor or configured_tariff_sensor == "":
-        entities.append(ScooterDefaultTariffSensor(hass))
+        entities.append(ScooterDefaultTariffSensor(hass, imei, multi_device))
         configured_tariff_sensor = "sensor.silencescooter_default_electricity_price"
 
     use_tracked_distance = hass.data.get(DOMAIN, {}).get("config", {}).get(
@@ -79,10 +92,10 @@ async def async_setup_entry(
                     0
                 {% endif %}
             """
-        entities.append(ScooterTemplateSensor(hass, sensor_id, config_copy))
+        entities.append(ScooterTemplateSensor(hass, sensor_id, config_copy, imei, multi_device))
 
     for sensor_id, config in TRIGGER_SENSORS.items():
-        entities.append(ScooterTriggerSensor(hass, sensor_id, config))
+        entities.append(ScooterTriggerSensor(hass, sensor_id, config, imei, multi_device))
 
     for sensor_id, config in ENERGY_COST_SENSORS.items():
         config_copy = config.copy()
@@ -90,10 +103,10 @@ async def async_setup_entry(
             config_copy["value_template"] = config_copy["value_template"].replace(
                 "sensor.tarif_base_ttc", configured_tariff_sensor
             )
-        entities.append(ScooterTemplateSensor(hass, sensor_id, config_copy))
+        entities.append(ScooterTemplateSensor(hass, sensor_id, config_copy, imei, multi_device))
 
     for sensor_id, config in BATTERY_HEALTH_SENSORS.items():
-        entities.append(ScooterTemplateSensor(hass, sensor_id, config))
+        entities.append(ScooterTemplateSensor(hass, sensor_id, config, imei, multi_device))
 
     for sensor_id, config in USAGE_STATISTICS_SENSORS.items():
         config_copy = config.copy()
@@ -128,14 +141,14 @@ async def async_setup_entry(
                             0
                         {{% endif %}}
                     """
-        entities.append(ScooterTemplateSensor(hass, sensor_id, config_copy))
+        entities.append(ScooterTemplateSensor(hass, sensor_id, config_copy, imei, multi_device))
 
-    entities.append(ScooterTripsSensor(hass))
+    entities.append(ScooterTripsSensor(hass, imei, multi_device))
 
     for meter_id, config in UTILITY_METERS.items():
-        entities.append(ScooterUtilityMeterSensor(hass, meter_id, config))
+        entities.append(ScooterUtilityMeterSensor(hass, meter_id, config, imei, multi_device))
 
-    entities.append(ScooterErrorDetectionSensor(hass))
+    entities.append(ScooterErrorDetectionSensor(hass, config_entry.entry_id, imei, multi_device))
     async_add_entities(entities)
     _LOGGER.info("Initialized %d sensors (%d writable, %d template, %d trigger, %d energy cost, %d utility meters)",
                  len(entities), len(WRITABLE_SENSORS), len(TEMPLATE_SENSORS), len(TRIGGER_SENSORS),
@@ -145,17 +158,25 @@ async def async_setup_entry(
 class ScooterDefaultTariffSensor(SensorEntity):
     """Default electricity tariff sensor when none is configured."""
 
-    def __init__(self, hass: HomeAssistant) -> None:
+    def __init__(self, hass: HomeAssistant, imei: str = "", multi_device: bool = False) -> None:
         """Initialize the sensor."""
         self.hass = hass
-        self._attr_unique_id = f"{DOMAIN}_default_electricity_price"
-        self._attr_name = "Silencescooter Default Electricity Price"
-        self.entity_id = "sensor.silencescooter_default_electricity_price"
+        self._imei = imei
+        self._multi_device = multi_device
+
+        if multi_device and imei:
+            self._attr_has_entity_name = True
+            self._attr_unique_id = f"{imei}_default_electricity_price"
+            self._attr_name = "Default Electricity Price"
+        else:
+            # Legacy mode: same as v1.0.4
+            self._attr_unique_id = f"{DOMAIN}_default_electricity_price"
+            self._attr_name = "Silencescooter Default Electricity Price"
+            self.entity_id = "sensor.silencescooter_default_electricity_price"
+
         self._attr_native_unit_of_measurement = "€/kWh"
         self._attr_device_class = SensorDeviceClass.MONETARY
-        # Note: monetary device_class cannot have state_class
         self._attr_icon = "mdi:currency-eur"
-        # Default tariff sensor is internal, not shown on device page
 
     @property
     def native_value(self) -> float:
@@ -167,12 +188,25 @@ class ScooterDefaultTariffSensor(SensorEntity):
 class ScooterTemplateSensor(SensorEntity, RestoreEntity):
     """Representation of a Scooter Template sensor."""
 
-    def __init__(self, hass: HomeAssistant, sensor_id: str, config: dict) -> None:
+    def __init__(self, hass: HomeAssistant, sensor_id: str, config: dict, imei: str = "", multi_device: bool = False) -> None:
         """Initialize the sensor."""
         self.hass = hass
-        self._attr_unique_id = f"{DOMAIN}_{sensor_id}"
-        self._attr_name = sensor_id.replace("_", " ").title().replace("Scooter ", "Scooter - ")
-        self.entity_id = f"sensor.{sensor_id}"
+        self._sensor_id = sensor_id
+        self._config = config
+        self._imei = imei
+        self._multi_device = multi_device
+
+        if multi_device and imei:
+            self._attr_has_entity_name = True
+            self._attr_unique_id = f"{imei}_{sensor_id}"
+            sensor_type = sensor_id.replace("scooter_", "").replace("_", " ").title()
+            self._attr_name = sensor_type
+        else:
+            # Legacy mode: same as v1.0.4
+            self._attr_unique_id = f"{DOMAIN}_{sensor_id}"
+            self._attr_name = sensor_id.replace("_", " ").title().replace("Scooter ", "Scooter - ")
+            self.entity_id = f"sensor.{sensor_id}"
+
         self._attr_native_unit_of_measurement = config.get("unit_of_measurement")
         self._attr_device_class = config.get("device_class")
         self._attr_state_class = config.get("state_class")
@@ -182,7 +216,7 @@ class ScooterTemplateSensor(SensorEntity, RestoreEntity):
         # Hide internal sensors from device page
         internal_sensors = ["scooter_is_moving", "scooter_trip_status"]
         if sensor_id not in internal_sensors:
-            self._attr_device_info = get_device_info()
+            self._attr_device_info = get_device_info(imei, multi_device)
 
     async def async_added_to_hass(self) -> None:
         """Handle entity added to Home Assistant."""
@@ -211,7 +245,7 @@ class ScooterTemplateSensor(SensorEntity, RestoreEntity):
                     ErrorSeverity.WARNING,
                     f"Template render failed for {self._attr_name}: {err}",
                     source="ScooterTemplateSensor",
-                    entity_id=self.entity_id,
+                    entity_id=getattr(self, "entity_id", self._attr_unique_id),
                 )
 
 
@@ -223,12 +257,24 @@ class ScooterWritableSensor(SensorEntity, RestoreEntity):
     Instead, we have a single sensor that can be written to and read from.
     """
 
-    def __init__(self, hass: HomeAssistant, sensor_id: str, config: dict) -> None:
+    def __init__(self, hass: HomeAssistant, sensor_id: str, config: dict, imei: str = "", multi_device: bool = False) -> None:
         """Initialize the writable sensor."""
         self.hass = hass
-        self._attr_unique_id = f"{DOMAIN}_{sensor_id}"
-        self._attr_name = config.get("name", sensor_id.replace("_", " ").title())
-        self.entity_id = f"sensor.{sensor_id}"
+        self._sensor_id = sensor_id
+        self._config = config
+        self._imei = imei
+        self._multi_device = multi_device
+
+        if multi_device and imei:
+            self._attr_has_entity_name = True
+            self._attr_unique_id = f"{imei}_{sensor_id}"
+            self._attr_name = config.get("name", sensor_id.replace("_", " ").title())
+        else:
+            # Legacy mode: same as v1.0.4
+            self._attr_unique_id = f"{DOMAIN}_{sensor_id}"
+            self._attr_name = config.get("name", sensor_id.replace("_", " ").title())
+            self.entity_id = f"sensor.{sensor_id}"
+
         self._attr_native_unit_of_measurement = config.get("unit_of_measurement")
         self._attr_device_class = config.get("device_class")
         self._attr_state_class = config.get("state_class")
@@ -253,11 +299,9 @@ class ScooterWritableSensor(SensorEntity, RestoreEntity):
                 detector = get_error_detector(self.hass)
                 if detector:
                     detector.record_error(
-                        ErrorCategory.STATE_RESTORATION,
-                        ErrorSeverity.WARNING,
+                        ErrorCategory.STATE_RESTORATION, ErrorSeverity.WARNING,
                         f"Could not restore {self.entity_id}: {e}",
-                        source="ScooterWritableSensor",
-                        entity_id=self.entity_id,
+                        source="ScooterWritableSensor", entity_id=self.entity_id,
                     )
         else:
             _LOGGER.debug("New sensor %s initialized to 0", self.entity_id)
@@ -275,20 +319,18 @@ class ScooterWritableSensor(SensorEntity, RestoreEntity):
             detector = get_error_detector(self.hass)
             if detector:
                 detector.record_error(
-                    ErrorCategory.SENSOR_INVALID,
-                    ErrorSeverity.ERROR,
+                    ErrorCategory.SENSOR_INVALID, ErrorSeverity.ERROR,
                     f"Failed to set value for {self.entity_id}: {e}",
-                    source="ScooterWritableSensor",
-                    entity_id=self.entity_id,
+                    source="ScooterWritableSensor", entity_id=self.entity_id,
                 )
 
 
 class ScooterTriggerSensor(ScooterTemplateSensor):
     """Representation of a Scooter sensor with triggers (state or time_pattern)."""
 
-    def __init__(self, hass: HomeAssistant, sensor_id: str, config: dict) -> None:
+    def __init__(self, hass: HomeAssistant, sensor_id: str, config: dict, imei: str = "", multi_device: bool = False) -> None:
         """Initialize the trigger-based sensor."""
-        super().__init__(hass, sensor_id, config)
+        super().__init__(hass, sensor_id, config, imei, multi_device)
         self._triggers = config.get("triggers", [])
         self._time_listeners = []
 
@@ -336,15 +378,25 @@ class ScooterTriggerSensor(ScooterTemplateSensor):
 class ScooterTripsSensor(SensorEntity, RestoreEntity):
     """Representation of a Scooter Trips sensor."""
 
-    def __init__(self, hass: HomeAssistant) -> None:
+    def __init__(self, hass: HomeAssistant, imei: str = "", multi_device: bool = False) -> None:
         """Initialize the sensor."""
         self.hass = hass
-        self._attr_unique_id = f"{DOMAIN}_trips"
-        self._attr_name = "Scooter Trips"
+        self._imei = imei
+        self._multi_device = multi_device
+
+        if multi_device and imei:
+            self._attr_has_entity_name = True
+            self._attr_unique_id = f"{imei}_trips"
+            self._attr_name = "Trips"
+        else:
+            # Legacy mode: same as v1.0.4
+            self._attr_unique_id = f"{DOMAIN}_trips"
+            self._attr_name = "Scooter Trips"
+
         self._attr_icon = "mdi:scooter"
         self._attr_native_value = 0
         self._attr_extra_state_attributes = {"history": []}
-        self._attr_device_info = get_device_info()
+        self._attr_device_info = get_device_info(imei, multi_device)
 
     async def async_added_to_hass(self) -> None:
         """Handle entity which will be added."""
@@ -382,12 +434,25 @@ class ScooterTripsSensor(SensorEntity, RestoreEntity):
 class ScooterUtilityMeterSensor(SensorEntity, RestoreEntity):
     """Simplified utility meter sensor that tracks consumption per cycle."""
 
-    def __init__(self, hass: HomeAssistant, meter_id: str, config: dict) -> None:
+    def __init__(self, hass: HomeAssistant, meter_id: str, config: dict, imei: str = "", multi_device: bool = False) -> None:
         """Initialize the utility meter sensor."""
         self.hass = hass
-        self._attr_unique_id = f"{DOMAIN}_{meter_id}"
-        self._attr_name = meter_id.replace("_", " ").title().replace("Scooter ", "Scooter - ")
-        self.entity_id = f"sensor.{meter_id}"
+        self._meter_id = meter_id
+        self._config = config
+        self._imei = imei
+        self._multi_device = multi_device
+
+        if multi_device and imei:
+            self._attr_has_entity_name = True
+            self._attr_unique_id = f"{imei}_{meter_id}"
+            sensor_type = meter_id.replace("scooter_", "").replace("_", " ").title()
+            self._attr_name = sensor_type
+        else:
+            # Legacy mode: same as v1.0.4
+            self._attr_unique_id = f"{DOMAIN}_{meter_id}"
+            self._attr_name = meter_id.replace("_", " ").title().replace("Scooter ", "Scooter - ")
+            self.entity_id = f"sensor.{meter_id}"
+
         self._attr_native_unit_of_measurement = "kWh"
         self._attr_device_class = SensorDeviceClass.ENERGY
         self._attr_state_class = SensorStateClass.TOTAL_INCREASING
@@ -428,11 +493,9 @@ class ScooterUtilityMeterSensor(SensorEntity, RestoreEntity):
                 detector = get_error_detector(self.hass)
                 if detector:
                     detector.record_error(
-                        ErrorCategory.STATE_RESTORATION,
-                        ErrorSeverity.WARNING,
+                        ErrorCategory.STATE_RESTORATION, ErrorSeverity.WARNING,
                         f"Could not restore state for {self.entity_id}: {e}",
-                        source="ScooterUtilityMeterSensor",
-                        entity_id=self.entity_id,
+                        source="ScooterUtilityMeterSensor", entity_id=self.entity_id,
                     )
         else:
             self._attr_native_value = 0
@@ -517,11 +580,9 @@ class ScooterUtilityMeterSensor(SensorEntity, RestoreEntity):
                     detector = get_error_detector(self.hass)
                     if detector:
                         detector.record_error(
-                            ErrorCategory.DATA_INTEGRITY,
-                            ErrorSeverity.WARNING,
+                            ErrorCategory.DATA_INTEGRITY, ErrorSeverity.WARNING,
                             f"Negative consumption on {self.entity_id}: source={source_value:.3f}, start={self._cycle_start_value:.3f}",
-                            source="ScooterUtilityMeterSensor",
-                            entity_id=self.entity_id,
+                            source="ScooterUtilityMeterSensor", entity_id=self.entity_id,
                         )
                     self._cycle_start_value = source_value
                     self._attr_native_value = 0
@@ -536,11 +597,9 @@ class ScooterUtilityMeterSensor(SensorEntity, RestoreEntity):
             detector = get_error_detector(self.hass)
             if detector:
                 detector.record_error(
-                    ErrorCategory.SENSOR_INVALID,
-                    ErrorSeverity.ERROR,
+                    ErrorCategory.SENSOR_INVALID, ErrorSeverity.ERROR,
                     f"Utility meter update failed for {self.entity_id}: {e}",
-                    source="ScooterUtilityMeterSensor",
-                    entity_id=self.entity_id,
+                    source="ScooterUtilityMeterSensor", entity_id=self.entity_id,
                 )
 
     def _get_cycle_start(self, now):
@@ -590,37 +649,45 @@ class ScooterUtilityMeterSensor(SensorEntity, RestoreEntity):
 class ScooterErrorDetectionSensor(SensorEntity):
     """Diagnostic sensor exposing error detection summary to the HA dashboard.
 
-    The native_value is the count of active issues (errors/critical in the last hour).
-    Extra state attributes include error breakdowns, recurring patterns, and stale sensors.
+    Native value = count of active issues (errors/critical in the last hour).
+    Attributes include error breakdowns, recurring patterns, and stale sensors.
     """
 
-    def __init__(self, hass: HomeAssistant) -> None:
+    def __init__(self, hass: HomeAssistant, entry_id: str, imei: str = "", multi_device: bool = False) -> None:
         """Initialize the error detection sensor."""
         self.hass = hass
-        self._attr_unique_id = f"{DOMAIN}_error_detection"
-        self._attr_name = "Scooter - Error Detection"
-        self.entity_id = "sensor.scooter_error_detection"
+        self._entry_id = entry_id
+        self._imei = imei
+        self._multi_device = multi_device
+
+        if multi_device and imei:
+            self._attr_has_entity_name = True
+            self._attr_unique_id = f"{imei}_error_detection"
+            self._attr_name = "Error Detection"
+        else:
+            self._attr_unique_id = f"{DOMAIN}_error_detection"
+            self._attr_name = "Scooter - Error Detection"
+            self.entity_id = "sensor.scooter_error_detection"
+
         self._attr_icon = "mdi:alert-circle-outline"
         self._attr_native_value = 0
-        self._attr_device_info = get_device_info()
+        self._attr_device_info = get_device_info(imei, multi_device)
         self._summary: dict = {}
 
     async def async_added_to_hass(self) -> None:
-        """Set up periodic refresh of error summary."""
+        """Set up periodic refresh."""
         await super().async_added_to_hass()
 
         @callback
         def _refresh(_now):
             self.async_schedule_update_ha_state(True)
 
-        async_track_time_interval(
-            self.hass, _refresh, timedelta(minutes=5)
-        )
+        async_track_time_interval(self.hass, _refresh, timedelta(minutes=5))
         await self.async_update()
 
     async def async_update(self) -> None:
         """Update the error detection summary."""
-        detector = get_error_detector(self.hass)
+        detector = get_error_detector(self.hass, self._entry_id)
         if not detector:
             self._attr_native_value = 0
             self._summary = {}
@@ -629,7 +696,6 @@ class ScooterErrorDetectionSensor(SensorEntity):
         self._summary = detector.get_error_summary()
         self._attr_native_value = detector.get_active_issues_count()
 
-        # Update icon based on severity
         if self._attr_native_value > 0:
             self._attr_icon = "mdi:alert-circle"
         elif self._summary.get("total_errors", 0) > 0:

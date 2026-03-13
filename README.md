@@ -170,6 +170,32 @@ For detailed installation instructions, see [INSTALLATION.md](INSTALLATION.md).
 
 See [CONFIGURATION.md](docs/CONFIGURATION.md) for detailed configuration options.
 
+## 🔄 Multi-Scooter Support (v1.1.0+)
+
+Starting with v1.1.0, this integration supports **multiple Silence S01 scooters**.
+
+### How it works
+
+- **Single scooter (default)**: Leave the IMEI field empty during setup. Everything works exactly as before — no entity changes, no breaking changes.
+- **Multiple scooters**: Enter each scooter's IMEI and enable the "Multi-device" checkbox. Each scooter gets its own entities with IMEI-based naming.
+
+### Adding a second scooter
+
+1. Make sure your [Silence Private Server](https://github.com/lorenzo-deluca/silence-private-server/) supports multiple IMEIs
+2. Go to **Settings > Devices & Services > Add Integration > Silence Scooter**
+3. Enter your scooter's **IMEI** (14-15 digits, found on the frame or in your app)
+4. Check the **Multi-device** checkbox
+5. Repeat for each additional scooter
+
+### Entity naming
+
+| Mode | Entity ID example |
+|------|-------------------|
+| Single (no IMEI) | `sensor.scooter_speed` |
+| Multi-device | `sensor.scooter_9012_speed` (last 4 IMEI digits) |
+
+**No migration needed** for existing single-scooter users.
+
 ## 📦 Dashboard Dependencies (HACS Frontend)
 
 To use the example dashboard, install these HACS frontend integrations:

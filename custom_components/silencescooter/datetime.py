@@ -12,8 +12,9 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.restore_state import RestoreEntity
 from homeassistant.util import dt as dt_util
 
-from .const import DOMAIN
+from .const import DOMAIN, CONF_IMEI, CONF_MULTI_DEVICE, DEFAULT_MULTI_DEVICE
 from .definitions import INPUT_DATETIMES
+from .helpers import get_device_info, insert_imei_in_entity_id
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -23,39 +24,55 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Set up the Datetime entities for Silence Scooter."""
+    from homeassistant.exceptions import ConfigEntryNotReady
+
+    # Get IMEI and multi_device from config entry
+    imei = config_entry.data.get(CONF_IMEI, "")
+    multi_device = config_entry.data.get(CONF_MULTI_DEVICE, DEFAULT_MULTI_DEVICE)
+
     if _LOGGER.isEnabledFor(logging.DEBUG):
         _LOGGER.debug("Setting up Silence Scooter datetime entities")
     entities = []
     for datetime_id, config in INPUT_DATETIMES.items():
         if _LOGGER.isEnabledFor(logging.DEBUG):
             _LOGGER.debug(f"Creating datetime entity for {datetime_id}")
-        entities.append(ScooterDateTimeEntity(hass, datetime_id, config))
+        entities.append(ScooterDateTimeEntity(hass, datetime_id, config, imei, multi_device))
     async_add_entities(entities)
 
 
 class ScooterDateTimeEntity(DateTimeEntity, RestoreEntity):
     """Representation of a Scooter DateTime entity."""
 
-    def __init__(self, hass: HomeAssistant, datetime_id: str, config: dict):
+    def __init__(self, hass: HomeAssistant, datetime_id: str, config: dict, imei: str = "", multi_device: bool = False):
         """Initialize the datetime entity."""
         self.hass = hass
         self._datetime_id = datetime_id
-        self._attr_unique_id = f"{DOMAIN}_{datetime_id}"
-        self._attr_name = config["name"]
-        self.entity_id = f"datetime.{datetime_id}"
+        self._config = config
+        self._imei = imei
+        self._multi_device = multi_device
+
+        if multi_device and imei:
+            self._attr_has_entity_name = True
+            self._attr_unique_id = f"{imei}_{datetime_id}"
+            self._attr_name = config['name']
+            self._attr_device_info = get_device_info(imei, multi_device)
+        else:
+            # Legacy mode: same as v1.0.4
+            self._attr_unique_id = f"{DOMAIN}_{datetime_id}"
+            self._attr_name = config["name"]
+            self.entity_id = f"datetime.{datetime_id}"
+            # Datetimes are internal entities, not shown on device page in legacy mode
 
         # Configuration
         self._has_date = config.get("has_date", True)
         self._has_time = config.get("has_time", True)
-        # Datetimes are internal entities, not shown on device page
 
         # Valeur initiale avec timezone
         self._value = dt_util.now()
         self._attr_native_value = self._value
-        self._config = config
 
         if _LOGGER.isEnabledFor(logging.DEBUG):
-            _LOGGER.debug("Initialized %s with config: %s", self.entity_id, config)
+            _LOGGER.debug("Initialized %s with config: %s", self._attr_unique_id, config)
 
     async def async_added_to_hass(self):
         """Handle entity which will be added."""

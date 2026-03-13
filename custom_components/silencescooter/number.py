@@ -7,8 +7,9 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.restore_state import RestoreEntity
 
-from .const import DOMAIN
+from .const import DOMAIN, CONF_IMEI, CONF_MULTI_DEVICE, DEFAULT_MULTI_DEVICE
 from .definitions import INPUT_NUMBERS
+from .helpers import get_device_info, insert_imei_in_entity_id
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -18,9 +19,15 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Set up the custom Number entities for Silence Scooter."""
+    from homeassistant.exceptions import ConfigEntryNotReady
+
+    # Get IMEI and multi_device from config entry
+    imei = config_entry.data.get(CONF_IMEI, "")
+    multi_device = config_entry.data.get(CONF_MULTI_DEVICE, DEFAULT_MULTI_DEVICE)
+
     entities = []
     for number_id, config in INPUT_NUMBERS.items():
-        entities.append(ScooterNumberEntity(hass, number_id, config))
+        entities.append(ScooterNumberEntity(hass, number_id, config, imei, multi_device))
     async_add_entities(entities)
     _LOGGER.info("✓ Initialized %d number entities", len(entities))
 
@@ -28,24 +35,34 @@ async def async_setup_entry(
 class ScooterNumberEntity(NumberEntity, RestoreEntity):
     """A NumberEntity to replace the old input_number usage."""
 
-    def __init__(self, hass: HomeAssistant, number_id: str, config: dict):
+    def __init__(self, hass: HomeAssistant, number_id: str, config: dict, imei: str = "", multi_device: bool = False):
         """Initialize the number entity."""
         self.hass = hass
         self._number_id = number_id
-        self._attr_unique_id = f"{DOMAIN}_{number_id}"
-        self._attr_name = config["name"]
-        self.entity_id = f"number.{number_id}"
+        self._config = config
+        self._imei = imei
+        self._multi_device = multi_device
+
+        if multi_device and imei:
+            self._attr_has_entity_name = True
+            self._attr_unique_id = f"{imei}_{number_id}"
+            self._attr_name = config['name']
+            self._attr_device_info = get_device_info(imei, multi_device)
+        else:
+            # Legacy mode: same as v1.0.4
+            self._attr_unique_id = f"{DOMAIN}_{number_id}"
+            self._attr_name = config["name"]
+            self.entity_id = f"number.{number_id}"
+            # Numbers are internal entities, not shown on device page in legacy mode
 
         self._attr_native_min_value = config["min"]
         self._attr_native_max_value = config["max"]
         self._attr_native_step = config["step"]
         self._attr_native_unit_of_measurement = config.get("unit_of_measurement")
-        # Numbers are internal entities, not shown on device page
 
         # Initial value
         self._value = float(config.get("initial", config["min"]))
         self._attr_native_value = self._value
-        self._config = config
 
     async def async_added_to_hass(self):
         """Handle entity which will be added."""

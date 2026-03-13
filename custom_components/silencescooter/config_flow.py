@@ -12,6 +12,7 @@ from homeassistant.helpers import selector
 
 from .const import (
     DOMAIN,
+    CONF_IMEI,
     CONF_TARIFF_SENSOR,
     CONF_CONFIRMATION_DELAY,
     CONF_PAUSE_MAX_DURATION,
@@ -19,6 +20,7 @@ from .const import (
     CONF_USE_TRACKED_DISTANCE,
     CONF_OUTDOOR_TEMP_SOURCE,
     CONF_OUTDOOR_TEMP_ENTITY,
+    CONF_MULTI_DEVICE,
     DEFAULT_TARIFF_SENSOR,
     DEFAULT_CONFIRMATION_DELAY,
     DEFAULT_PAUSE_MAX_DURATION,
@@ -26,6 +28,7 @@ from .const import (
     DEFAULT_USE_TRACKED_DISTANCE,
     DEFAULT_OUTDOOR_TEMP_SOURCE,
     DEFAULT_OUTDOOR_TEMP_ENTITY,
+    DEFAULT_MULTI_DEVICE,
     OUTDOOR_TEMP_SOURCE_SCOOTER,
     OUTDOOR_TEMP_SOURCE_EXTERNAL,
 )
@@ -71,9 +74,48 @@ def get_temperature_sensors(hass: HomeAssistant) -> list[str]:
     return sorted(sensors)
 
 
+def validate_imei(imei: str) -> str:
+    """Validate IMEI format.
+
+    Args:
+        imei: The IMEI string to validate
+
+    Returns:
+        The cleaned IMEI string
+
+    Raises:
+        vol.Invalid: If the IMEI format is invalid
+    """
+    # Remove spaces and dashes
+    imei_clean = imei.replace(" ", "").replace("-", "")
+
+    # Check if it contains only digits
+    if not imei_clean.isdigit():
+        raise vol.Invalid("IMEI must contain only digits")
+
+    # Support IMEI (15 digits) and IMEI/SV (16 digits)
+    # Also support 14 digits for some older devices
+    if len(imei_clean) == 16:
+        imei_clean = imei_clean[:15]
+
+    if len(imei_clean) not in [14, 15]:
+        raise vol.Invalid("IMEI must be 14 or 15 digits")
+
+    return imei_clean
+
+
 async def validate_input(hass: HomeAssistant, data: dict[str, Any]) -> dict[str, Any]:
     """Validate the user input."""
     errors = {}
+
+    # Validate IMEI if present and non-empty
+    imei = None
+    imei_raw = data.get(CONF_IMEI, "").strip()
+    if imei_raw:
+        try:
+            imei = validate_imei(imei_raw)
+        except vol.Invalid as e:
+            errors[CONF_IMEI] = str(e)
 
     if data.get(CONF_CONFIRMATION_DELAY, 0) < 30:
         errors[CONF_CONFIRMATION_DELAY] = "confirmation_delay_too_low"
@@ -107,7 +149,14 @@ async def validate_input(hass: HomeAssistant, data: dict[str, Any]) -> dict[str,
     if errors:
         return {"errors": errors}
 
-    return {"title": "Silence Scooter"}
+    # Create title with last 4 digits of IMEI if available
+    if imei:
+        imei_short = imei[-4:] if len(imei) >= 4 else imei
+        title = f"Silence Scooter ({imei_short})"
+    else:
+        title = "Silence Scooter"
+
+    return {"title": title, "imei": imei}
 
 
 class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
@@ -119,9 +168,6 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         self, user_input: dict[str, Any] | None = None
     ) -> FlowResult:
         """Handle the initial step."""
-        if self._async_current_entries():
-            return self.async_abort(reason="single_instance_allowed")
-
         errors = {}
 
         if user_input is not None:
@@ -130,12 +176,28 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             if "errors" in result:
                 errors = result["errors"]
             else:
+                cleaned_data = dict(user_input)
+
+                if result.get("imei"):
+                    # Set unique_id to prevent duplicate IMEI entries
+                    await self.async_set_unique_id(result["imei"])
+                    self._abort_if_unique_id_configured()
+                    cleaned_data[CONF_IMEI] = result["imei"]
+                else:
+                    # No IMEI: single-device legacy mode
+                    cleaned_data.pop(CONF_IMEI, None)
+
                 return self.async_create_entry(
                     title=result["title"],
-                    data=user_input,
+                    data=cleaned_data,
                 )
 
         data_schema = vol.Schema({
+            vol.Optional(CONF_IMEI, default=""): selector.TextSelector(
+                selector.TextSelectorConfig(
+                    type=selector.TextSelectorType.TEXT,
+                )
+            ),
             vol.Optional(
                 CONF_TARIFF_SENSOR,
             ): selector.EntitySelector(
@@ -176,6 +238,10 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 default=DEFAULT_USE_TRACKED_DISTANCE,
             ): selector.BooleanSelector(),
             vol.Optional(
+                CONF_MULTI_DEVICE,
+                default=DEFAULT_MULTI_DEVICE,
+            ): selector.BooleanSelector(),
+            vol.Optional(
                 CONF_CONFIRMATION_DELAY,
                 default=DEFAULT_CONFIRMATION_DELAY,
             ): vol.All(vol.Coerce(int), vol.Range(min=30, max=600)),
@@ -198,6 +264,60 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     async def async_step_import(self, import_info: dict[str, Any]) -> FlowResult:
         """Handle import from configuration.yaml."""
         return await self.async_step_user(import_info)
+
+    async def async_step_reauth(self, entry_data: dict[str, Any]) -> FlowResult:
+        """Handle reauth flow for migration from v1 to v2."""
+        return await self.async_step_reauth_confirm()
+
+    async def async_step_reauth_confirm(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        """Handle reauth confirmation step."""
+        errors = {}
+
+        if user_input is not None:
+            try:
+                imei = validate_imei(user_input[CONF_IMEI])
+
+                # Set unique_id to prevent duplicate IMEI entries
+                await self.async_set_unique_id(imei)
+                self._abort_if_unique_id_configured()
+
+                # Update the config entry with the IMEI
+                entry = self.hass.config_entries.async_get_entry(self.context["entry_id"])
+                if entry:
+                    updated_data = dict(entry.data)
+                    updated_data[CONF_IMEI] = imei
+
+                    # Update title with IMEI
+                    imei_short = imei[-4:] if len(imei) >= 4 else imei
+                    self.hass.config_entries.async_update_entry(
+                        entry,
+                        data=updated_data,
+                        title=f"Silence Scooter ({imei_short})",
+                    )
+
+                    return self.async_abort(reason="reauth_successful")
+
+            except vol.Invalid as e:
+                errors[CONF_IMEI] = str(e)
+
+        data_schema = vol.Schema({
+            vol.Required(CONF_IMEI): selector.TextSelector(
+                selector.TextSelectorConfig(
+                    type=selector.TextSelectorType.TEXT,
+                )
+            ),
+        })
+
+        return self.async_show_form(
+            step_id="reauth_confirm",
+            data_schema=data_schema,
+            errors=errors,
+            description_placeholders={
+                "message": "Please enter your scooter's IMEI to complete the migration to multi-device support."
+            },
+        )
 
     @staticmethod
     @callback
@@ -284,6 +404,10 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
             vol.Optional(
                 CONF_USE_TRACKED_DISTANCE,
                 default=current_data.get(CONF_USE_TRACKED_DISTANCE, DEFAULT_USE_TRACKED_DISTANCE),
+            ): selector.BooleanSelector(),
+            vol.Optional(
+                CONF_MULTI_DEVICE,
+                default=current_data.get(CONF_MULTI_DEVICE, DEFAULT_MULTI_DEVICE),
             ): selector.BooleanSelector(),
             vol.Optional(
                 CONF_CONFIRMATION_DELAY,
