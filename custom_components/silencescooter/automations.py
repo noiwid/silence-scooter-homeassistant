@@ -1080,9 +1080,8 @@ async def async_setup_automations(
                         detector = get_error_detector(hass)
                         if detector:
                             detector.record_error(
-                                ErrorCategory.MQTT_DISCONNECT,
-                                ErrorSeverity.WARNING,
-                                f"Watchdog: no scooter update for >{watchdog_delay_min}min, stopping trip",
+                                ErrorCategory.MQTT_DISCONNECT, ErrorSeverity.WARNING,
+                                f"Watchdog: no scooter update for >{watchdog_delay_min}min",
                                 source="watchdog",
                             )
                         await do_log_event(hass, "Watchdog: Auto stop trip (no update)")
@@ -1274,10 +1273,8 @@ async def do_stop_trip(hass: HomeAssistant, imei: str = "", multi_device: bool =
         detector = get_error_detector(hass)
         if detector:
             detector.record_error(
-                ErrorCategory.AUTOMATION_ERROR,
-                ErrorSeverity.ERROR,
-                f"do_stop_trip failed: {e}",
-                source="do_stop_trip",
+                ErrorCategory.AUTOMATION_ERROR, ErrorSeverity.ERROR,
+                f"do_stop_trip failed: {e}", source="do_stop_trip",
             )
 
 async def do_update_trips_history(hass: HomeAssistant, imei: str = "", multi_device: bool = False):
@@ -1335,15 +1332,12 @@ async def do_update_trips_history(hass: HomeAssistant, imei: str = "", multi_dev
         if max_val == 0 and avg_val > 10:
             validation_errors.append(f"Max speed is 0 but avg is {avg_val} km/h")
 
-        # Also run error detector trip anomaly checks
+        # Run error detector trip anomaly checks
         detector = get_error_detector(hass)
         if detector:
             detector.check_trip_anomaly(
-                distance=distance_val,
-                duration=duration_val,
-                avg_speed=avg_val,
-                max_speed=max_val,
-                battery_consumption=battery_consumed,
+                distance=distance_val, duration=duration_val, avg_speed=avg_val,
+                max_speed=max_val, battery_consumption=battery_consumed,
             )
 
         if validation_errors:
@@ -1440,10 +1434,8 @@ async def do_update_trips_history(hass: HomeAssistant, imei: str = "", multi_dev
         detector = get_error_detector(hass)
         if detector:
             detector.record_error(
-                ErrorCategory.DATA_INTEGRITY,
-                ErrorSeverity.ERROR,
-                f"Trip history update failed: {exc}",
-                source="do_update_trips_history",
+                ErrorCategory.DATA_INTEGRITY, ErrorSeverity.ERROR,
+                f"Trip history update failed: {exc}", source="do_update_trips_history",
             )
 
 

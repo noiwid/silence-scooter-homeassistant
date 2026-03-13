@@ -11,6 +11,7 @@ import homeassistant.helpers.device_registry as dr
 import homeassistant.helpers.entity_registry as er
 
 from .const import DOMAIN, PLATFORMS, CONF_IMEI, CONF_MULTI_DEVICE, DEFAULT_MULTI_DEVICE
+from .errors import ErrorDetector, ErrorCategory, ErrorSeverity, get_error_detector
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -578,6 +579,14 @@ async def async_setup_services(hass: HomeAssistant) -> None:
             _LOGGER.info("=" * 70)
         else:
             _LOGGER.error("No sensors were updated!")
+            detector = get_error_detector(hass)
+            if detector:
+                detector.record_error(
+                    ErrorCategory.SERVICE_CALL,
+                    ErrorSeverity.ERROR,
+                    "restore_energy_costs: no sensors were updated",
+                    source="restore_energy_costs",
+                )
 
     # Register services
     if not hass.services.has_service(DOMAIN, "reset_tracked_counters"):
@@ -626,11 +635,16 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
         # Initialize storage (isolated per entry)
         hass.data.setdefault(DOMAIN, {})
+        # Initialize error detection system (per entry)
+        error_detector = ErrorDetector(hass, imei, multi_device)
+        await error_detector.async_setup()
+
         hass.data[DOMAIN][entry.entry_id] = {
             "imei": imei,
             "multi_device": multi_device,
             "sensors": {},
             "config": entry.data,
+            "error_detector": error_detector,
         }
         # Also store at domain level for backward compat with automations
         hass.data[DOMAIN]["sensors"] = {}
@@ -665,6 +679,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         except Exception as e:
             _LOGGER.error("Error setting up automations for %s: %s", imei_log, e, exc_info=True)
             _LOGGER.warning("Continuing setup without automations")
+            error_detector.record_error(
+                ErrorCategory.AUTOMATION_ERROR,
+                ErrorSeverity.ERROR,
+                f"Automations setup failed: {e}",
+                source="async_setup_entry",
+            )
 
         # Publish MQTT Discovery configs only in multi-device mode
         if multi_device and imei:
@@ -703,6 +723,11 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                         remove_listener()
                     except Exception as e:
                         _LOGGER.warning("Error removing automation listener: %s", e)
+
+        # Clean up error detection system
+        detector = get_error_detector(hass, entry.entry_id)
+        if detector:
+            detector.cleanup()
 
         # Unload platforms
         unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)

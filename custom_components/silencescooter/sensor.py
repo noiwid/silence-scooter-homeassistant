@@ -31,6 +31,7 @@ from .const import (
     DEFAULT_MULTI_DEVICE,
 )
 from .helpers import get_device_info, insert_imei_in_entity_id
+from .errors import ErrorCategory, ErrorSeverity, get_error_detector
 from .definitions import (
     WRITABLE_SENSORS,
     TEMPLATE_SENSORS,
@@ -146,6 +147,8 @@ async def async_setup_entry(
 
     for meter_id, config in UTILITY_METERS.items():
         entities.append(ScooterUtilityMeterSensor(hass, meter_id, config, imei, multi_device))
+
+    entities.append(ScooterErrorDetectionSensor(hass, config_entry.entry_id, imei, multi_device))
     async_add_entities(entities)
     _LOGGER.info("Initialized %d sensors (%d writable, %d template, %d trigger, %d energy cost, %d utility meters)",
                  len(entities), len(WRITABLE_SENSORS), len(TEMPLATE_SENSORS), len(TRIGGER_SENSORS),
@@ -235,6 +238,15 @@ class ScooterTemplateSensor(SensorEntity, RestoreEntity):
         except TemplateError as err:
             _LOGGER.error("Error rendering template for %s: %s", self._attr_name, err)
             self._attr_native_value = None
+            detector = get_error_detector(self.hass)
+            if detector:
+                detector.record_error(
+                    ErrorCategory.TEMPLATE_ERROR,
+                    ErrorSeverity.WARNING,
+                    f"Template render failed for {self._attr_name}: {err}",
+                    source="ScooterTemplateSensor",
+                    entity_id=getattr(self, "entity_id", self._attr_unique_id),
+                )
 
 
 
@@ -281,9 +293,16 @@ class ScooterWritableSensor(SensorEntity, RestoreEntity):
             try:
                 self._attr_native_value = float(last_state.state)
                 _LOGGER.debug("Restored %s: %.2f", self.entity_id, self._attr_native_value)
-            except (ValueError, TypeError):
+            except (ValueError, TypeError) as e:
                 self._attr_native_value = 0
                 _LOGGER.warning("Could not restore %s, defaulting to 0", self.entity_id)
+                detector = get_error_detector(self.hass)
+                if detector:
+                    detector.record_error(
+                        ErrorCategory.STATE_RESTORATION, ErrorSeverity.WARNING,
+                        f"Could not restore {self.entity_id}: {e}",
+                        source="ScooterWritableSensor", entity_id=self.entity_id,
+                    )
         else:
             _LOGGER.debug("New sensor %s initialized to 0", self.entity_id)
         self.async_write_ha_state()
@@ -297,6 +316,13 @@ class ScooterWritableSensor(SensorEntity, RestoreEntity):
             _LOGGER.debug("Updated %s: %.2f → %.2f", self.entity_id, old_value, self._attr_native_value)
         except (ValueError, TypeError) as e:
             _LOGGER.error("Failed to set value for %s: %s", self.entity_id, e)
+            detector = get_error_detector(self.hass)
+            if detector:
+                detector.record_error(
+                    ErrorCategory.SENSOR_INVALID, ErrorSeverity.ERROR,
+                    f"Failed to set value for {self.entity_id}: {e}",
+                    source="ScooterWritableSensor", entity_id=self.entity_id,
+                )
 
 
 class ScooterTriggerSensor(ScooterTemplateSensor):
@@ -464,6 +490,13 @@ class ScooterUtilityMeterSensor(SensorEntity, RestoreEntity):
             except (ValueError, TypeError) as e:
                 _LOGGER.warning("Could not restore state for %s: %s", self.entity_id, e)
                 self._attr_native_value = 0
+                detector = get_error_detector(self.hass)
+                if detector:
+                    detector.record_error(
+                        ErrorCategory.STATE_RESTORATION, ErrorSeverity.WARNING,
+                        f"Could not restore state for {self.entity_id}: {e}",
+                        source="ScooterUtilityMeterSensor", entity_id=self.entity_id,
+                    )
         else:
             self._attr_native_value = 0
 
@@ -544,6 +577,13 @@ class ScooterUtilityMeterSensor(SensorEntity, RestoreEntity):
                         "resetting cycle_start_value",
                         self.entity_id, source_value, self._cycle_start_value
                     )
+                    detector = get_error_detector(self.hass)
+                    if detector:
+                        detector.record_error(
+                            ErrorCategory.DATA_INTEGRITY, ErrorSeverity.WARNING,
+                            f"Negative consumption on {self.entity_id}: source={source_value:.3f}, start={self._cycle_start_value:.3f}",
+                            source="ScooterUtilityMeterSensor", entity_id=self.entity_id,
+                        )
                     self._cycle_start_value = source_value
                     self._attr_native_value = 0
                 else:
@@ -554,6 +594,13 @@ class ScooterUtilityMeterSensor(SensorEntity, RestoreEntity):
 
         except (ValueError, TypeError) as e:
             _LOGGER.error("Error updating %s: %s", self.entity_id, e)
+            detector = get_error_detector(self.hass)
+            if detector:
+                detector.record_error(
+                    ErrorCategory.SENSOR_INVALID, ErrorSeverity.ERROR,
+                    f"Utility meter update failed for {self.entity_id}: {e}",
+                    source="ScooterUtilityMeterSensor", entity_id=self.entity_id,
+                )
 
     def _get_cycle_start(self, now):
         """Get the start timestamp of the current cycle."""
@@ -596,4 +643,74 @@ class ScooterUtilityMeterSensor(SensorEntity, RestoreEntity):
             "cycle": self._cycle,
             "last_reset": self._last_reset.isoformat() if self._last_reset else None,
             "cycle_start_value": self._cycle_start_value,
+        }
+
+
+class ScooterErrorDetectionSensor(SensorEntity):
+    """Diagnostic sensor exposing error detection summary to the HA dashboard.
+
+    Native value = count of active issues (errors/critical in the last hour).
+    Attributes include error breakdowns, recurring patterns, and stale sensors.
+    """
+
+    def __init__(self, hass: HomeAssistant, entry_id: str, imei: str = "", multi_device: bool = False) -> None:
+        """Initialize the error detection sensor."""
+        self.hass = hass
+        self._entry_id = entry_id
+        self._imei = imei
+        self._multi_device = multi_device
+
+        if multi_device and imei:
+            self._attr_has_entity_name = True
+            self._attr_unique_id = f"{imei}_error_detection"
+            self._attr_name = "Error Detection"
+        else:
+            self._attr_unique_id = f"{DOMAIN}_error_detection"
+            self._attr_name = "Scooter - Error Detection"
+            self.entity_id = "sensor.scooter_error_detection"
+
+        self._attr_icon = "mdi:alert-circle-outline"
+        self._attr_native_value = 0
+        self._attr_device_info = get_device_info(imei, multi_device)
+        self._summary: dict = {}
+
+    async def async_added_to_hass(self) -> None:
+        """Set up periodic refresh."""
+        await super().async_added_to_hass()
+
+        @callback
+        def _refresh(_now):
+            self.async_schedule_update_ha_state(True)
+
+        async_track_time_interval(self.hass, _refresh, timedelta(minutes=5))
+        await self.async_update()
+
+    async def async_update(self) -> None:
+        """Update the error detection summary."""
+        detector = get_error_detector(self.hass, self._entry_id)
+        if not detector:
+            self._attr_native_value = 0
+            self._summary = {}
+            return
+
+        self._summary = detector.get_error_summary()
+        self._attr_native_value = detector.get_active_issues_count()
+
+        if self._attr_native_value > 0:
+            self._attr_icon = "mdi:alert-circle"
+        elif self._summary.get("total_errors", 0) > 0:
+            self._attr_icon = "mdi:alert-outline"
+        else:
+            self._attr_icon = "mdi:check-circle-outline"
+
+    @property
+    def extra_state_attributes(self) -> dict:
+        """Return error detection summary as attributes."""
+        return {
+            "total_errors": self._summary.get("total_errors", 0),
+            "errors_by_category": self._summary.get("errors_by_category", {}),
+            "errors_by_severity": self._summary.get("errors_by_severity", {}),
+            "recurring_patterns": self._summary.get("recurring_patterns", 0),
+            "stale_sensors": self._summary.get("stale_sensors", []),
+            "recent_errors": self._summary.get("recent_errors", []),
         }
