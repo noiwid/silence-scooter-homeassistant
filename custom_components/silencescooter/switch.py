@@ -22,10 +22,7 @@ async def async_setup_entry(
     from homeassistant.exceptions import ConfigEntryNotReady
 
     # Get IMEI and multi_device from config entry
-    imei = entry.data.get(CONF_IMEI)
-    if not imei:
-        raise ConfigEntryNotReady("IMEI not configured")
-
+    imei = entry.data.get(CONF_IMEI, "")
     multi_device = entry.data.get(CONF_MULTI_DEVICE, DEFAULT_MULTI_DEVICE)
 
     entities = []
@@ -37,26 +34,24 @@ async def async_setup_entry(
 class ScooterSwitchEntity(SwitchEntity, RestoreEntity):
     """A SwitchEntity to replace the old input_boolean usage."""
 
-    _attr_has_entity_name = True
-
-    def __init__(self, bool_id: str, config: dict, imei: str, multi_device: bool = False):
+    def __init__(self, bool_id: str, config: dict, imei: str = "", multi_device: bool = False):
         self._bool_id = bool_id
         self._config = config
         self._imei = imei
         self._multi_device = multi_device
 
-        # Simplified unique_id using IMEI + sensor type
-        self._attr_unique_id = f"{imei}_{bool_id}"
-
-        # Entity name - just the data point name from config
-        self._attr_name = config['name']
-
-        # DO NOT set self.entity_id - let HA generate it
+        if multi_device and imei:
+            self._attr_has_entity_name = True
+            self._attr_unique_id = f"{imei}_{bool_id}"
+            self._attr_name = config['name']
+            self._attr_device_info = get_device_info(imei, multi_device)
+        else:
+            # Legacy mode: same as v1.0.4
+            self._attr_unique_id = f"{DOMAIN}_{bool_id}"
+            self._attr_name = config["name"]
+            self._attr_device_info = get_device_info()
 
         self._icon = config.get("icon", "mdi:toggle-switch")
-
-        # Device info with IMEI
-        self._attr_device_info = get_device_info(imei, multi_device)
 
         # Etat interne initial
         self._is_on = False

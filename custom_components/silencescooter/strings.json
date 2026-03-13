@@ -3,9 +3,9 @@
     "step": {
       "user": {
         "title": "Configuration Silence Scooter",
-        "description": "Entrez l'IMEI de votre scooter pour configurer cette instance. Vous pouvez ajouter plusieurs scooters en installant l'intégration plusieurs fois.",
+        "description": "Configurez votre scooter Silence. L'IMEI est optionnel pour un seul scooter, requis pour le mode multi-scooters.",
         "data": {
-          "imei": "IMEI (14-15 chiffres)",
+          "imei": "IMEI (optionnel, 14-15 chiffres)",
           "tariff_sensor": "Sensor de tarif électrique (€/kWh)",
           "use_tracked_distance": "Utiliser les compteurs manuels (réinitialisables après modif scooter)",
           "multi_device": "Configuration multi-scooters (ajoute l'IMEI aux noms des entités)",
@@ -21,7 +21,6 @@
           "pause_max_duration": "Temps max avec scooter ÉTEINT avant fin de trajet. Course rapide < 5min = pause, > 5min = fin",
           "watchdog_delay": "Si aucune communication pendant cette durée, le trajet s'arrête (ex: garage sans réseau)"
         }
-      }
       },
       "reauth": {
         "title": "Migration Requise",

@@ -608,11 +608,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     _LOGGER.info("Setting up Silence Scooter integration")
 
     try:
-        # Get and validate IMEI
-        imei = entry.data.get(CONF_IMEI)
-        if not imei:
-            _LOGGER.error("No IMEI found in config entry, triggering reconfiguration")
-            # Trigger reconfiguration for migration from v1
+        # Get IMEI (optional for single-device mode)
+        imei = entry.data.get(CONF_IMEI, "")
+        multi_device = entry.data.get(CONF_MULTI_DEVICE, DEFAULT_MULTI_DEVICE)
+
+        # Multi-device mode requires IMEI
+        if multi_device and not imei:
+            _LOGGER.error("Multi-device mode requires IMEI, triggering reconfiguration")
             hass.async_create_task(
                 hass.config_entries.flow.async_init(
                     DOMAIN,
@@ -622,10 +624,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             )
             return False
 
-        # Get multi_device flag
-        multi_device = entry.data.get(CONF_MULTI_DEVICE, DEFAULT_MULTI_DEVICE)
-
-        # Initialize storage with IMEI (isolated per entry)
+        # Initialize storage (isolated per entry)
         hass.data.setdefault(DOMAIN, {})
         hass.data[DOMAIN][entry.entry_id] = {
             "imei": imei,
@@ -633,33 +632,43 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             "sensors": {},
             "config": entry.data,
         }
-        _LOGGER.info("Storage initialized for IMEI %s with config: %s", imei[-4:], entry.data)
+        # Also store at domain level for backward compat with automations
+        hass.data[DOMAIN]["sensors"] = {}
+        hass.data[DOMAIN]["config"] = entry.data
+
+        imei_log = imei[-4:] if imei else "single-device"
+        _LOGGER.info("Storage initialized for %s with config: %s", imei_log, entry.data)
 
         # Load platforms (they will get IMEI from entry.data)
         await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
         _LOGGER.info("Platforms loaded: %s", ", ".join(PLATFORMS))
 
-        # Setup automations with IMEI
+        # Setup automations
         try:
-            _LOGGER.info("Setting up automations for IMEI %s...", imei[-4:])
+            _LOGGER.info("Setting up automations for %s...", imei_log)
             from .automations import async_setup_automations, setup_persistent_sensors_update
 
-            # Pass IMEI and multi_device to automations for isolation
-            cancel_listeners = await async_setup_automations(hass, entry, imei, multi_device)
+            if multi_device and imei:
+                # Multi-device: pass IMEI for entity isolation
+                cancel_listeners = await async_setup_automations(hass, entry, imei, multi_device)
+                await setup_persistent_sensors_update(hass, imei, multi_device)
+            else:
+                # Single-device: legacy mode (same as v1.0.4)
+                cancel_listeners = await async_setup_automations(hass)
+                await setup_persistent_sensors_update(hass)
 
             # Store listeners per entry for proper cleanup
             hass.data[DOMAIN][entry.entry_id]["cancel_listeners"] = cancel_listeners
 
-            _LOGGER.info("Automations setup completed for IMEI %s", imei[-4:])
-
-            await setup_persistent_sensors_update(hass, imei, multi_device)
+            _LOGGER.info("Automations setup completed for %s", imei_log)
             _LOGGER.info("Persistent sensors auto-update configured")
         except Exception as e:
-            _LOGGER.error("Error setting up automations for IMEI %s: %s", imei[-4:], e, exc_info=True)
+            _LOGGER.error("Error setting up automations for %s: %s", imei_log, e, exc_info=True)
             _LOGGER.warning("Continuing setup without automations")
 
-        # Publish MQTT Discovery configs (Solution B)
-        await publish_mqtt_discovery_configs(hass, imei)
+        # Publish MQTT Discovery configs only in multi-device mode
+        if multi_device and imei:
+            await publish_mqtt_discovery_configs(hass, imei)
 
         # Register services (only once for all instances)
         await async_setup_services(hass)
@@ -667,7 +676,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         # Support reload
         entry.async_on_unload(entry.add_update_listener(async_reload_entry))
 
-        _LOGGER.info("Setup completed successfully for IMEI %s", imei[-4:])
+        _LOGGER.info("Setup completed successfully for %s", imei_log)
         return True
 
     except Exception as err:
@@ -677,8 +686,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Unload a config entry."""
-    imei = entry.data.get(CONF_IMEI, "unknown")
-    _LOGGER.info("Unloading Silence Scooter integration for IMEI %s", imei[-4:] if imei != "unknown" else imei)
+    imei = entry.data.get(CONF_IMEI, "")
+    imei_log = imei[-4:] if imei else "single-device"
+    _LOGGER.info("Unloading Silence Scooter integration for %s", imei_log)
 
     try:
         # Clean up automations for this entry
@@ -687,7 +697,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             cancel_listeners = entry_data.get("cancel_listeners", [])
 
             if cancel_listeners:
-                _LOGGER.info("Cleaning up automations for IMEI %s", imei[-4:])
+                _LOGGER.info("Cleaning up automations for %s", imei_log)
                 for remove_listener in cancel_listeners:
                     try:
                         remove_listener()

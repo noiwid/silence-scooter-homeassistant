@@ -108,11 +108,12 @@ async def validate_input(hass: HomeAssistant, data: dict[str, Any]) -> dict[str,
     """Validate the user input."""
     errors = {}
 
-    # Validate IMEI if present
+    # Validate IMEI if present and non-empty
     imei = None
-    if CONF_IMEI in data:
+    imei_raw = data.get(CONF_IMEI, "").strip()
+    if imei_raw:
         try:
-            imei = validate_imei(data[CONF_IMEI])
+            imei = validate_imei(imei_raw)
         except vol.Invalid as e:
             errors[CONF_IMEI] = str(e)
 
@@ -175,15 +176,16 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             if "errors" in result:
                 errors = result["errors"]
             else:
-                # Set unique_id to prevent duplicate IMEI entries
+                cleaned_data = dict(user_input)
+
                 if result.get("imei"):
+                    # Set unique_id to prevent duplicate IMEI entries
                     await self.async_set_unique_id(result["imei"])
                     self._abort_if_unique_id_configured()
-
-                # Store the cleaned IMEI in user_input
-                cleaned_data = dict(user_input)
-                if result.get("imei"):
                     cleaned_data[CONF_IMEI] = result["imei"]
+                else:
+                    # No IMEI: single-device legacy mode
+                    cleaned_data.pop(CONF_IMEI, None)
 
                 return self.async_create_entry(
                     title=result["title"],
@@ -191,7 +193,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 )
 
         data_schema = vol.Schema({
-            vol.Required(CONF_IMEI): selector.TextSelector(
+            vol.Optional(CONF_IMEI, default=""): selector.TextSelector(
                 selector.TextSelectorConfig(
                     type=selector.TextSelectorType.TEXT,
                 )

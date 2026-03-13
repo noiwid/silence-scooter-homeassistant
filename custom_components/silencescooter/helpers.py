@@ -12,29 +12,36 @@ from .const import DOMAIN, HISTORY_SCRIPT, LOG_FILE
 _LOGGER = logging.getLogger(__name__)
 
 
-def get_device_info(imei: str, multi_device: bool = False) -> DeviceInfo:
-    """Return device info for Silence Scooter with IMEI.
+def get_device_info(imei: str = "", multi_device: bool = False) -> DeviceInfo:
+    """Return device info for Silence Scooter.
+
+    In single-device mode (default), returns the same identifiers as v1.0.4
+    to preserve backward compatibility.
+    In multi-device mode, uses IMEI-based identifiers.
 
     Args:
-        imei: The IMEI of the scooter
-        multi_device: Whether to include IMEI in device name
+        imei: The IMEI of the scooter (optional for single-device)
+        multi_device: Whether multi-device mode is enabled
 
     Returns:
-        DeviceInfo with IMEI-based identifiers
+        DeviceInfo with appropriate identifiers
     """
-    if multi_device:
-        # Use last 4 digits for display name
+    if multi_device and imei:
         imei_short = imei[-4:] if len(imei) >= 4 else imei
-        name = f"Silence Scooter ({imei_short})"
+        return DeviceInfo(
+            identifiers={(DOMAIN, imei)},
+            name=f"Silence Scooter ({imei_short})",
+            manufacturer="Seat",
+            model="Mo",
+        )
     else:
-        name = "Silence Scooter"
-
-    return DeviceInfo(
-        identifiers={(DOMAIN, imei)},  # Use full IMEI for unique identification
-        name=name,
-        manufacturer="Seat",
-        model="Mo",
-    )
+        # Legacy mode: same identifiers as v1.0.4
+        return DeviceInfo(
+            identifiers={("silence_scooter", "Silence Scooter")},
+            name="Silence Scooter",
+            manufacturer="Seat",
+            model="Mo",
+        )
 
 
 def generate_entity_id_suffix(imei: str, multi_device: bool) -> str:

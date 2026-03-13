@@ -170,105 +170,31 @@ For detailed installation instructions, see [INSTALLATION.md](INSTALLATION.md).
 
 See [CONFIGURATION.md](docs/CONFIGURATION.md) for detailed configuration options.
 
-## 🔄 Multi-Device Support (v2.0+)
+## 🔄 Multi-Scooter Support (v1.1.0+)
 
-This integration supports **multiple Silence S01 scooters** using a multi-instance approach.
+Starting with v1.1.0, this integration supports **multiple Silence S01 scooters**.
 
-### Quick Start
+### How it works
 
-1. **Configure Silence Private Server** with multiple IMEIs:
-   ```json
-   {
-     "IMEI_List": ["869123456789012", "869987654321098"],
-     "BasePort": 19000
-   }
-   ```
-   See: [lorenzo-deluca/silence-private-server#8](https://github.com/lorenzo-deluca/silence-private-server/pull/8)
+- **Single scooter (default)**: Leave the IMEI field empty during setup. Everything works exactly as before — no entity changes, no breaking changes.
+- **Multiple scooters**: Enter each scooter's IMEI and enable the "Multi-device" checkbox. Each scooter gets its own entities with IMEI-based naming.
 
-2. **Add Integration** once per scooter:
-   - Go to **Settings → Devices & Services → Add Integration**
-   - Search for "Silence Scooter"
-   - Enter your scooter's **IMEI** (14-15 digits)
-   - Configure trip detection settings
-   - Click Submit
+### Adding a second scooter
 
-3. **Automatic MQTT Discovery** (v2.0+):
-   - All sensors and buttons are automatically discovered via MQTT
-   - No manual MQTT configuration needed!
-   - Just ensure your MQTT broker is connected
+1. Make sure your [Silence Private Server](https://github.com/lorenzo-deluca/silence-private-server/) supports multiple IMEIs
+2. Go to **Settings > Devices & Services > Add Integration > Silence Scooter**
+3. Enter your scooter's **IMEI** (14-15 digits, found on the frame or in your app)
+4. Check the **Multi-device** checkbox
+5. Repeat for each additional scooter
 
-4. **Repeat** for each additional scooter
+### Entity naming
 
-### Finding Your IMEI
+| Mode | Entity ID example |
+|------|-------------------|
+| Single (no IMEI) | `sensor.scooter_speed` |
+| Multi-device | `sensor.scooter_9012_speed` (last 4 IMEI digits) |
 
-Your scooter's IMEI can be found:
-- On the scooter frame (near VIN plate)
-- In your mobile app (Settings → Device Info)
-- On original purchase documentation
-- By checking Silence Private Server logs
-
-### Migration from v1.x
-
-**Breaking Change**: v2.0 requires an IMEI for all installations.
-
-When you update:
-1. You'll be prompted to enter your IMEI
-2. Entity IDs will change (IMEI suffix added)
-3. Automations referencing old entity IDs must be updated
-
-**Entity ID Changes**:
-- v1: `sensor.silence_scooter_speed`
-- v2: `sensor.silence_scooter_speed_9012` (last 4 digits of IMEI)
-
-**Migration Guide**:
-1. Backup your Home Assistant configuration
-2. Note your current automations using Silence entities
-3. Update the integration
-4. Enter your IMEI when prompted
-5. Update automations with new entity IDs
-6. Test thoroughly
-
-See [MIGRATION_V1_TO_V2.md](MIGRATION_V1_TO_V2.md) for detailed migration instructions.
-
-### MQTT Configuration
-
-**Automatic (Recommended)**: MQTT Discovery publishes all sensor/button configs automatically when you add a scooter.
-
-**Manual (Fallback)**: If MQTT Discovery doesn't work, see `examples/silence.yaml` for manual configuration templates.
-
-### Services
-
-#### `silencescooter.reset_tracked_counters`
-Reset distance and battery counters for a specific scooter.
-
-**Fields**:
-- `device_id` (required): Select the scooter device from dropdown
-
-**Example**:
-```yaml
-service: silencescooter.reset_tracked_counters
-data:
-  device_id: <select from UI>
-```
-
-### Limitations
-
-- **Maximum scooters**: 5 recommended (performance considerations)
-- **IMEI uniqueness**: Each instance must have a unique IMEI
-- **MQTT broker**: Required for all scooter communication
-
-### Troubleshooting
-
-**Problem**: Sensors not appearing after adding scooter
-- **Solution**: Check MQTT broker connection, verify IMEI in Private Server config
-
-**Problem**: Duplicate entity IDs
-- **Solution**: Remove old integration instance, clear entity registry
-
-**Problem**: Migration failed
-- **Solution**: Remove integration, reinstall fresh with IMEI
-
-For more help, see: [Issues](https://github.com/noiwid/silence-scooter-homeassistant/issues)
+**No migration needed** for existing single-scooter users.
 
 ## 📦 Dashboard Dependencies (HACS Frontend)
 

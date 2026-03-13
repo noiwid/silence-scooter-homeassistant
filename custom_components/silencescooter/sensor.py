@@ -52,11 +52,12 @@ async def async_setup_entry(
     from homeassistant.exceptions import ConfigEntryNotReady
 
     # Get IMEI and multi_device from config entry
-    imei = config_entry.data.get(CONF_IMEI)
-    if not imei:
-        raise ConfigEntryNotReady("IMEI not configured")
-
+    imei = config_entry.data.get(CONF_IMEI, "")
     multi_device = config_entry.data.get(CONF_MULTI_DEVICE, DEFAULT_MULTI_DEVICE)
+
+    # Multi-device mode requires IMEI
+    if multi_device and not imei:
+        raise ConfigEntryNotReady("Multi-device mode requires IMEI")
 
     entities = []
 
@@ -154,27 +155,25 @@ async def async_setup_entry(
 class ScooterDefaultTariffSensor(SensorEntity):
     """Default electricity tariff sensor when none is configured."""
 
-    _attr_has_entity_name = True
-
-    def __init__(self, hass: HomeAssistant, imei: str, multi_device: bool = False) -> None:
+    def __init__(self, hass: HomeAssistant, imei: str = "", multi_device: bool = False) -> None:
         """Initialize the sensor."""
         self.hass = hass
         self._imei = imei
         self._multi_device = multi_device
 
-        # Simplified unique_id using IMEI + sensor type
-        self._attr_unique_id = f"{imei}_default_electricity_price"
-
-        # Entity name - just the data point, not device name
-        self._attr_name = "Default Electricity Price"
-
-        # DO NOT set self.entity_id - let HA generate it
+        if multi_device and imei:
+            self._attr_has_entity_name = True
+            self._attr_unique_id = f"{imei}_default_electricity_price"
+            self._attr_name = "Default Electricity Price"
+        else:
+            # Legacy mode: same as v1.0.4
+            self._attr_unique_id = f"{DOMAIN}_default_electricity_price"
+            self._attr_name = "Silencescooter Default Electricity Price"
+            self.entity_id = "sensor.silencescooter_default_electricity_price"
 
         self._attr_native_unit_of_measurement = "€/kWh"
         self._attr_device_class = SensorDeviceClass.MONETARY
-        # Note: monetary device_class cannot have state_class
         self._attr_icon = "mdi:currency-eur"
-        # Default tariff sensor is internal, not shown on device page
 
     @property
     def native_value(self) -> float:
@@ -186,9 +185,7 @@ class ScooterDefaultTariffSensor(SensorEntity):
 class ScooterTemplateSensor(SensorEntity, RestoreEntity):
     """Representation of a Scooter Template sensor."""
 
-    _attr_has_entity_name = True
-
-    def __init__(self, hass: HomeAssistant, sensor_id: str, config: dict, imei: str, multi_device: bool = False) -> None:
+    def __init__(self, hass: HomeAssistant, sensor_id: str, config: dict, imei: str = "", multi_device: bool = False) -> None:
         """Initialize the sensor."""
         self.hass = hass
         self._sensor_id = sensor_id
@@ -196,16 +193,16 @@ class ScooterTemplateSensor(SensorEntity, RestoreEntity):
         self._imei = imei
         self._multi_device = multi_device
 
-        # Simplified unique_id using IMEI + sensor type
-        self._attr_unique_id = f"{imei}_{sensor_id}"
-
-        # Entity name - extract data point name from sensor_id
-        # "scooter_speed" -> "Speed"
-        # "scooter_battery_per_km" -> "Battery Per Km"
-        sensor_type = sensor_id.replace("scooter_", "").replace("_", " ").title()
-        self._attr_name = sensor_type
-
-        # DO NOT set self.entity_id - let HA generate it
+        if multi_device and imei:
+            self._attr_has_entity_name = True
+            self._attr_unique_id = f"{imei}_{sensor_id}"
+            sensor_type = sensor_id.replace("scooter_", "").replace("_", " ").title()
+            self._attr_name = sensor_type
+        else:
+            # Legacy mode: same as v1.0.4
+            self._attr_unique_id = f"{DOMAIN}_{sensor_id}"
+            self._attr_name = sensor_id.replace("_", " ").title().replace("Scooter ", "Scooter - ")
+            self.entity_id = f"sensor.{sensor_id}"
 
         self._attr_native_unit_of_measurement = config.get("unit_of_measurement")
         self._attr_device_class = config.get("device_class")
@@ -248,9 +245,7 @@ class ScooterWritableSensor(SensorEntity, RestoreEntity):
     Instead, we have a single sensor that can be written to and read from.
     """
 
-    _attr_has_entity_name = True
-
-    def __init__(self, hass: HomeAssistant, sensor_id: str, config: dict, imei: str, multi_device: bool = False) -> None:
+    def __init__(self, hass: HomeAssistant, sensor_id: str, config: dict, imei: str = "", multi_device: bool = False) -> None:
         """Initialize the writable sensor."""
         self.hass = hass
         self._sensor_id = sensor_id
@@ -258,13 +253,15 @@ class ScooterWritableSensor(SensorEntity, RestoreEntity):
         self._imei = imei
         self._multi_device = multi_device
 
-        # Simplified unique_id using IMEI + sensor type
-        self._attr_unique_id = f"{imei}_{sensor_id}"
-
-        # Entity name - just the data point name from config
-        self._attr_name = config.get("name", sensor_id.replace("_", " ").title())
-
-        # DO NOT set self.entity_id - let HA generate it
+        if multi_device and imei:
+            self._attr_has_entity_name = True
+            self._attr_unique_id = f"{imei}_{sensor_id}"
+            self._attr_name = config.get("name", sensor_id.replace("_", " ").title())
+        else:
+            # Legacy mode: same as v1.0.4
+            self._attr_unique_id = f"{DOMAIN}_{sensor_id}"
+            self._attr_name = config.get("name", sensor_id.replace("_", " ").title())
+            self.entity_id = f"sensor.{sensor_id}"
 
         self._attr_native_unit_of_measurement = config.get("unit_of_measurement")
         self._attr_device_class = config.get("device_class")
@@ -305,7 +302,7 @@ class ScooterWritableSensor(SensorEntity, RestoreEntity):
 class ScooterTriggerSensor(ScooterTemplateSensor):
     """Representation of a Scooter sensor with triggers (state or time_pattern)."""
 
-    def __init__(self, hass: HomeAssistant, sensor_id: str, config: dict, imei: str, multi_device: bool = False) -> None:
+    def __init__(self, hass: HomeAssistant, sensor_id: str, config: dict, imei: str = "", multi_device: bool = False) -> None:
         """Initialize the trigger-based sensor."""
         super().__init__(hass, sensor_id, config, imei, multi_device)
         self._triggers = config.get("triggers", [])
@@ -355,21 +352,20 @@ class ScooterTriggerSensor(ScooterTemplateSensor):
 class ScooterTripsSensor(SensorEntity, RestoreEntity):
     """Representation of a Scooter Trips sensor."""
 
-    _attr_has_entity_name = True
-
-    def __init__(self, hass: HomeAssistant, imei: str, multi_device: bool = False) -> None:
+    def __init__(self, hass: HomeAssistant, imei: str = "", multi_device: bool = False) -> None:
         """Initialize the sensor."""
         self.hass = hass
         self._imei = imei
         self._multi_device = multi_device
 
-        # Simplified unique_id using IMEI + sensor type
-        self._attr_unique_id = f"{imei}_trips"
-
-        # Entity name - just the data point
-        self._attr_name = "Trips"
-
-        # DO NOT set self.entity_id - let HA generate it
+        if multi_device and imei:
+            self._attr_has_entity_name = True
+            self._attr_unique_id = f"{imei}_trips"
+            self._attr_name = "Trips"
+        else:
+            # Legacy mode: same as v1.0.4
+            self._attr_unique_id = f"{DOMAIN}_trips"
+            self._attr_name = "Scooter Trips"
 
         self._attr_icon = "mdi:scooter"
         self._attr_native_value = 0
@@ -412,9 +408,7 @@ class ScooterTripsSensor(SensorEntity, RestoreEntity):
 class ScooterUtilityMeterSensor(SensorEntity, RestoreEntity):
     """Simplified utility meter sensor that tracks consumption per cycle."""
 
-    _attr_has_entity_name = True
-
-    def __init__(self, hass: HomeAssistant, meter_id: str, config: dict, imei: str, multi_device: bool = False) -> None:
+    def __init__(self, hass: HomeAssistant, meter_id: str, config: dict, imei: str = "", multi_device: bool = False) -> None:
         """Initialize the utility meter sensor."""
         self.hass = hass
         self._meter_id = meter_id
@@ -422,15 +416,16 @@ class ScooterUtilityMeterSensor(SensorEntity, RestoreEntity):
         self._imei = imei
         self._multi_device = multi_device
 
-        # Simplified unique_id using IMEI + sensor type
-        self._attr_unique_id = f"{imei}_{meter_id}"
-
-        # Entity name - extract data point name from meter_id
-        # "scooter_energy_daily" -> "Energy Daily"
-        sensor_type = meter_id.replace("scooter_", "").replace("_", " ").title()
-        self._attr_name = sensor_type
-
-        # DO NOT set self.entity_id - let HA generate it
+        if multi_device and imei:
+            self._attr_has_entity_name = True
+            self._attr_unique_id = f"{imei}_{meter_id}"
+            sensor_type = meter_id.replace("scooter_", "").replace("_", " ").title()
+            self._attr_name = sensor_type
+        else:
+            # Legacy mode: same as v1.0.4
+            self._attr_unique_id = f"{DOMAIN}_{meter_id}"
+            self._attr_name = meter_id.replace("_", " ").title().replace("Scooter ", "Scooter - ")
+            self.entity_id = f"sensor.{meter_id}"
 
         self._attr_native_unit_of_measurement = "kWh"
         self._attr_device_class = SensorDeviceClass.ENERGY

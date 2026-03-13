@@ -103,12 +103,13 @@ async def set_writable_sensor_value(hass: HomeAssistant, entity_id: str, value: 
         _LOGGER.error("Available sensors: %s", list(hass.data.get(DOMAIN, {}).get("sensors", {}).keys()))
 
 
-def determine_trip_end_timestamp(hass: HomeAssistant, imei: str) -> str:
+def determine_trip_end_timestamp(hass: HomeAssistant, imei: str = "", multi_device: bool = False) -> str:
     """Determine the best available end timestamp for the trip.
 
     Args:
         hass: HomeAssistant instance
-        imei: IMEI of the scooter
+        imei: IMEI of the scooter (optional for single-device)
+        multi_device: Whether multi-device mode is enabled
 
     Priority:
     1. datetime.scooter_end_time (if already set and valid)
@@ -120,7 +121,8 @@ def determine_trip_end_timestamp(hass: HomeAssistant, imei: str) -> str:
         Timestamp string in format "YYYY-MM-DD HH:MM:SS"
     """
     def entity_id(base: str) -> str:
-        return f"{base}_{imei}"
+        from .helpers import insert_imei_in_entity_id
+        return insert_imei_in_entity_id(base, imei, multi_device)
 
     end_time_current = hass.states.get(entity_id("datetime.scooter_end_time"))
     if end_time_current and end_time_current.state not in ["unknown", "unavailable"]:
@@ -163,17 +165,19 @@ def determine_trip_end_timestamp(hass: HomeAssistant, imei: str) -> str:
 
 async def calculate_trip_duration(
     hass: HomeAssistant,
-    imei: str,
     start_time_str: str,
-    end_time_str: str
+    end_time_str: str,
+    imei: str = "",
+    multi_device: bool = False,
 ) -> float:
     """Calculate trip duration in minutes (net of pauses).
 
     Args:
         hass: HomeAssistant instance
-        imei: IMEI of the scooter
         start_time_str: Start time string
         end_time_str: End time string
+        imei: IMEI of the scooter (optional for single-device)
+        multi_device: Whether multi-device mode is enabled
 
     Returns:
         Trip duration in minutes (0 if calculation fails)
@@ -182,7 +186,8 @@ async def calculate_trip_duration(
         from .helpers import is_date_valid, get_valid_datetime
 
         def entity_id(base: str) -> str:
-            return f"{base}_{imei}"
+            from .helpers import insert_imei_in_entity_id
+            return insert_imei_in_entity_id(base, imei, multi_device)
 
         dt_start = None
         if is_date_valid(start_time_str):
@@ -230,20 +235,23 @@ async def calculate_trip_duration(
 
 async def update_trip_statistics(
     hass: HomeAssistant,
-    imei: str,
     distance: float,
-    batt_consumption: float
+    batt_consumption: float,
+    imei: str = "",
+    multi_device: bool = False,
 ) -> None:
     """Update cumulative trip statistics.
 
     Args:
         hass: HomeAssistant instance
-        imei: IMEI of the scooter
         distance: Trip distance in km
         batt_consumption: Battery consumption in %
+        imei: IMEI of the scooter (optional for single-device)
+        multi_device: Whether multi-device mode is enabled
     """
     def entity_id(base: str) -> str:
-        return f"{base}_{imei}"
+        from .helpers import insert_imei_in_entity_id
+        return insert_imei_in_entity_id(base, imei, multi_device)
 
     NUMBER_TRACKED_DISTANCE = entity_id("number.scooter_tracked_distance")
     NUMBER_TRACKED_BATT_USED = entity_id("number.scooter_tracked_battery_used")
@@ -312,16 +320,16 @@ def get_valid_datetime(dt_str: str, default=None):
     
 async def async_setup_automations(
     hass: HomeAssistant,
-    config_entry,
-    imei: str,
+    config_entry=None,
+    imei: str = "",
     multi_device: bool = False,
 ) -> list:
     """Installe toutes les automatisations (ex-YAML) pour Silence Scooter.
 
     Args:
         hass: HomeAssistant instance
-        config_entry: ConfigEntry for this scooter
-        imei: IMEI of the scooter
+        config_entry: ConfigEntry for this scooter (optional for single-device)
+        imei: IMEI of the scooter (optional for single-device)
         multi_device: Whether to use multi-device entity naming
 
     Returns:
@@ -598,7 +606,7 @@ async def async_setup_automations(
                         scheduled_tasks.pop("tolerance_timer", None)
                         _LOGGER.info("⏱️ Timer de tolérance terminé (%d min), arrêt définitif du trajet", pause_duration_min)
                         await do_log_event(hass, f"Trip auto-stopped: tolerance timer expired ({pause_duration_min}min)")
-                        await do_stop_trip(hass, imei, reason="tolerance-timeout")
+                        await do_stop_trip(hass, imei=imei, multi_device=multi_device, reason="tolerance-timeout")
 
                     task = hass.loop.call_later(duration_seconds, lambda: hass.loop.create_task(_on_tolerance_expired()))
                     scheduled_tasks["tolerance_timer"] = task
@@ -627,7 +635,7 @@ async def async_setup_automations(
                     )
 
                     await do_log_event(hass, "Immediate stop - scooter off/unavailable")
-                    await do_stop_trip(hass, imei, reason="immediate")
+                    await do_stop_trip(hass, imei=imei, multi_device=multi_device, reason="immediate")
 
                 async def _confirm_off():
                     """Confirme l'arrêt du trajet après le délai de confirmation."""
@@ -653,7 +661,7 @@ async def async_setup_automations(
                         _LOGGER.debug("⏱️ Délai de confirmation (2 min) ignoré - pas une pause réelle")
 
                         await do_log_event(hass, "Auto stop trip (confirmed after 2min)")
-                        await do_stop_trip(hass, imei, reason="auto-confirmed")
+                        await do_stop_trip(hass, imei=imei, multi_device=multi_device, reason="auto-confirmed")
                     else:
                         _LOGGER.info("🔄 CONFIRM OFF: état changé -> annulation de l'arrêt")
 
@@ -808,7 +816,7 @@ async def async_setup_automations(
         )
 
         # do_stop_trip
-        await do_stop_trip(hass, imei, reason="Manual button")
+        await do_stop_trip(hass, imei=imei, multi_device=multi_device, reason="Manual button")
 
         # repasse le switch à off
         await hass.services.async_call(
@@ -1078,7 +1086,7 @@ async def async_setup_automations(
                                 source="watchdog",
                             )
                         await do_log_event(hass, "Watchdog: Auto stop trip (no update)")
-                        await do_stop_trip(hass, imei, reason="watchdog-no-update")
+                        await do_stop_trip(hass, imei=imei, multi_device=multi_device, reason="watchdog-no-update")
             except Exception as e:
                 _LOGGER.error("Erreur dans watchdog_check_trip_end: %s", e)
                 
@@ -1117,7 +1125,7 @@ async def do_log_event(hass: HomeAssistant, message: str):
         _LOGGER.error("Failed to call log_event helper: %s", exc)
 
 
-async def do_stop_trip(hass: HomeAssistant, imei: str, reason: str = "Manual stop"):
+async def do_stop_trip(hass: HomeAssistant, imei: str = "", multi_device: bool = False, reason: str = "Manual stop"):
     """Stop the current trip and update all trip-related entities.
 
     This function orchestrates the trip stop workflow by determining the end
@@ -1127,13 +1135,15 @@ async def do_stop_trip(hass: HomeAssistant, imei: str, reason: str = "Manual sto
 
     Args:
         hass: HomeAssistant instance
-        imei: IMEI of the scooter
+        imei: IMEI of the scooter (optional for single-device)
+        multi_device: Whether multi-device mode is enabled
         reason: Reason for stopping the trip
     """
     _LOGGER.info("STOP TRIP TRIGGERED: reason=%s", reason)
 
     def entity_id(base: str) -> str:
-        return f"{base}_{imei}"
+        from .helpers import insert_imei_in_entity_id
+        return insert_imei_in_entity_id(base, imei, multi_device)
 
     # Entity IDs for this scooter
     INPUT_DT_END_TIME = entity_id("datetime.scooter_end_time")
@@ -1152,7 +1162,7 @@ async def do_stop_trip(hass: HomeAssistant, imei: str, reason: str = "Manual sto
 
     try:
         # 1) Determine end timestamp using helper
-        end_timestamp = determine_trip_end_timestamp(hass, imei)
+        end_timestamp = determine_trip_end_timestamp(hass, imei, multi_device)
 
         # 2) Update datetime.scooter_end_time
         await hass.services.async_call(
@@ -1193,9 +1203,10 @@ async def do_stop_trip(hass: HomeAssistant, imei: str, reason: str = "Manual sto
         if start_time_state and start_time_state.state not in ["unknown", "unavailable"]:
             trip_duration_val = await calculate_trip_duration(
                 hass,
-                imei,
                 start_time_state.state,
-                end_timestamp
+                end_timestamp,
+                imei=imei,
+                multi_device=multi_device,
             )
         else:
             _LOGGER.debug("Pas de start_time disponible pour calculer la durée")
@@ -1229,7 +1240,7 @@ async def do_stop_trip(hass: HomeAssistant, imei: str, reason: str = "Manual sto
         await set_writable_sensor_value(hass, SENSOR_LAST_TRIP_BATT_CONSUMPTION, batt_consumption)
 
         # 9) Update trip statistics using helper
-        await update_trip_statistics(hass, imei, distance_val, batt_consumption)
+        await update_trip_statistics(hass, distance_val, batt_consumption, imei=imei, multi_device=multi_device)
 
         # 10) Update entities
         await hass.services.async_call(
@@ -1251,7 +1262,7 @@ async def do_stop_trip(hass: HomeAssistant, imei: str, reason: str = "Manual sto
         )
 
         # 11) Update trips history
-        await do_update_trips_history(hass, imei)
+        await do_update_trips_history(hass, imei=imei, multi_device=multi_device)
 
         _LOGGER.info(
             "TRIP STOPPED: distance=%.1f km, duration=%.0f min, avg_speed=%.1f km/h, battery=%.1f%% (reason=%s)",
@@ -1269,17 +1280,19 @@ async def do_stop_trip(hass: HomeAssistant, imei: str, reason: str = "Manual sto
                 source="do_stop_trip",
             )
 
-async def do_update_trips_history(hass: HomeAssistant, imei: str):
+async def do_update_trips_history(hass: HomeAssistant, imei: str = "", multi_device: bool = False):
     """Update trip history with validation.
 
     Args:
         hass: HomeAssistant instance
-        imei: IMEI of the scooter
+        imei: IMEI of the scooter (optional for single-device)
+        multi_device: Whether multi-device mode is enabled
     """
     _LOGGER.info("UPDATING TRIP HISTORY")
 
     def entity_id(base: str) -> str:
-        return f"{base}_{imei}"
+        from .helpers import insert_imei_in_entity_id
+        return insert_imei_in_entity_id(base, imei, multi_device)
 
     # Entity IDs for this scooter
     SENSOR_LAST_TRIP_DISTANCE = entity_id("sensor.scooter_last_trip_distance")
@@ -1434,7 +1447,7 @@ async def do_update_trips_history(hass: HomeAssistant, imei: str):
             )
 
 
-async def setup_persistent_sensors_update(hass: HomeAssistant, imei: str, multi_device: bool = False):
+async def setup_persistent_sensors_update(hass: HomeAssistant, imei: str = "", multi_device: bool = False):
     """Setup persistent sensors auto-update.
 
     Updates persistent sensors (battery, odo, regeneration) when MQTT data changes.
