@@ -512,7 +512,7 @@ BATTERY_HEALTH_SENSORS = {
             {% if valid | length >= 2 %}
                 {{ ((valid | max - valid | min) * 1000) | round(0) }}
             {% else %}
-                {{ states('sensor.scooter_battery_cell_imbalance') if states('sensor.scooter_battery_cell_imbalance') not in ['unknown', 'unavailable'] else 'unavailable' }}
+                {{ none }}
             {% endif %}
         """
     },
@@ -527,7 +527,7 @@ BATTERY_HEALTH_SENSORS = {
             {# NMC 14S Li-ion lookup table: cell voltage (OCV) -> SOC%
                Based on typical NMC discharge curve at C/5, 25C #}
             {% if volt <= 0 %}
-                {{ states('sensor.scooter_battery_soc_calculated') if states('sensor.scooter_battery_soc_calculated') not in ['unknown', 'unavailable'] else 'unavailable' }}
+                {{ none }}
             {% else %}
                 {% set cell_v = volt / 14 %}
                 {% set lut = [
@@ -569,10 +569,10 @@ BATTERY_HEALTH_SENSORS = {
                 {% if soc_displayed > 0 or soc_calculated > 0 %}
                     {{ (soc_displayed - soc_calculated) | round(1) }}
                 {% else %}
-                    unavailable
+                    {{ none }}
                 {% endif %}
             {% else %}
-                unavailable
+                {{ none }}
             {% endif %}
         """
     },
