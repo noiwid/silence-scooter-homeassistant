@@ -9,7 +9,7 @@ from homeassistant.helpers.restore_state import RestoreEntity
 
 from .const import DOMAIN, CONF_IMEI, CONF_MULTI_DEVICE, DEFAULT_MULTI_DEVICE
 from .definitions import INPUT_NUMBERS
-from .helpers import get_device_info, insert_imei_in_entity_id
+from .helpers import get_device_info
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -19,8 +19,6 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Set up the custom Number entities for Silence Scooter."""
-    from homeassistant.exceptions import ConfigEntryNotReady
-
     # Get IMEI and multi_device from config entry
     imei = config_entry.data.get(CONF_IMEI, "")
     multi_device = config_entry.data.get(CONF_MULTI_DEVICE, DEFAULT_MULTI_DEVICE)

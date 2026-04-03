@@ -398,8 +398,9 @@ TEMPLATE_SENSORS = {
             {% set discharged = states('sensor.silence_scooter_discharged_energy') | float(0) %}
             {% set regenerated = states('sensor.silence_scooter_regenerated_energy') | float(0) %}
             {% set battery_capacity = 5.6 %}
-            {% if odo > 0 %}
-                {{ (((discharged - regenerated) / battery_capacity * 100) / odo) | round(2) }}
+            {% set net_consumption = [discharged - regenerated, 0] | max %}
+            {% if odo > 0 and net_consumption > 0 %}
+                {{ ((net_consumption / battery_capacity * 100) / odo) | round(2) }}
             {% else %}
                 0
             {% endif %}
@@ -487,26 +488,31 @@ BATTERY_HEALTH_SENSORS = {
         "state_class": "measurement",
         "icon": "mdi:battery-alert-variant-outline",
         "value_template": """
-            {% set cells = [
-                states('sensor.silence_scooter_battery_cell1') | float(0),
-                states('sensor.silence_scooter_battery_cell2') | float(0),
-                states('sensor.silence_scooter_battery_cell3') | float(0),
-                states('sensor.silence_scooter_battery_cell4') | float(0),
-                states('sensor.silence_scooter_battery_cell5') | float(0),
-                states('sensor.silence_scooter_battery_cell6') | float(0),
-                states('sensor.silence_scooter_battery_cell7') | float(0),
-                states('sensor.silence_scooter_battery_cell8') | float(0),
-                states('sensor.silence_scooter_battery_cell9') | float(0),
-                states('sensor.silence_scooter_battery_cell10') | float(0),
-                states('sensor.silence_scooter_battery_cell11') | float(0),
-                states('sensor.silence_scooter_battery_cell12') | float(0),
-                states('sensor.silence_scooter_battery_cell13') | float(0),
-                states('sensor.silence_scooter_battery_cell14') | float(0)
+            {% set raw = [
+                states('sensor.silence_scooter_cell1_voltage'),
+                states('sensor.silence_scooter_cell2_voltage'),
+                states('sensor.silence_scooter_cell3_voltage'),
+                states('sensor.silence_scooter_cell4_voltage'),
+                states('sensor.silence_scooter_cell5_voltage'),
+                states('sensor.silence_scooter_cell6_voltage'),
+                states('sensor.silence_scooter_cell7_voltage'),
+                states('sensor.silence_scooter_cell8_voltage'),
+                states('sensor.silence_scooter_cell9_voltage'),
+                states('sensor.silence_scooter_cell10_voltage'),
+                states('sensor.silence_scooter_cell11_voltage'),
+                states('sensor.silence_scooter_cell12_voltage'),
+                states('sensor.silence_scooter_cell13_voltage'),
+                states('sensor.silence_scooter_cell14_voltage')
             ] %}
-            {% if cells | max > 0 %}
-                {{ ((cells | max - cells | min) * 1000) | round(0) }}
+            {% set valid = raw | reject('in', ['unknown', 'unavailable', 'None', ''])
+                               | map('float', default=none)
+                               | reject('none')
+                               | select('greaterthan', 0)
+                               | list %}
+            {% if valid | length >= 2 %}
+                {{ ((valid | max - valid | min) * 1000) | round(0) }}
             {% else %}
-                0
+                {{ states('sensor.scooter_battery_cell_imbalance') if states('sensor.scooter_battery_cell_imbalance') not in ['unknown', 'unavailable'] else 'unavailable' }}
             {% endif %}
         """
     },
@@ -518,19 +524,34 @@ BATTERY_HEALTH_SENSORS = {
         "icon": "mdi:battery-charging-outline",
         "value_template": """
             {% set volt = states('sensor.silence_scooter_battery_volt') | float(0) %}
-            {# Voltage range for 14S Li-ion battery:
-               Min (0%):  ~46.2V (3.3V/cell × 14)
-               Max (100%): ~58.8V (4.2V/cell × 14)
-               Total range: 12.6V
-            #}
-            {% set volt_min = 46.2 %}
-            {% set volt_max = 58.8 %}
-            {% set volt_range = volt_max - volt_min %}
-            {% if volt >= volt_min %}
-                {% set soc = ((volt - volt_min) / volt_range * 100) | round(1) %}
-                {{ [0, [soc, 100] | min] | max }}
+            {# NMC 14S Li-ion lookup table: cell voltage (OCV) -> SOC%
+               Based on typical NMC discharge curve at C/5, 25C #}
+            {% if volt <= 0 %}
+                {{ states('sensor.scooter_battery_soc_calculated') if states('sensor.scooter_battery_soc_calculated') not in ['unknown', 'unavailable'] else 'unavailable' }}
             {% else %}
-                0
+                {% set cell_v = volt / 14 %}
+                {% set lut = [
+                    (2.80, 0), (3.00, 1), (3.10, 3), (3.20, 5),
+                    (3.30, 10), (3.40, 15), (3.50, 25), (3.55, 30),
+                    (3.60, 38), (3.65, 45), (3.70, 55), (3.75, 65),
+                    (3.80, 72), (3.85, 78), (3.90, 84), (3.95, 89),
+                    (4.00, 93), (4.05, 96), (4.10, 98), (4.15, 99),
+                    (4.20, 100)
+                ] %}
+                {% if cell_v <= lut[0][0] %}
+                    0
+                {% elif cell_v >= lut[-1][0] %}
+                    100
+                {% else %}
+                    {% set ns = namespace(soc=0) %}
+                    {% for i in range(lut | length - 1) %}
+                        {% if cell_v >= lut[i][0] and cell_v < lut[i+1][0] %}
+                            {% set ratio = (cell_v - lut[i][0]) / (lut[i+1][0] - lut[i][0]) %}
+                            {% set ns.soc = lut[i][1] + ratio * (lut[i+1][1] - lut[i][1]) %}
+                        {% endif %}
+                    {% endfor %}
+                    {{ ns.soc | round(1) }}
+                {% endif %}
             {% endif %}
         """
     },
@@ -540,9 +561,19 @@ BATTERY_HEALTH_SENSORS = {
         "state_class": "measurement",
         "icon": "mdi:delta",
         "value_template": """
-            {% set soc_displayed = states('sensor.scooter_battery_display') | float(0) %}
-            {% set soc_calculated = states('sensor.scooter_battery_soc_calculated') | float(0) %}
-            {{ (soc_displayed - soc_calculated) | round(1) }}
+            {% set displayed_st = states('sensor.scooter_battery_display') %}
+            {% set calculated_st = states('sensor.scooter_battery_soc_calculated') %}
+            {% if displayed_st not in ['unknown', 'unavailable'] and calculated_st not in ['unknown', 'unavailable'] %}
+                {% set soc_displayed = displayed_st | float(0) %}
+                {% set soc_calculated = calculated_st | float(0) %}
+                {% if soc_displayed > 0 or soc_calculated > 0 %}
+                    {{ (soc_displayed - soc_calculated) | round(1) }}
+                {% else %}
+                    unavailable
+                {% endif %}
+            {% else %}
+                unavailable
+            {% endif %}
         """
     },
     "scooter_battery_charge_cycles": {
@@ -551,16 +582,26 @@ BATTERY_HEALTH_SENSORS = {
         "state_class": "total_increasing",
         "icon": "mdi:battery-sync",
         "value_template": """
-            {% set charged = states('sensor.silence_scooter_charged_energy') | float(0) %}
+            {% set charged_state = states('sensor.silence_scooter_charged_energy') %}
             {% set battery_capacity = 5.6 %}
-            {{ (charged / battery_capacity) | round(1) }}
+            {% set current = states('sensor.scooter_battery_charge_cycles') %}
+            {% if charged_state not in ['unknown', 'unavailable'] %}
+                {% set charged = charged_state | float(0) %}
+                {% if charged > 0 %}
+                    {{ (charged / battery_capacity) | round(1) }}
+                {% else %}
+                    {{ current if current not in ['unknown', 'unavailable'] else 0 }}
+                {% endif %}
+            {% else %}
+                {{ current if current not in ['unknown', 'unavailable'] else 0 }}
+            {% endif %}
         """
     }
 }
 
 USAGE_STATISTICS_SENSORS = {
     "scooter_distance_per_charge": {
-        "name": "Utilisation - Distance par charge",
+        "name": "Utilisation - Distance moy. par cycle",
         "unit_of_measurement": "km",
         "state_class": "measurement",
         "icon": "mdi:map-marker-distance",

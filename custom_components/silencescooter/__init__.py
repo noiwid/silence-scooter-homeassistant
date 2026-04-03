@@ -10,7 +10,7 @@ from homeassistant.helpers import config_validation as cv
 import homeassistant.helpers.device_registry as dr
 import homeassistant.helpers.entity_registry as er
 
-from .const import DOMAIN, PLATFORMS, CONF_IMEI, CONF_MULTI_DEVICE, DEFAULT_MULTI_DEVICE
+from .const import DOMAIN, PLATFORMS, CONF_IMEI, CONF_MULTI_DEVICE, DEFAULT_MULTI_DEVICE, DEFAULT_ELECTRICITY_PRICE, MANUFACTURER
 from .errors import ErrorDetector, ErrorCategory, ErrorSeverity, get_error_detector
 
 _LOGGER = logging.getLogger(__name__)
@@ -29,15 +29,15 @@ async def publish_mqtt_discovery_configs(hass: HomeAssistant, imei: str) -> None
         return
 
     try:
-        mqtt_publish = hass.components.mqtt.async_publish
+        from homeassistant.components import mqtt
         imei_short = imei[-4:] if len(imei) >= 4 else imei
 
         # Device info shared by all entities
         device_info = {
             "identifiers": [imei],
             "name": f"Silence Scooter ({imei_short})",
-            "manufacturer": "Seat",
-            "model": "Silence S01"
+            "manufacturer": MANUFACTURER,
+            "model": "S01"
         }
 
         # Define all sensors to auto-discover (extracted from examples/silence.yaml)
@@ -118,6 +118,7 @@ async def publish_mqtt_discovery_configs(hass: HomeAssistant, imei: str) -> None
                 "name": "Charged Energy",
                 "unit": "kWh",
                 "device_class": "energy",
+                "state_class": "total_increasing",
                 "icon": "mdi:battery-charging"
             },
             "DischargedEnergy": {
@@ -345,7 +346,7 @@ async def publish_mqtt_discovery_configs(hass: HomeAssistant, imei: str) -> None
             if "value_template" in sensor_config:
                 payload["value_template"] = sensor_config["value_template"]
 
-            await mqtt_publish(discovery_topic, json.dumps(payload), retain=True)
+            await mqtt.async_publish(hass, discovery_topic, json.dumps(payload), retain=True)
 
         # Publish binary sensor discoveries
         for sensor_key, sensor_config in binary_sensors_config.items():
@@ -369,7 +370,7 @@ async def publish_mqtt_discovery_configs(hass: HomeAssistant, imei: str) -> None
             if "expire_after" in sensor_config:
                 payload["expire_after"] = sensor_config["expire_after"]
 
-            await mqtt_publish(discovery_topic, json.dumps(payload), retain=True)
+            await mqtt.async_publish(hass, discovery_topic, json.dumps(payload), retain=True)
 
         # Publish button discoveries
         for button_key, button_config in buttons_config.items():
@@ -386,7 +387,7 @@ async def publish_mqtt_discovery_configs(hass: HomeAssistant, imei: str) -> None
             if "icon" in button_config:
                 payload["icon"] = button_config["icon"]
 
-            await mqtt_publish(discovery_topic, json.dumps(payload), retain=True)
+            await mqtt.async_publish(hass, discovery_topic, json.dumps(payload), retain=True)
 
         _LOGGER.info("Published MQTT Discovery configs for IMEI %s (%d sensors, %d binary sensors, %d buttons)",
                      imei_short, len(sensors_config), len(binary_sensors_config), len(buttons_config))
@@ -449,7 +450,7 @@ async def async_setup_services(hass: HomeAssistant) -> None:
         monthly_value = call.data.get("monthly", 2.26)
         yearly_value = call.data.get("yearly", 2.26)
         source_value_param = call.data.get("source_value")
-        electricity_price = 0.2062  # EUR/kWh
+        electricity_price = DEFAULT_ELECTRICITY_PRICE  # EUR/kWh
 
         # Determine which entities to update based on device_id
         if device_id:
@@ -548,29 +549,21 @@ async def async_setup_services(hass: HomeAssistant) -> None:
                 },
             }
 
-        # Find and update sensor objects
+        # Find and update sensor objects via hass.data[DOMAIN]["sensors"]
         updated_count = 0
-        entity_component = hass.data.get("entity_components", {}).get("sensor")
-        if not entity_component:
-            _LOGGER.error("Sensor component not found!")
-            return
+        domain_sensors = hass.data.get(DOMAIN, {}).get("sensors", {})
 
         for entity_id, values in targets.items():
-            sensor_found = False
-            for entity in entity_component.entities:
-                if entity.entity_id == entity_id:
-                    # Update internal attributes
-                    entity._attr_native_value = round(values["consumption"], 3)
-                    entity._cycle_start_value = round(values["cycle_start"], 3)
-                    entity.async_write_ha_state()
+            sensor = domain_sensors.get(entity_id)
+            if sensor and hasattr(sensor, "_cycle_start_value"):
+                sensor._attr_native_value = round(values["consumption"], 3)
+                sensor._cycle_start_value = round(values["cycle_start"], 3)
+                sensor.async_write_ha_state()
 
-                    _LOGGER.info("✓ %s: %.3f kWh (cycle_start: %.3f kWh)",
-                                 entity_id, values["consumption"], values["cycle_start"])
-                    updated_count += 1
-                    sensor_found = True
-                    break
-
-            if not sensor_found:
+                _LOGGER.info("Restored %s: %.3f kWh (cycle_start: %.3f kWh)",
+                             entity_id, values["consumption"], values["cycle_start"])
+                updated_count += 1
+            else:
                 _LOGGER.warning("Sensor object not found for %s", entity_id)
 
         if updated_count > 0:
@@ -665,14 +658,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             if multi_device and imei:
                 # Multi-device: pass IMEI for entity isolation
                 cancel_listeners = await async_setup_automations(hass, entry, imei, multi_device)
-                await setup_persistent_sensors_update(hass, imei, multi_device)
+                persistent_listeners = await setup_persistent_sensors_update(hass, imei, multi_device)
             else:
                 # Single-device: legacy mode (same as v1.0.4)
                 cancel_listeners = await async_setup_automations(hass)
-                await setup_persistent_sensors_update(hass)
+                persistent_listeners = await setup_persistent_sensors_update(hass)
 
-            # Store listeners per entry for proper cleanup
-            hass.data[DOMAIN][entry.entry_id]["cancel_listeners"] = cancel_listeners
+            # Store all listeners per entry for proper cleanup
+            hass.data[DOMAIN][entry.entry_id]["cancel_listeners"] = cancel_listeners + persistent_listeners
 
             _LOGGER.info("Automations setup completed for %s", imei_log)
             _LOGGER.info("Persistent sensors auto-update configured")

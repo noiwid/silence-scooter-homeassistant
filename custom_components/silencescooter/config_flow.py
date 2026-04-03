@@ -347,9 +347,12 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
             if "errors" in result:
                 errors = result["errors"]
             else:
+                # Merge user_input with existing data to preserve IMEI and other init fields
+                updated_data = dict(self.config_entry.data)
+                updated_data.update(user_input)
                 self.hass.config_entries.async_update_entry(
                     self.config_entry,
-                    data=user_input,
+                    data=updated_data,
                 )
                 return self.async_create_entry(title="", data={})
 

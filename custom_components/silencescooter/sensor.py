@@ -30,7 +30,7 @@ from .const import (
     DEFAULT_USE_TRACKED_DISTANCE,
     DEFAULT_MULTI_DEVICE,
 )
-from .helpers import get_device_info, insert_imei_in_entity_id
+from .helpers import get_device_info, insert_imei_in_entity_id, generate_entity_id_suffix
 from .errors import ErrorCategory, ErrorSeverity, get_error_detector
 from .definitions import (
     WRITABLE_SENSORS,
@@ -60,6 +60,21 @@ async def async_setup_entry(
     if multi_device and not imei:
         raise ConfigEntryNotReady("Multi-device mode requires IMEI")
 
+    def adapt_template_for_multi_device(template_str: str) -> str:
+        """Replace hardcoded entity_ids in templates with IMEI-suffixed versions."""
+        if not multi_device or not imei:
+            return template_str
+        imei_suffix = generate_entity_id_suffix(imei, multi_device)
+        # Replace all known entity_id patterns: insert IMEI after "scooter_"
+        # Handles: sensor.silence_scooter_*, sensor.scooter_*, number.scooter_*,
+        #          datetime.scooter_*, binary_sensor.silence_scooter_*, switch.*_scooter_*
+        import re
+        return re.sub(
+            r"((?:sensor|number|datetime|binary_sensor|switch)\.\w*scooter)_",
+            rf"\1{imei_suffix}_",
+            template_str,
+        )
+
     entities = []
 
     for sensor_id, config in WRITABLE_SENSORS.items():
@@ -82,7 +97,6 @@ async def async_setup_entry(
         config_copy = config.copy()
         # Apply tracked distance mode if enabled for battery_per_km
         if use_tracked_distance and sensor_id == "scooter_battery_per_km" and "value_template" in config_copy:
-            # Tracked mode: battery is already in %, just divide by distance
             config_copy["value_template"] = """
                 {% set tracked_dist = states('number.scooter_tracked_distance') | float(0) %}
                 {% set tracked_batt = states('number.scooter_tracked_battery_used') | float(0) %}
@@ -92,10 +106,17 @@ async def async_setup_entry(
                     0
                 {% endif %}
             """
+        if "value_template" in config_copy:
+            config_copy["value_template"] = adapt_template_for_multi_device(config_copy["value_template"])
+        if "icon_template" in config_copy:
+            config_copy["icon_template"] = adapt_template_for_multi_device(config_copy["icon_template"])
         entities.append(ScooterTemplateSensor(hass, sensor_id, config_copy, imei, multi_device))
 
     for sensor_id, config in TRIGGER_SENSORS.items():
-        entities.append(ScooterTriggerSensor(hass, sensor_id, config, imei, multi_device))
+        config_copy = config.copy()
+        if "value_template" in config_copy:
+            config_copy["value_template"] = adapt_template_for_multi_device(config_copy["value_template"])
+        entities.append(ScooterTriggerSensor(hass, sensor_id, config_copy, imei, multi_device))
 
     for sensor_id, config in ENERGY_COST_SENSORS.items():
         config_copy = config.copy()
@@ -103,19 +124,22 @@ async def async_setup_entry(
             config_copy["value_template"] = config_copy["value_template"].replace(
                 "sensor.tarif_base_ttc", configured_tariff_sensor
             )
+            config_copy["value_template"] = adapt_template_for_multi_device(config_copy["value_template"])
         entities.append(ScooterTemplateSensor(hass, sensor_id, config_copy, imei, multi_device))
 
     for sensor_id, config in BATTERY_HEALTH_SENSORS.items():
-        entities.append(ScooterTemplateSensor(hass, sensor_id, config, imei, multi_device))
+        config_copy = config.copy()
+        if "value_template" in config_copy:
+            config_copy["value_template"] = adapt_template_for_multi_device(config_copy["value_template"])
+        entities.append(ScooterTemplateSensor(hass, sensor_id, config_copy, imei, multi_device))
 
     for sensor_id, config in USAGE_STATISTICS_SENSORS.items():
         config_copy = config.copy()
         if "value_template" in config_copy:
-            # Replace tariff sensor
             config_copy["value_template"] = config_copy["value_template"].replace(
                 "sensor.tarif_base_ttc", configured_tariff_sensor
             )
-            # Use completely different templates for tracked mode
+            config_copy["value_template"] = adapt_template_for_multi_device(config_copy["value_template"])
             if use_tracked_distance:
                 if sensor_id == "scooter_distance_per_charge":
                     # Tracked mode: distance / (battery% / 100) = km per full charge
@@ -141,12 +165,17 @@ async def async_setup_entry(
                             0
                         {{% endif %}}
                     """
+            # Re-apply multi-device adaptation after tracked mode override
+            config_copy["value_template"] = adapt_template_for_multi_device(config_copy["value_template"])
         entities.append(ScooterTemplateSensor(hass, sensor_id, config_copy, imei, multi_device))
 
     entities.append(ScooterTripsSensor(hass, imei, multi_device))
 
     for meter_id, config in UTILITY_METERS.items():
-        entities.append(ScooterUtilityMeterSensor(hass, meter_id, config, imei, multi_device))
+        config_copy = config.copy()
+        if multi_device and imei:
+            config_copy["source"] = insert_imei_in_entity_id(config_copy["source"], imei, multi_device)
+        entities.append(ScooterUtilityMeterSensor(hass, meter_id, config_copy, imei, multi_device))
 
     entities.append(ScooterErrorDetectionSensor(hass, config_entry.entry_id, imei, multi_device))
     async_add_entities(entities)

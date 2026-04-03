@@ -9,7 +9,7 @@ from homeassistant.helpers.restore_state import RestoreEntity
 
 from .const import DOMAIN, CONF_IMEI, CONF_MULTI_DEVICE, DEFAULT_MULTI_DEVICE
 from .definitions import INPUT_BOOLEANS
-from .helpers import get_device_info, insert_imei_in_entity_id
+from .helpers import get_device_info
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -19,8 +19,6 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback
 ):
     """Set up the custom Switch entities (ex-input_boolean) for Silence Scooter."""
-    from homeassistant.exceptions import ConfigEntryNotReady
-
     # Get IMEI and multi_device from config entry
     imei = entry.data.get(CONF_IMEI, "")
     multi_device = entry.data.get(CONF_MULTI_DEVICE, DEFAULT_MULTI_DEVICE)
@@ -72,8 +70,8 @@ class ScooterSwitchEntity(SwitchEntity, RestoreEntity):
 
     async def async_turn_on(self, **kwargs):
         self._is_on = True
-        await self.async_schedule_update_ha_state()
+        self.async_write_ha_state()
 
     async def async_turn_off(self, **kwargs):
         self._is_on = False
-        await self.async_schedule_update_ha_state()
+        self.async_write_ha_state()

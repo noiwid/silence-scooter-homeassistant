@@ -7,7 +7,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.util import dt as dt_util
 from homeassistant.helpers.entity import DeviceInfo
 
-from .const import DOMAIN, HISTORY_SCRIPT, LOG_FILE
+from .const import DOMAIN, HISTORY_SCRIPT, LOG_FILE, MANUFACTURER
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -31,16 +31,16 @@ def get_device_info(imei: str = "", multi_device: bool = False) -> DeviceInfo:
         return DeviceInfo(
             identifiers={(DOMAIN, imei)},
             name=f"Silence Scooter ({imei_short})",
-            manufacturer="Seat",
-            model="Mo",
+            manufacturer=MANUFACTURER,
+            model="S01",
         )
     else:
         # Legacy mode: same identifiers as v1.0.4
         return DeviceInfo(
             identifiers={("silence_scooter", "Silence Scooter")},
             name="Silence Scooter",
-            manufacturer="Seat",
-            model="Mo",
+            manufacturer=MANUFACTURER,
+            model="S01",
         )
 
 
@@ -65,34 +65,33 @@ def generate_entity_id_suffix(imei: str, multi_device: bool) -> str:
 
 
 def insert_imei_in_entity_id(entity_id: str, imei: str, multi_device: bool) -> str:
-    """Insert IMEI suffix BEFORE the last element of entity_id.
+    """Insert IMEI suffix after 'scooter' keyword in entity_id.
 
     Examples:
         silence_scooter_speed + 9012 → silence_scooter_9012_speed
         silence_scooter_battery_soc + 9012 → silence_scooter_9012_battery_soc
         scooter_tracked_distance + 9012 → scooter_9012_tracked_distance
+        sensor.silence_scooter_speed + 9012 → sensor.silence_scooter_9012_speed
 
     Args:
-        entity_id: Base entity ID (e.g., "silence_scooter_speed")
+        entity_id: Base entity ID (e.g., "sensor.silence_scooter_speed")
         imei: Full IMEI (15 digits)
         multi_device: Whether to add IMEI suffix
 
     Returns:
-        Modified entity ID with IMEI before last element (or unchanged if multi_device=False)
+        Modified entity ID with IMEI after 'scooter' (or unchanged if multi_device=False)
     """
     if not multi_device:
         return entity_id
 
     suffix = generate_entity_id_suffix(imei, multi_device)
 
-    # Split on last underscore to insert IMEI before element name
-    parts = entity_id.rsplit('_', 1)
-    if len(parts) == 2:
-        base, element = parts
-        return f"{base}{suffix}_{element}"
-    else:
-        # No underscore found, append at end
-        return f"{entity_id}{suffix}"
+    # Insert IMEI suffix after "scooter_" keyword (first occurrence)
+    if "scooter_" in entity_id:
+        return entity_id.replace("scooter_", f"scooter{suffix}_", 1)
+
+    # Fallback: append at end
+    return f"{entity_id}{suffix}"
 
 
 
@@ -143,7 +142,7 @@ async def log_event(hass: HomeAssistant, message: str):
         def write_log():
             try:
                 from datetime import datetime
-                log_file = Path(hass.config.path("silence_logs.log"))
+                log_file = LOG_FILE
                 timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
                 log_entry = f"{timestamp} - {message}\n"
 
@@ -178,17 +177,23 @@ async def update_history(hass: HomeAssistant, **kwargs):
             _LOGGER.error("History script not found at %s", HISTORY_SCRIPT)
             return False
 
+        def _sanitize_timestamp(value: str) -> str:
+            """Only allow safe characters for timestamp parameters."""
+            if not value:
+                return ""
+            return ''.join(c for c in str(value) if c.isalnum() or c in '-:T+. ')
+
         cmd = [
             "bash",
             str(HISTORY_SCRIPT),
-            str(avg_speed),
-            str(distance),
-            str(duration),
-            start_time,
-            end_time,
-            str(max_speed),
-            str(battery),
-            str(outdoor_temp)
+            str(float(avg_speed)),
+            str(float(distance)),
+            str(float(duration)),
+            _sanitize_timestamp(start_time),
+            _sanitize_timestamp(end_time),
+            str(float(max_speed)),
+            str(float(battery)),
+            str(float(outdoor_temp))
         ]
 
         _LOGGER.debug("Executing command: %s", cmd)

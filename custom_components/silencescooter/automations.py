@@ -28,10 +28,10 @@ from .const import (
     SENSOR_SCOOTER_AMBIENT_TEMP,
 )
 from homeassistant.util import dt as dt_util
-from .helpers import log_event, update_history
+from .helpers import log_event, update_history, is_date_valid, get_valid_datetime
 from .errors import ErrorCategory, ErrorSeverity, get_error_detector
 
-STARTUP_TIME = datetime.utcnow()
+STARTUP_TIME = dt_util.utcnow()
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -42,7 +42,7 @@ def get_config_value(hass: HomeAssistant, key: str, default: any) -> any:
         config = hass.data.get(DOMAIN, {}).get("config", {})
         return config.get(key, default)
     except Exception as e:
-        _LOGGER.warning(f"Error getting config value {key}: {e}, using default {default}")
+        _LOGGER.warning("Error getting config value %s: %s, using default %s", key, e, default)
         return default
 
 
@@ -299,25 +299,9 @@ async def update_trip_statistics(
 # END OF HELPER FUNCTIONS
 # ============================================================================
 
-def is_date_valid(date_str: str) -> bool:
-    """Vérifie si une date est valide (pas 1969/1970)."""
-    if not date_str or date_str in ["unknown", "unavailable"]:
-        return False
-    return not (date_str.startswith("1969") or date_str.startswith("1970"))
+# is_date_valid and get_valid_datetime are imported from helpers.py
 
-def get_valid_datetime(dt_str: str, default=None):
-    """Parse une date et retourne None si elle est invalide (1969/1970)."""
-    if not is_date_valid(dt_str):
-        return default
-    try:
-        dt = dt_util.parse_datetime(dt_str)
-        if dt and dt.year > 2000:
-            return dt_util.as_local(dt) if dt.tzinfo is None else dt
-    except:
-        pass
-    return default
-    
-    
+
 async def async_setup_automations(
     hass: HomeAssistant,
     config_entry=None,
@@ -415,8 +399,8 @@ async def async_setup_automations(
             end_dt = dt_util.parse_datetime(end_time_st.state)
             # Trajet actif si la date de fin est dans le futur
             return end_dt and dt_util.as_local(end_dt) > dt_util.now()
-        except:
-            return False    
+        except (ValueError, TypeError, AttributeError):
+            return False
 
     #
     # 0. "Scooter - Auto-initialisation de la base d'énergie"
@@ -512,15 +496,31 @@ async def async_setup_automations(
             hass.loop.create_task(_update_last_moving_time())
 
     async def _update_last_moving_time():
-        now_str = dt_util.now().isoformat()
-        if _LOGGER.isEnabledFor(logging.DEBUG):
-            _LOGGER.debug("Dernier mouvement OFF => on enregistre %s", now_str)
+        # Use the scooter's last MQTT update timestamp instead of now()
+        # This avoids adding ~5min of artificial delay in the garage scenario
+        # where the scooter goes unavailable without sending status=0
+        last_update_state = hass.states.get(SENSOR_SCOOTER_LAST_UPDATE)
+        if last_update_state and last_update_state.state not in ["unknown", "unavailable"]:
+            try:
+                last_update_dt = dt_util.parse_datetime(last_update_state.state)
+                if last_update_dt and last_update_dt.year > 2000:
+                    timestamp_str = dt_util.as_local(last_update_dt).isoformat()
+                    _LOGGER.info("Last moving time = last MQTT update: %s", timestamp_str)
+                else:
+                    timestamp_str = dt_util.now().isoformat()
+                    _LOGGER.info("Last moving time = now() (invalid last_update): %s", timestamp_str)
+            except (ValueError, TypeError):
+                timestamp_str = dt_util.now().isoformat()
+        else:
+            timestamp_str = dt_util.now().isoformat()
+            _LOGGER.debug("Last moving time = now() (no last_update available): %s", timestamp_str)
+
         await hass.services.async_call(
             "datetime",
             "set_value",
             {
                 "entity_id": INPUT_DT_LAST_MOVING,
-                "datetime": now_str
+                "datetime": timestamp_str
             },
             blocking=True
         )
@@ -544,7 +544,7 @@ async def async_setup_automations(
         from homeassistant.util.dt import now as ha_now
 
         # ⚠️ On ignore uniquement les events de "off" déclenchés dans les 10s après démarrage HA
-        if (datetime.utcnow() - STARTUP_TIME) < timedelta(seconds=10):
+        if (dt_util.utcnow() - STARTUP_TIME) < timedelta(seconds=10):
             _LOGGER.debug("🔄 Ignoring trip_status_off due to HA recent startup")
             return
 
@@ -570,23 +570,27 @@ async def async_setup_automations(
             
             _LOGGER.info("▶ Battery present: %s", battery_present)
 
-            # NOUVELLE LOGIQUE: Arrêt immédiat si scooter vraiment éteint
+            # Arrêt immédiat si scooter éteint (status=0) ou batterie retirée
+            # Data analysis confirms status=0 always follows the real shutdown
+            # sequence (4→3→2→0) and never appears as a false positive during riding.
+            # Network drops during riding produce "unavailable", not "0".
             should_stop_immediately = False
-            
+
             if not raw_state or raw_state.state in ["unknown", "unavailable"]:
-                _LOGGER.info("🛈 Scooter unavailable -> arrêt différé (tolérance)")
-            elif raw_state.state == "0":
-                _LOGGER.info("🛈 Scooter éteint (status=0) -> arrêt différé (tolérance)") 
+                _LOGGER.info("Scooter unavailable -> arret differe (tolerance)")
+            elif raw_state.state in ["0", "0.0"]:
+                should_stop_immediately = True
+                _LOGGER.info("Scooter eteint (status=0, sequence 3->2->0) -> arret immediat")
             elif not battery_present:
-                _LOGGER.info("🛈 Batterie retirée -> arrêt différé (tolérance)")
+                should_stop_immediately = True
+                _LOGGER.info("Batterie retiree -> arret immediat")
 
             if should_stop_immediately:
-                # Arrêt immédiat sans délai
-                _LOGGER.info("🚨 IMMEDIATE STOP triggered")
+                _LOGGER.info("IMMEDIATE STOP triggered (scooter off or battery removed)")
                 hass.loop.create_task(_immediate_stop())
+                return
             else:
-                # Arrêt avec délai (logique normale)
-                _LOGGER.info("⏰ DELAYED STOP triggered (2min + 5min timer)")
+                _LOGGER.info("DELAYED STOP triggered (2min + 5min timer)")
                 
                 # Définir les fonctions async AVANT de les utiliser
                 def _start_tolerance_timer():
@@ -747,7 +751,7 @@ async def async_setup_automations(
                     if total_pause:
                         try:
                             current_pause = float(total_pause.state)
-                        except:
+                        except (ValueError, TypeError):
                             current_pause = 0
                     else:
                         current_pause = 0
@@ -858,8 +862,8 @@ async def async_setup_automations(
                     if status not in [3.0, 4.0]:
                         _LOGGER.info("⚠️ Scooter status incorrect (%s), ignoring start trigger (attendu: 3 ou 4)", status)
                         return
-                except:
-                    _LOGGER.warning("⚠️ Impossible de lire le statut du scooter, continuing anyway")
+                except (ValueError, TypeError):
+                    _LOGGER.warning("Could not read scooter status, continuing anyway")
             
             _LOGGER.info("✅ START CONFIRMED: démarrage du trajet (scooter status OK)")
             hass.loop.create_task(_do_last_start())
@@ -915,7 +919,7 @@ async def async_setup_automations(
         if odo_state and odo_state.state not in ["unknown", "unavailable", None]:
             try:
                 odo_val = float(odo_state.state)
-            except:
+            except (ValueError, TypeError):
                 odo_val = 0
         await hass.services.async_call(
             "number",
@@ -946,7 +950,7 @@ async def async_setup_automations(
         if batt_state and batt_state.state not in ["unknown", "unavailable", None]:
             try:
                 batt_val = float(batt_state.state)
-            except:
+            except (ValueError, TypeError):
                 batt_val = 0
         await hass.services.async_call(
             "number",
@@ -979,18 +983,15 @@ async def async_setup_automations(
 
         try:
             current_speed = float(speed_str)
-        except:
-            current_speed = -1
+        except (ValueError, TypeError):
+            return
         hass.loop.create_task(_do_update_max_speed(current_speed))
 
     async def _do_update_max_speed(current_speed):
-        # log_event => "Current speed: X km/h"
-        await do_log_event(hass, f"Current speed: {current_speed} km/h")
-
-        # old max
         old_max = get_sensor_float_value(hass, SENSOR_MAX_SPEED, 0.0)
-
         new_val = max(old_max, current_speed, 0)
+        if new_val > old_max:
+            _LOGGER.debug("New max speed: %.1f km/h (was %.1f)", new_val, old_max)
         await set_writable_sensor_value(hass, SENSOR_MAX_SPEED, new_val)
 
     remove_update_max_speed = async_track_state_change_event(
@@ -1018,19 +1019,19 @@ async def async_setup_automations(
         if lat_state and lat_state.state not in ["unknown", "unavailable"]:
             try:
                 lat = float(lat_state.state)
-            except:
+            except (ValueError, TypeError):
                 lat = 0.0
 
         if lon_state and lon_state.state not in ["unknown", "unavailable"]:
             try:
                 lon = float(lon_state.state)
-            except:
+            except (ValueError, TypeError):
                 lon = 0.0
 
         if batt_state and batt_state.state not in ["unknown", "unavailable"]:
             try:
                 batt = int(float(batt_state.state))
-            except:
+            except (ValueError, TypeError):
                 batt = 0
 
         await hass.services.async_call(
@@ -1363,13 +1364,12 @@ async def do_update_trips_history(hass: HomeAssistant, imei: str = "", multi_dev
             try:
                 dt = dt_util.parse_datetime(ts)
                 if dt and dt.year >= 2000:
-                    # Always convert to local timezone, even if already has timezone info
                     dt = dt_util.as_local(dt)
                     return dt.isoformat()
                 if dt and dt.year < 2000:
                     _LOGGER.warning("Invalid date detected (year < 2000): %s", dt)
                 return None
-            except:
+            except (ValueError, TypeError, AttributeError):
                 return None
 
         end_time_str = None
@@ -1502,8 +1502,8 @@ async def setup_persistent_sensors_update(hass: HomeAssistant, imei: str = "", m
             discharged = float(discharged_st.state)
             regenerated = float(regenerated_st.state)
 
-            if (discharged + regenerated) > 0:
-                percentage = (regenerated / (discharged + regenerated)) * 100
+            if discharged > 0:
+                percentage = (regenerated / discharged) * 100
                 await set_writable_sensor_value(hass, entity_id("sensor.scooter_battery_percentage_regeneration"), round(percentage, 2))
                 _LOGGER.debug("Regeneration percentage updated: %.2f%%", percentage)
         except (ValueError, TypeError) as e:
