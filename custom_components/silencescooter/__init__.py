@@ -253,6 +253,22 @@ async def publish_mqtt_discovery_configs(hass: HomeAssistant, imei: str) -> None
                 "device_class": "voltage",
                 "value_template": "{{ (value | float / 1000) | round(3) }}"
             },
+
+            # Extended CAN sensors (from $RCAN discovery)
+            "driveMode": {
+                "name": "Drive Mode",
+                "icon": "mdi:steering"
+            },
+            "rangeByMode": {
+                "name": "Range by Mode",
+                "unit": "km",
+                "device_class": "distance",
+                "icon": "mdi:map-marker-distance"
+            },
+            "bmsFlags": {
+                "name": "BMS Flags",
+                "icon": "mdi:flag"
+            },
         }
 
         # Binary sensors
@@ -291,6 +307,25 @@ async def publish_mqtt_discovery_configs(hass: HomeAssistant, imei: str) -> None
             "motionDetected": {
                 "name": "Motion Detected",
                 "device_class": "motion",
+                "payload_on": "1",
+                "payload_off": "0"
+            },
+            # Extended CAN binary sensors
+            "driveReady": {
+                "name": "Drive Ready",
+                "device_class": "power",
+                "payload_on": "1",
+                "payload_off": "0"
+            },
+            "sidestandDown": {
+                "name": "Sidestand Down",
+                "device_class": "opening",
+                "payload_on": "1",
+                "payload_off": "0"
+            },
+            "warningLights": {
+                "name": "Warning Lights",
+                "device_class": "problem",
                 "payload_on": "1",
                 "payload_off": "0"
             },
@@ -679,8 +714,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 source="async_setup_entry",
             )
 
-        # Publish MQTT Discovery configs only in multi-device mode
-        if multi_device and imei:
+        # Publish MQTT Discovery configs when IMEI is available
+        if imei:
             await publish_mqtt_discovery_configs(hass, imei)
 
         # Register services (only once for all instances)
