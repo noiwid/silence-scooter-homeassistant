@@ -9,6 +9,7 @@
           "outdoor_temp_source": "Outdoor temperature source",
           "outdoor_temp_entity": "External temperature sensor",
           "use_tracked_distance": "Use manual tracked counters (resettable after scooter mods)",
+          "multi_device": "Multi-scooter mode (adds IMEI to entity names)",
           "confirmation_delay": "Stop confirmation delay (seconds)",
           "pause_max_duration": "Maximum pause duration (minutes)",
           "watchdog_delay": "Offline watchdog delay (minutes)"
@@ -18,6 +19,7 @@
           "outdoor_temp_source": "Choose the temperature sensor for trip history: scooter's built-in sensor (available when connected) or an external weather sensor",
           "outdoor_temp_entity": "Select an external temperature sensor (required if 'External weather sensor' is selected above)",
           "use_tracked_distance": "✅ Enabled: Statistics based on manual counters (resettable after scooter prep/mods)\n❌ Disabled: Statistics based on global odometer (ODO) and MQTT energy counters",
+          "multi_device": "Enable if you have or plan to have multiple scooters. Entities will be named 'sensor.silence_scooter_9012_speed' instead of 'sensor.silence_scooter_speed' for better grouping.",
           "confirmation_delay": "Filters sensor oscillations and network micro-cuts before considering the scooter stopped (recommended: 120s, increase in weak zones)",
           "pause_max_duration": "Max time with scooter OFF before trip ends. Quick errand < 5min = pause, > 5min = end",
           "watchdog_delay": "If no communication during this duration, the trip stops (e.g.: garage without network)"
@@ -49,6 +51,7 @@
           "outdoor_temp_source": "Outdoor temperature source",
           "outdoor_temp_entity": "External temperature sensor",
           "use_tracked_distance": "Use manual tracked counters (resettable after scooter mods)",
+          "multi_device": "Multi-scooter mode (adds IMEI to entity names)",
           "confirmation_delay": "Stop confirmation delay (seconds)",
           "pause_max_duration": "Maximum pause duration (minutes)",
           "watchdog_delay": "Offline watchdog delay (minutes)"
@@ -58,6 +61,7 @@
           "outdoor_temp_source": "Choose the temperature sensor for trip history: scooter's built-in sensor (available when connected) or an external weather sensor",
           "outdoor_temp_entity": "Select an external temperature sensor (required if 'External weather sensor' is selected above)",
           "use_tracked_distance": "✅ Enabled: Statistics based on manual counters (resettable after scooter prep/mods)\n❌ Disabled: Statistics based on global odometer (ODO) and MQTT energy counters",
+          "multi_device": "Enable if you have or plan to have multiple scooters. Entities will be named 'sensor.silence_scooter_9012_speed' instead of 'sensor.silence_scooter_speed' for better grouping.",
           "confirmation_delay": "Filters sensor oscillations and network micro-cuts before considering the scooter stopped (recommended: 120s, increase in weak zones)",
           "pause_max_duration": "Max time with scooter OFF before trip ends. Quick errand < 5min = pause, > 5min = end",
           "watchdog_delay": "If no communication during this duration, the trip stops (e.g.: garage without network)"
