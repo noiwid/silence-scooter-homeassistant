@@ -134,6 +134,9 @@ mqtt:
 2. Search for "Silence Scooter"
 3. Configure the integration parameters:
 
+<img width="621" height="1096" alt="{B771D1CA-2732-43CD-8A6F-7BCB9D2E6D9D}" src="https://github.com/user-attachments/assets/229472eb-6c60-4d3d-8286-262ff85eb7c8" />
+
+
 #### Configuration Parameters
 
 | Parameter | Default | Description |
