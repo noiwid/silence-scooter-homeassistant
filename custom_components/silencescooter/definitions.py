@@ -254,16 +254,18 @@ TRIGGER_SENSORS = {
             {% set end_time_state = states('datetime.scooter_end_time') %}
             {% set start_time_state = states('datetime.scooter_start_time') %}
             {% set status = states('sensor.scooter_trip_status') %}
-            
+
             {% if start_time_state not in ['unknown', 'unavailable'] %}
                 {% set start_time = start_time_state | as_datetime %}
-                {% if start_time %}
+                {% if start_time and start_time.year > 1971 %}
                     {% if status == 'on' %}
-                        {{ ((now() - start_time).total_seconds() / 60) | round(0) }}
+                        {% set dur = ((now() - start_time).total_seconds() / 60) | round(0) %}
+                        {{ dur if dur >= 0 and dur < 1440 else 0 }}
                     {% elif end_time_state not in ['unknown', 'unavailable'] %}
                         {% set end_time = end_time_state | as_datetime %}
-                        {% if end_time %}
-                            {{ ((end_time - start_time).total_seconds() / 60) | round(0) }}
+                        {% if end_time and end_time.year > 1971 %}
+                            {% set dur = ((end_time - start_time).total_seconds() / 60) | round(0) %}
+                            {{ dur if dur >= 0 and dur < 1440 else 0 }}
                         {% else %}
                             0
                         {% endif %}
