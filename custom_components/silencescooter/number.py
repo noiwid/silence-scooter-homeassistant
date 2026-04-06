@@ -3,6 +3,7 @@
 import logging
 from homeassistant.components.number import NumberEntity
 from homeassistant.config_entries import ConfigEntry
+from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.restore_state import RestoreEntity
@@ -54,7 +55,7 @@ class ScooterNumberEntity(NumberEntity, RestoreEntity):
 
         self._attr_device_info = get_device_info(imei, multi_device)
         if config.get("internal", False):
-            self._attr_entity_registry_visible_default = False
+            self._attr_entity_category = EntityCategory.DIAGNOSTIC
 
         self._attr_native_min_value = config["min"]
         self._attr_native_max_value = config["max"]

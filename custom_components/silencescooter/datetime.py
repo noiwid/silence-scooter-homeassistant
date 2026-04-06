@@ -12,6 +12,8 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.restore_state import RestoreEntity
 from homeassistant.util import dt as dt_util
 
+from homeassistant.const import EntityCategory
+
 from .const import DOMAIN, CONF_IMEI, CONF_MULTI_DEVICE, DEFAULT_MULTI_DEVICE
 from .definitions import INPUT_DATETIMES
 from .helpers import get_device_info, insert_imei_in_entity_id
@@ -64,7 +66,7 @@ class ScooterDateTimeEntity(DateTimeEntity, RestoreEntity):
 
         self._attr_device_info = get_device_info(imei, multi_device)
         if config.get("internal", False):
-            self._attr_entity_registry_visible_default = False
+            self._attr_entity_category = EntityCategory.DIAGNOSTIC
 
         # Configuration
         self._has_date = config.get("has_date", True)

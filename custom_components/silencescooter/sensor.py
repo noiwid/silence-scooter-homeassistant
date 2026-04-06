@@ -9,7 +9,7 @@ from homeassistant.components.sensor import (
     SensorDeviceClass,
     SensorStateClass,
 )
-from homeassistant.const import CONF_NAME, CONF_ICON, CONF_UNIT_OF_MEASUREMENT, Platform
+from homeassistant.const import CONF_NAME, CONF_ICON, CONF_UNIT_OF_MEASUREMENT, Platform, EntityCategory
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.event import async_track_state_change_event, async_track_time_interval
@@ -243,10 +243,10 @@ class ScooterTemplateSensor(SensorEntity, RestoreEntity):
         self._template = Template(config["value_template"], hass)
         self._icon_template = Template(config["icon_template"], hass) if "icon_template" in config else None
 
-        # Hide internal sensors from device page
+        self._attr_device_info = get_device_info(imei, multi_device)
         internal_sensors = ["scooter_is_moving", "scooter_trip_status"]
-        if sensor_id not in internal_sensors:
-            self._attr_device_info = get_device_info(imei, multi_device)
+        if sensor_id in internal_sensors:
+            self._attr_entity_category = EntityCategory.DIAGNOSTIC
 
     async def async_added_to_hass(self) -> None:
         """Handle entity added to Home Assistant."""
