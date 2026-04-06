@@ -51,7 +51,10 @@ class ScooterNumberEntity(NumberEntity, RestoreEntity):
             self._attr_unique_id = f"{DOMAIN}_{number_id}"
             self._attr_name = config["name"]
             self.entity_id = f"number.{number_id}"
-            # Numbers are internal entities, not shown on device page in legacy mode
+
+        self._attr_device_info = get_device_info(imei, multi_device)
+        if config.get("internal", False):
+            self._attr_entity_registry_visible_default = False
 
         self._attr_native_min_value = config["min"]
         self._attr_native_max_value = config["max"]

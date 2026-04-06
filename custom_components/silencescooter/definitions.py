@@ -57,21 +57,24 @@ INPUT_NUMBERS = {
         "min": 0,
         "max": 1440,
         "step": 0.1,
-        "unit_of_measurement": "minutes"
+        "unit_of_measurement": "minutes",
+        "internal": True
     },
     "scooter_odo_debut": {
         "name": "Odomètre début de trajet",
         "initial": 0,
         "min": 0,
         "max": 100000,
-        "step": 0.1
+        "step": 0.1,
+        "internal": True
     },
     "scooter_odo_fin": {
         "name": "Odomètre fin de trajet",
         "min": 0,
         "max": 100000,
         "step": 0.1,
-        "unit_of_measurement": "km"
+        "unit_of_measurement": "km",
+        "internal": True
     },
     "scooter_battery_soc_debut": {
         "name": "Batterie SOC début de trajet",
@@ -79,7 +82,8 @@ INPUT_NUMBERS = {
         "min": 0,
         "max": 100,
         "step": 0.1,
-        "unit_of_measurement": "%"
+        "unit_of_measurement": "%",
+        "internal": True
     },
     "scooter_battery_soc_fin": {
         "name": "Batterie SOC fin de trajet",
@@ -87,7 +91,8 @@ INPUT_NUMBERS = {
         "min": 0,
         "max": 100,
         "step": 0.1,
-        "unit_of_measurement": "%"
+        "unit_of_measurement": "%",
+        "internal": True
     },
     "scooter_tracked_distance": {
         "name": "Distance suivie (manuel)",
@@ -95,7 +100,8 @@ INPUT_NUMBERS = {
         "max": 100000,
         "step": 0.1,
         "unit_of_measurement": "km",
-        "icon": "mdi:map-marker-path"
+        "icon": "mdi:map-marker-path",
+        "internal": True
     },
     "scooter_tracked_battery_used": {
         "name": "Batterie suivie (manuel)",
@@ -103,7 +109,8 @@ INPUT_NUMBERS = {
         "max": 10000,
         "step": 0.1,
         "unit_of_measurement": "%",
-        "icon": "mdi:battery-arrow-down-outline"
+        "icon": "mdi:battery-arrow-down-outline",
+        "internal": True
     },
     "scooter_energy_consumption_base": {
         "name": "Base consommation énergie scooter",
@@ -111,7 +118,8 @@ INPUT_NUMBERS = {
         "max": 1000,
         "step": 0.001,
         "unit_of_measurement": "kWh",
-        "initial": 0
+        "initial": 0,
+        "internal": True
     },
 }
 
@@ -126,22 +134,26 @@ INPUT_DATETIMES = {
     "scooter_start_time": {
         "name": "Heure de départ dernier trajet",
         "has_date": True,
-        "has_time": True
+        "has_time": True,
+        "internal": True
     },
     "scooter_end_time": {
         "name": "Heure de fin du dernier trajet",
         "has_date": True,
-        "has_time": True
+        "has_time": True,
+        "internal": True
     },
     "scooter_last_moving_time": {
         "name": "Dernier instant en mouvement",
         "has_date": True,
-        "has_time": True
+        "has_time": True,
+        "internal": True
     },
     "scooter_pause_start": {
         "name": "Début de la pause",
         "has_date": True,
-        "has_time": True
+        "has_time": True,
+        "internal": True
     }
 }
 
@@ -174,24 +186,28 @@ TRIGGER_SENSORS = {
             }
         ],
         "value_template": """
-            {% if states('datetime.scooter_end_time') not in ['unknown', 'unavailable'] %}
+            {% set trip_status = states('sensor.scooter_trip_status') %}
+            {% if trip_status == 'on' %}
+                En cours
+            {% elif states('datetime.scooter_end_time') not in ['unknown', 'unavailable'] %}
                 {% set end_time = states('datetime.scooter_end_time') | as_datetime %}
-                {% if end_time %}
+                {% if end_time and end_time.year > 1971 %}
                     {% set now_time = now() %}
                     {% set end_time_utc = end_time.replace(tzinfo=now_time.tzinfo) %}
-                    {% if states('sensor.scooter_last_trip_duration') not in ['unknown', 'unavailable'] %}
-                        {% set trip_duration = states('sensor.scooter_last_trip_duration') | float(0) %}
-                        {% set adjusted_end_time = end_time_utc - timedelta(minutes=trip_duration) %}
-                        {% set diff = now_time - adjusted_end_time %}
-                        {{ ((diff.total_seconds() / 3600) | float) | round(0, 'ceil') }} hours ago
+                    {% set diff = now_time - end_time_utc %}
+                    {% set hours = (diff.total_seconds() / 3600) | float %}
+                    {% if hours < 0 or hours > 8760 %}
+                        --
+                    {% elif hours < 1 %}
+                        {{ (diff.total_seconds() / 60) | round(0) }} min ago
                     {% else %}
-                        0 hours ago
+                        {{ hours | round(0, 'ceil') }} hours ago
                     {% endif %}
                 {% else %}
-                    0 hours ago
+                    --
                 {% endif %}
             {% else %}
-                0 hours ago
+                --
             {% endif %}
         """
     },

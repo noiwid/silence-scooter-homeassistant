@@ -206,6 +206,7 @@ class ScooterDefaultTariffSensor(SensorEntity):
         self._attr_native_unit_of_measurement = "€/kWh"
         self._attr_device_class = SensorDeviceClass.MONETARY
         self._attr_icon = "mdi:currency-eur"
+        self._attr_device_info = get_device_info(imei, multi_device)
 
     @property
     def native_value(self) -> float:
@@ -309,6 +310,7 @@ class ScooterWritableSensor(SensorEntity, RestoreEntity):
         self._attr_state_class = config.get("state_class")
         self._attr_icon = config.get("icon", "mdi:information")
         self._attr_native_value = 0
+        self._attr_device_info = get_device_info(imei, multi_device)
 
     async def async_added_to_hass(self) -> None:
         """Restore last state when added to hass."""
@@ -486,6 +488,7 @@ class ScooterUtilityMeterSensor(SensorEntity, RestoreEntity):
         self._attr_device_class = SensorDeviceClass.ENERGY
         self._attr_state_class = SensorStateClass.TOTAL_INCREASING
         self._attr_icon = "mdi:counter"
+        self._attr_device_info = get_device_info(imei, multi_device)
 
         self._source = config["source"]
         self._cycle = config["cycle"]

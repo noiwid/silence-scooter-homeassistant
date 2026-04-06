@@ -61,7 +61,10 @@ class ScooterDateTimeEntity(DateTimeEntity, RestoreEntity):
             self._attr_unique_id = f"{DOMAIN}_{datetime_id}"
             self._attr_name = config["name"]
             self.entity_id = f"datetime.{datetime_id}"
-            # Datetimes are internal entities, not shown on device page in legacy mode
+
+        self._attr_device_info = get_device_info(imei, multi_device)
+        if config.get("internal", False):
+            self._attr_entity_registry_visible_default = False
 
         # Configuration
         self._has_date = config.get("has_date", True)

@@ -269,6 +269,54 @@ async def publish_mqtt_discovery_configs(hass: HomeAssistant, imei: str) -> None
                 "name": "BMS Flags",
                 "icon": "mdi:flag"
             },
+
+            # Decoded CAN sensors (from reverse-engineering)
+            "bmsCurrent": {
+                "name": "BMS Current",
+                "unit": "A",
+                "device_class": "current",
+                "state_class": "measurement",
+                "icon": "mdi:current-dc"
+            },
+            "batteryNTC1": {
+                "name": "Battery NTC 1",
+                "unit": "°C",
+                "device_class": "temperature",
+                "state_class": "measurement",
+                "icon": "mdi:thermometer"
+            },
+            "batteryNTC2": {
+                "name": "Battery NTC 2",
+                "unit": "°C",
+                "device_class": "temperature",
+                "state_class": "measurement",
+                "icon": "mdi:thermometer"
+            },
+            "batteryNTC3": {
+                "name": "Battery NTC 3",
+                "unit": "°C",
+                "device_class": "temperature",
+                "state_class": "measurement",
+                "icon": "mdi:thermometer"
+            },
+            "motorRPM": {
+                "name": "Motor RPM",
+                "unit": "rpm",
+                "state_class": "measurement",
+                "icon": "mdi:engine"
+            },
+            "motorPower": {
+                "name": "Motor Power",
+                "state_class": "measurement",
+                "icon": "mdi:flash"
+            },
+            "busVoltage": {
+                "name": "Bus Voltage",
+                "unit": "V",
+                "device_class": "voltage",
+                "state_class": "measurement",
+                "icon": "mdi:flash-triangle"
+            },
         }
 
         # Binary sensors
