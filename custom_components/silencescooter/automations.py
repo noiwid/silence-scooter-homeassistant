@@ -854,13 +854,14 @@ async def async_setup_automations(
                 _LOGGER.info("⚠️ Trajet déjà actif, ignoring start trigger")
                 return
             
-            # NOUVELLE LOGIQUE : Vérifier le statut du scooter (3 ou 4) au lieu de la vitesse
+            # Vérifier que le scooter est réellement en mouvement (status=4)
+            # Status=3 (prêt à conduire) ne suffit pas — un allumage à distance donne aussi status=3
             scooter_status = hass.states.get(SENSOR_SCOOTER_STATUS)
             if scooter_status and scooter_status.state not in ["unknown", "unavailable"]:
                 try:
                     status = float(scooter_status.state)
-                    if status not in [3.0, 4.0]:
-                        _LOGGER.info("⚠️ Scooter status incorrect (%s), ignoring start trigger (attendu: 3 ou 4)", status)
+                    if status != 4.0:
+                        _LOGGER.info("⚠️ Scooter status=%s, ignoring start trigger (attendu: 4=en mouvement)", status)
                         return
                 except (ValueError, TypeError):
                     _LOGGER.warning("Could not read scooter status, continuing anyway")
