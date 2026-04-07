@@ -433,7 +433,7 @@ TEMPLATE_SENSORS = {
             {% if last_update_str not in ['unknown', 'unavailable', None] %}
                 {% set last_update = as_timestamp(last_update_str) %}
                 {% set now_ts = as_timestamp(now()) %}
-                {% if status is not none and status == 4.0 and (now_ts - last_update) < 300 %}
+                {% if status is not none and status in [3.0, 4.0] and (now_ts - last_update) < 300 %}
                     on
                 {% else %}
                     off

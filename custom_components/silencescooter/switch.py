@@ -39,15 +39,18 @@ class ScooterSwitchEntity(SwitchEntity, RestoreEntity):
         self._multi_device = multi_device
 
         if multi_device and imei:
+            from .helpers import insert_imei_in_entity_id
             self._attr_has_entity_name = True
             self._attr_unique_id = f"{imei}_{bool_id}"
             self._attr_name = config['name']
             self._attr_device_info = get_device_info(imei, multi_device)
+            self.entity_id = insert_imei_in_entity_id(f"switch.{bool_id}", imei, multi_device)
         else:
-            # Legacy mode: same as v1.0.4
+            # Legacy mode: force entity_id to match what automations expect
             self._attr_unique_id = f"{DOMAIN}_{bool_id}"
             self._attr_name = config["name"]
             self._attr_device_info = get_device_info()
+            self.entity_id = f"switch.{bool_id}"
 
         self._icon = config.get("icon", "mdi:toggle-switch")
 
