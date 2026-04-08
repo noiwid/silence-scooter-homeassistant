@@ -585,13 +585,39 @@ async def async_setup_automations(
                 should_stop_immediately = True
                 _LOGGER.info("Batterie retiree -> arret immediat")
 
+            # Définir _immediate_stop AVANT son utilisation (sinon UnboundLocalError)
+            async def _immediate_stop():
+                """Arrêt immédiat du trajet sans délai."""
+                _LOGGER.info("🚨 IMMEDIATE STOP: arrêt immédiat du trajet")
+
+                # Utiliser last_moving_time au lieu de l'heure actuelle
+                last_moving = hass.states.get(INPUT_DT_LAST_MOVING)
+                if last_moving and last_moving.state not in ["unknown", "unavailable"]:
+                    end_time_str = last_moving.state
+                else:
+                    # Fallback sur l'heure actuelle si last_moving_time indisponible
+                    end_time_str = dt_util.now().isoformat()
+
+                await hass.services.async_call(
+                    "datetime",
+                    "set_value",
+                    {
+                        "entity_id": INPUT_DT_END_TIME,
+                        "datetime": end_time_str
+                    },
+                    blocking=True
+                )
+
+                await do_log_event(hass, "Immediate stop - scooter off/unavailable")
+                await do_stop_trip(hass, imei=imei, multi_device=multi_device, reason="immediate")
+
             if should_stop_immediately:
                 _LOGGER.info("IMMEDIATE STOP triggered (scooter off or battery removed)")
                 hass.loop.create_task(_immediate_stop())
                 return
             else:
                 _LOGGER.info("DELAYED STOP triggered (2min + 5min timer)")
-                
+
                 # Définir les fonctions async AVANT de les utiliser
                 def _start_tolerance_timer():
                     """Démarre le timer de tolérance (durée configurable)."""
@@ -615,31 +641,6 @@ async def async_setup_automations(
                     task = hass.loop.call_later(duration_seconds, lambda: hass.loop.create_task(_on_tolerance_expired()))
                     scheduled_tasks["tolerance_timer"] = task
                     _LOGGER.info(f"✓ Tolerance timer started successfully ({pause_duration_min} min = {duration_seconds}s)")
-
-                async def _immediate_stop():
-                    """Arrêt immédiat du trajet sans délai."""
-                    _LOGGER.info("🚨 IMMEDIATE STOP: arrêt immédiat du trajet")
-
-                    # Utiliser last_moving_time au lieu de l'heure actuelle
-                    last_moving = hass.states.get(INPUT_DT_LAST_MOVING)
-                    if last_moving and last_moving.state not in ["unknown", "unavailable"]:
-                        end_time_str = last_moving.state
-                    else:
-                        # Fallback sur l'heure actuelle si last_moving_time indisponible
-                        end_time_str = dt_util.now().isoformat()
-
-                    await hass.services.async_call(
-                        "datetime",
-                        "set_value",
-                        {
-                            "entity_id": INPUT_DT_END_TIME,
-                            "datetime": end_time_str
-                        },
-                        blocking=True
-                    )
-
-                    await do_log_event(hass, "Immediate stop - scooter off/unavailable")
-                    await do_stop_trip(hass, imei=imei, multi_device=multi_device, reason="immediate")
 
                 async def _confirm_off():
                     """Confirme l'arrêt du trajet après le délai de confirmation."""
