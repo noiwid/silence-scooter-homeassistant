@@ -1,6 +1,7 @@
 #!/bin/bash
-#JSON_FILE="/config/silence_history.json"
-JSON_FILE="/config/custom_components/silencescooter/data/history.json"
+# JSON_FILE is passed as an environment variable by the integration
+# (see helpers.update_history). Falls back to the new persistent path.
+JSON_FILE="${JSON_FILE:-/config/silencescooter/history.json}"
 
 # Vérifier si le nombre correct d'arguments est passé
 if [ "$#" -ne 8 ]; then

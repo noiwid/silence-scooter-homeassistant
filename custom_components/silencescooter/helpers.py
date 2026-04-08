@@ -1,5 +1,6 @@
 """Helper functions for the Silence Scooter integration."""
 import logging
+import os
 import subprocess
 from pathlib import Path
 
@@ -7,7 +8,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.util import dt as dt_util
 from homeassistant.helpers.entity import DeviceInfo
 
-from .const import DOMAIN, HISTORY_SCRIPT, LOG_FILE, MANUFACTURER
+from .const import DOMAIN, HISTORY_FILE, HISTORY_SCRIPT, LOG_FILE, MANUFACTURER
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -198,8 +199,14 @@ async def update_history(hass: HomeAssistant, **kwargs):
 
         _LOGGER.debug("Executing command: %s", cmd)
 
+        # Pass HISTORY_FILE path to the bash script via environment variable
+        # so the script writes to the persistent location (outside the integration
+        # folder) regardless of where it's installed.
+        script_env = os.environ.copy()
+        script_env["JSON_FILE"] = str(HISTORY_FILE)
+
         def run_script():
-            return subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+            return subprocess.run(cmd, capture_output=True, text=True, timeout=30, env=script_env)
 
         process = await hass.async_add_executor_job(run_script)
 

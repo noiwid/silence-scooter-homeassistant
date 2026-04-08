@@ -1,6 +1,7 @@
 """The Silence Scooter integration."""
 import logging
 import json
+import shutil
 import voluptuous as vol
 
 from homeassistant.core import HomeAssistant, ServiceCall
@@ -10,10 +11,39 @@ from homeassistant.helpers import config_validation as cv
 import homeassistant.helpers.device_registry as dr
 import homeassistant.helpers.entity_registry as er
 
-from .const import DOMAIN, PLATFORMS, CONF_IMEI, CONF_MULTI_DEVICE, DEFAULT_MULTI_DEVICE, DEFAULT_ELECTRICITY_PRICE, MANUFACTURER
+from .const import (
+    DOMAIN, PLATFORMS, CONF_IMEI, CONF_MULTI_DEVICE, DEFAULT_MULTI_DEVICE,
+    DEFAULT_ELECTRICITY_PRICE, MANUFACTURER,
+    PERSISTENT_DATA_PATH, HISTORY_FILE, LOG_FILE,
+    LEGACY_HISTORY_FILE, LEGACY_LOG_FILE,
+)
 from .errors import ErrorDetector, ErrorCategory, ErrorSeverity, get_error_detector
 
 _LOGGER = logging.getLogger(__name__)
+
+
+def _migrate_persistent_data() -> None:
+    """Move history/log files out of the integration folder on startup.
+
+    Before 1.3.3 these files lived inside custom_components/silencescooter/data/
+    which HACS wipes on every update. This helper runs once at startup and
+    moves them to /config/silencescooter/ so future updates preserve the data.
+    Safe to call on every startup: it only acts if the new file is missing and
+    the legacy file is present.
+    """
+    try:
+        PERSISTENT_DATA_PATH.mkdir(parents=True, exist_ok=True)
+    except Exception as e:
+        _LOGGER.error("Could not create persistent data directory %s: %s", PERSISTENT_DATA_PATH, e)
+        return
+
+    for legacy, new in ((LEGACY_HISTORY_FILE, HISTORY_FILE), (LEGACY_LOG_FILE, LOG_FILE)):
+        try:
+            if legacy.exists() and not new.exists():
+                shutil.move(str(legacy), str(new))
+                _LOGGER.info("Migrated %s -> %s", legacy, new)
+        except Exception as e:
+            _LOGGER.error("Failed to migrate %s -> %s: %s", legacy, new, e)
 
 
 async def publish_mqtt_discovery_configs(hass: HomeAssistant, imei: str) -> None:
@@ -691,6 +721,10 @@ async def async_setup_services(hass: HomeAssistant) -> None:
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up Silence Scooter from a config entry."""
     _LOGGER.info("Setting up Silence Scooter integration")
+
+    # Migrate persistent data out of the integration folder (one-time, idempotent).
+    # Runs in the executor to keep the event loop clean (filesystem I/O).
+    await hass.async_add_executor_job(_migrate_persistent_data)
 
     try:
         # Get IMEI (optional for single-device mode)

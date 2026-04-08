@@ -7,12 +7,20 @@ CONF_IMEI = "imei"
 CONF_MULTI_DEVICE = "multi_device"
 
 COMPONENT_PATH = Path(__file__).parent
-DATA_PATH = COMPONENT_PATH / "data"
 SCRIPTS_PATH = COMPONENT_PATH / "scripts"
 
-HISTORY_FILE = DATA_PATH / "history.json"
+# Persistent data lives outside the integration folder so HACS updates
+# don't wipe it. /config/silencescooter/ survives integration reinstalls.
+PERSISTENT_DATA_PATH = Path("/config/silencescooter")
+
+HISTORY_FILE = PERSISTENT_DATA_PATH / "history.json"
 HISTORY_SCRIPT = SCRIPTS_PATH / "history.sh"
-LOG_FILE = DATA_PATH / "silence_logs.log"
+LOG_FILE = PERSISTENT_DATA_PATH / "silence_logs.log"
+
+# Legacy paths (pre-1.3.3) — kept only for one-time migration on startup
+LEGACY_DATA_PATH = COMPONENT_PATH / "data"
+LEGACY_HISTORY_FILE = LEGACY_DATA_PATH / "history.json"
+LEGACY_LOG_FILE = LEGACY_DATA_PATH / "silence_logs.log"
 
 PLATFORMS = [
     Platform.SENSOR,
