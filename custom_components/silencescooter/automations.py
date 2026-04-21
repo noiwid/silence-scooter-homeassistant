@@ -67,13 +67,14 @@ def get_outdoor_temperature_entity_id(hass: HomeAssistant) -> str:
         return SENSOR_SCOOTER_AMBIENT_TEMP
 
 
-def get_sensor_float_value(hass: HomeAssistant, entity_id: str, default: float = 0.0) -> float:
+def get_sensor_float_value(hass: HomeAssistant, entity_id: str, default: float = 0.0, fallback_entity: str | None = None) -> float:
     """Safely get float value from sensor state.
 
     Args:
         hass: HomeAssistant instance
         entity_id: Entity ID to read
         default: Default value if sensor unavailable or invalid
+        fallback_entity: Optional entity to try if primary is unavailable
 
     Returns:
         Float value from sensor or default
@@ -84,6 +85,13 @@ def get_sensor_float_value(hass: HomeAssistant, entity_id: str, default: float =
             return float(state.state)
         except (ValueError, TypeError):
             pass
+    if fallback_entity:
+        fb_state = hass.states.get(fallback_entity)
+        if fb_state and fb_state.state not in ["unknown", "unavailable"]:
+            try:
+                return float(fb_state.state)
+            except (ValueError, TypeError):
+                pass
     return default
 
 
@@ -916,13 +924,7 @@ async def async_setup_automations(
         await set_writable_sensor_value(hass, SENSOR_MAX_SPEED, 0)
 
         # (4) input_number.scooter_odo_debut => sensor.silence_scooter_odo
-        odo_state = hass.states.get(SENSOR_SCOOTER_ODO)
-        odo_val = 0
-        if odo_state and odo_state.state not in ["unknown", "unavailable", None]:
-            try:
-                odo_val = float(odo_state.state)
-            except (ValueError, TypeError):
-                odo_val = 0
+        odo_val = get_sensor_float_value(hass, SENSOR_SCOOTER_ODO, 0.0, fallback_entity=entity_id("sensor.scooter_odo_display"))
         await hass.services.async_call(
             "number",
             "set_value",
@@ -947,13 +949,7 @@ async def async_setup_automations(
         _LOGGER.info("✅ START TIME SET: %s", now_str)
 
         # (6) input_number.scooter_battery_soc_debut => sensor.silence_scooter_battery_soc
-        batt_state = hass.states.get(SENSOR_BATT_SOC)
-        batt_val = 0
-        if batt_state and batt_state.state not in ["unknown", "unavailable", None]:
-            try:
-                batt_val = float(batt_state.state)
-            except (ValueError, TypeError):
-                batt_val = 0
+        batt_val = get_sensor_float_value(hass, SENSOR_BATT_SOC, 0.0, fallback_entity=entity_id("sensor.scooter_battery_display"))
         await hass.services.async_call(
             "number",
             "set_value",
@@ -1177,8 +1173,8 @@ async def do_stop_trip(hass: HomeAssistant, imei: str = "", multi_device: bool =
             blocking=True
         )
 
-        # 3) Update scooter_odo_fin from current ODO
-        odo_fin_val = get_sensor_float_value(hass, SENSOR_SCOOTER_ODO, 0.0)
+        # 3) Update scooter_odo_fin from current ODO (fallback to odo_display if unavailable)
+        odo_fin_val = get_sensor_float_value(hass, SENSOR_SCOOTER_ODO, 0.0, fallback_entity=entity_id("sensor.scooter_odo_display"))
         await hass.services.async_call(
             "number",
             SERVICE_SET_VALUE,
@@ -1224,8 +1220,8 @@ async def do_stop_trip(hass: HomeAssistant, imei: str = "", multi_device: bool =
 
         await set_writable_sensor_value(hass, SENSOR_LAST_TRIP_AVG_SPEED, avg_speed)
 
-        # 7) Update battery_soc_fin
-        batt_soc_fin_val = get_sensor_float_value(hass, SENSOR_BATT_SOC, 0.0)
+        # 7) Update battery_soc_fin (fallback to battery_display if unavailable)
+        batt_soc_fin_val = get_sensor_float_value(hass, SENSOR_BATT_SOC, 0.0, fallback_entity=entity_id("sensor.scooter_battery_display"))
         await hass.services.async_call(
             "number",
             SERVICE_SET_VALUE,
