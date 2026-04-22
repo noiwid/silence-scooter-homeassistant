@@ -381,17 +381,51 @@ async def async_setup_automations(
     #
     scheduled_tasks = {}
 
-    # Timestamp of the last trip start. Used by the ODO/battery tracking
-    # handlers to skip stale-value repair during the first few seconds of
-    # a trip, avoiding a race with _do_last_start() writing odo_debut.
-    last_trip_start_monotonic = {"value": None}
+    # Shared trip-tracking state, stored in hass.data so that functions
+    # defined OUTSIDE setup_automations (like do_stop_trip) can access it.
+    # The closure-based approach alone fails because do_stop_trip is a
+    # module-level function; it cannot capture local variables here.
+    #
+    # Keys:
+    #   last_trip_start_monotonic: monotonic time() of the last trip start
+    #     (used by the ODO/battery tracking handlers to skip the stale-
+    #     value repair during the first 5s to avoid a race with
+    #     _do_last_start() writing odo_debut).
+    #   odo_tracking_fired / battery_tracking_fired: set by the tracking
+    #     handlers on their first firing during the current trip. Reset at
+    #     trip start. do_stop_trip reads them to distinguish "tracked
+    #     value" from "never tracked".
+    hass.data.setdefault(DOMAIN, {}).setdefault(
+        "trip_tracking_state",
+        {
+            "last_trip_start_monotonic": None,
+            "odo_tracking_fired": False,
+            "battery_tracking_fired": False,
+        },
+    )
+    _tracking_state = hass.data[DOMAIN]["trip_tracking_state"]
 
-    # Flags indicating whether tracking handlers have fired at least once
-    # during the current trip. Reset at trip start. Used by do_stop_trip
-    # to distinguish "tracked value" from "never tracked" (the first
-    # tracked value may coincidentally equal the debut value).
-    odo_tracking_fired = {"value": False}
-    battery_tracking_fired = {"value": False}
+    # Backwards-compatible local dict wrappers so the existing closures
+    # below keep working without change. They all write/read via the
+    # shared hass.data dict.
+    class _StateRef:
+        def __init__(self, key):
+            self._key = key
+
+        def get(self, default=None):
+            return _tracking_state.get(self._key, default)
+
+        def __setitem__(self, k, v):
+            assert k == "value"
+            _tracking_state[self._key] = v
+
+        def __getitem__(self, k):
+            assert k == "value"
+            return _tracking_state.get(self._key)
+
+    last_trip_start_monotonic = _StateRef("last_trip_start_monotonic")
+    odo_tracking_fired = _StateRef("odo_tracking_fired")
+    battery_tracking_fired = _StateRef("battery_tracking_fired")
 
     #
     # Fonction helper pour vérifier si un trajet est en cours
@@ -1360,6 +1394,22 @@ async def do_stop_trip(hass: HomeAssistant, imei: str = "", multi_device: bool =
         reason: Reason for stopping the trip
     """
     _LOGGER.info("STOP TRIP TRIGGERED: reason=%s", reason)
+
+    # Retrieve trip-tracking flags from hass.data (populated by
+    # setup_automations). They are dicts with key "value" to keep the
+    # read/write pattern uniform with the closure-based tracking in
+    # setup_automations. Fallback to no-ops if the state isn't there
+    # (e.g. very first run before setup_automations initialised it).
+    _tracking_state = hass.data.get(DOMAIN, {}).get(
+        "trip_tracking_state",
+        {
+            "last_trip_start_monotonic": None,
+            "odo_tracking_fired": False,
+            "battery_tracking_fired": False,
+        },
+    )
+    odo_tracking_fired = {"value": _tracking_state.get("odo_tracking_fired", False)}
+    battery_tracking_fired = {"value": _tracking_state.get("battery_tracking_fired", False)}
 
     def entity_id(base: str) -> str:
         from .helpers import insert_imei_in_entity_id
