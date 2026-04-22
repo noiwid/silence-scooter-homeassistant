@@ -322,11 +322,20 @@ class ScooterWritableSensor(SensorEntity, RestoreEntity):
 
         if last_state := await self.async_get_last_state():
             try:
-                self._attr_native_value = float(last_state.state)
+                restored = float(last_state.state)
+                # Reject obviously-corrupt restored values (NaN, negative, absurd
+                # magnitude). Downstream code treats these sensors as trip stats
+                # or counters — clamping here prevents cascading poison.
+                if restored != restored or restored < 0 or restored > 1e7:
+                    raise ValueError(f"rejected restored value {restored!r}")
+                self._attr_native_value = restored
                 _LOGGER.debug("Restored %s: %.2f", self.entity_id, self._attr_native_value)
-            except (ValueError, TypeError) as e:
+            except (ValueError, TypeError, AttributeError) as e:
                 self._attr_native_value = 0
-                _LOGGER.warning("Could not restore %s, defaulting to 0", self.entity_id)
+                _LOGGER.warning(
+                    "Could not restore %s (state=%r), defaulting to 0: %s",
+                    self.entity_id, last_state.state, e,
+                )
                 detector = get_error_detector(self.hass)
                 if detector:
                     detector.record_error(
@@ -335,6 +344,7 @@ class ScooterWritableSensor(SensorEntity, RestoreEntity):
                         source="ScooterWritableSensor", entity_id=self.entity_id,
                     )
         else:
+            self._attr_native_value = 0
             _LOGGER.debug("New sensor %s initialized to 0", self.entity_id)
         self.async_write_ha_state()
 
@@ -502,16 +512,49 @@ class ScooterUtilityMeterSensor(SensorEntity, RestoreEntity):
         """Handle entity added to hass."""
         await super().async_added_to_hass()
 
+        # Register this sensor in hass.data so silencescooter.restore_energy_costs
+        # can reach it. Without this, the restore service logs "Sensor object
+        # not found" and silently fails.
+        if DOMAIN in self.hass.data:
+            self.hass.data[DOMAIN].setdefault("sensors", {})[self.entity_id] = self
+            _LOGGER.debug("Utility meter registered: %s", self.entity_id)
+
         # Restore previous state
         if last_state := await self.async_get_last_state():
             try:
-                self._attr_native_value = float(last_state.state)
+                restored_native = float(last_state.state)
+                # Reject corrupt restored native_value (negative, NaN, absurd).
+                if restored_native != restored_native or restored_native < 0 or restored_native > 1e6:
+                    _LOGGER.warning(
+                        "%s: rejecting corrupt restored value %r, resetting to 0",
+                        self.entity_id, last_state.state,
+                    )
+                    self._attr_native_value = 0
+                else:
+                    self._attr_native_value = restored_native
                 if "last_reset" in last_state.attributes:
                     self._last_reset = dt_util.parse_datetime(last_state.attributes["last_reset"])
                 if "cycle_start_value" in last_state.attributes:
-                    restored_start_value = float(last_state.attributes["cycle_start_value"])
-                    if restored_start_value > 0:
-                        self._cycle_start_value = restored_start_value
+                    try:
+                        restored_start_value = float(last_state.attributes["cycle_start_value"])
+                        # Gate on finiteness + positivity + plausible magnitude.
+                        # 2026-04-18 incident: a negative cycle_start_value (-866)
+                        # was persisted and poisoned the meter for days after restarts.
+                        if (
+                            restored_start_value == restored_start_value  # not NaN
+                            and 0 < restored_start_value < 1e6
+                        ):
+                            self._cycle_start_value = restored_start_value
+                        else:
+                            _LOGGER.warning(
+                                "%s: rejecting corrupt cycle_start_value=%r",
+                                self.entity_id, last_state.attributes.get("cycle_start_value"),
+                            )
+                    except (ValueError, TypeError):
+                        _LOGGER.warning(
+                            "%s: non-numeric cycle_start_value=%r, ignoring",
+                            self.entity_id, last_state.attributes.get("cycle_start_value"),
+                        )
                 # Log important pour les utility meters
                 if self._cycle == "daily":
                     _LOGGER.info("Restored %s: value=%s, last_reset=%s, cycle_start=%s",
@@ -574,6 +617,32 @@ class ScooterUtilityMeterSensor(SensorEntity, RestoreEntity):
                 return
 
             source_value = float(source_state.state)
+
+            # Reject obviously-bad source values that would poison cycle_start_value
+            # and corrupt the meter for the whole cycle:
+            #  - Negative values (seen on 2026-04-18 shortly before a scooter shutdown
+            #    when the upstream MQTT energy counter glitched to -866.918).
+            #  - A huge regression vs the last seen value (source dropped by more than
+            #    100 kWh in a single update while we had a plausible previous reading)
+            #    which means the counter was transiently reset by the scooter/server.
+            if source_value < 0:
+                _LOGGER.warning(
+                    "%s: Rejecting negative source_value=%.3f (keeping previous state)",
+                    self.entity_id, source_value,
+                )
+                return
+            if (
+                self._last_source_value is not None
+                and self._last_source_value > 0
+                and source_value < self._last_source_value - 100
+            ):
+                _LOGGER.warning(
+                    "%s: Rejecting large source drop (source=%.3f, last=%.3f, delta=%.3f). "
+                    "Likely an upstream reset; keeping previous state.",
+                    self.entity_id, source_value, self._last_source_value,
+                    source_value - self._last_source_value,
+                )
+                return
 
             # IMPORTANT: If source is 0 and we have a restored cycle_start_value > 0,
             # it means the scooter is offline but we have valid restored data.

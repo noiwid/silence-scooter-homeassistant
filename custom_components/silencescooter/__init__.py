@@ -621,6 +621,25 @@ async def async_setup_services(hass: HomeAssistant) -> None:
             source_value = float(source_entity.state)
             _LOGGER.info("Using current source value: %.3f kWh", source_value)
 
+        # Sanity-check inputs to prevent a human typo or a bad upstream
+        # value from poisoning every utility meter for a full cycle.
+        if source_value < 0 or source_value > 100_000:
+            _LOGGER.error(
+                "Refusing restore: source_value=%.3f kWh is out of plausible range (0-100000)",
+                source_value,
+            )
+            return
+        for label, v in (
+            ("daily", daily_value), ("weekly", weekly_value),
+            ("monthly", monthly_value), ("yearly", yearly_value),
+        ):
+            if v < 0 or v > 10_000:
+                _LOGGER.error(
+                    "Refusing restore: %s=%.3f EUR is out of plausible range (0-10000)",
+                    label, v,
+                )
+                return
+
         # Build target entity IDs
         if imei_short:
             targets = {

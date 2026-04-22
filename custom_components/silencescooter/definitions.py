@@ -300,16 +300,26 @@ TRIGGER_SENSORS = {
             {% set base_state = states('number.scooter_energy_consumption_base') %}
             {% set current_state = states('sensor.scooter_energy_consumption') %}
 
+            {# Hardened fallback computation: negative values (sensor glitches
+               seen on 2026-04-18 -> -866.918 kWh) must never flow out of this
+               template because they would poison every downstream utility
+               meter and cost sensor. #}
+            {% set base_val = base_state | float(-1) if base_state not in ['unknown', 'unavailable'] else -1 %}
+            {% set initial_value = base_val if base_val >= 0 else 0 %}
+            {% set current_val = current_state | float(-1) if current_state not in ['unknown', 'unavailable'] else -1 %}
+            {% set safe_current = current_val if current_val >= 0 else initial_value %}
+
             {% if discharged_state not in ['unknown', 'unavailable'] and regenerated_state not in ['unknown', 'unavailable'] %}
-                {% set discharged = discharged_state | float(0) %}
-                {% set regenerated = regenerated_state | float(0) %}
+                {% set discharged = discharged_state | float(-1) %}
+                {% set regenerated = regenerated_state | float(-1) %}
                 {% set max_variation = 5.6 %}
-                {% set initial_value = base_state | float(0) if base_state not in ['unknown', 'unavailable'] else 0 %}
 
                 {% if discharged > 0 and regenerated >= 0 %}
                     {% set new_value = discharged - regenerated %}
-                    {% set current_value = current_state | float(initial_value) if current_state not in ['unknown', 'unavailable'] else initial_value %}
-                    {% if current_value == initial_value %}
+                    {% set current_value = safe_current %}
+                    {% if new_value < 0 %}
+                        {{ current_value }}
+                    {% elif current_value == initial_value %}
                         {{ new_value | round(3) }}
                     {% elif new_value > current_value and (new_value - current_value) <= max_variation %}
                         {{ new_value | round(3) }}
@@ -317,12 +327,11 @@ TRIGGER_SENSORS = {
                         {{ current_value }}
                     {% endif %}
                 {% else %}
-                    {{ current_state | float(initial_value) if current_state not in ['unknown', 'unavailable'] else initial_value }}
+                    {{ safe_current }}
                 {% endif %}
             {% else %}
                 {# When MQTT sensors are unavailable, KEEP the last known value instead of returning 0 #}
-                {% set initial_value = base_state | float(0) if base_state not in ['unknown', 'unavailable'] else 0 %}
-                {{ current_state | float(initial_value) if current_state not in ['unknown', 'unavailable'] else initial_value }}
+                {{ safe_current }}
             {% endif %}
         """
     }

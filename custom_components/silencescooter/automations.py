@@ -1094,7 +1094,7 @@ async def async_setup_automations(
         import time as _time
         from datetime import timedelta
         start_mono = last_trip_start_monotonic.get("value")
-        within_grace = start_mono is not None and (_time.monotonic() - start_mono) < 5.0
+        within_grace = start_mono is not None and (_time.monotonic() - start_mono) < 10.0
 
         # Also skip repair within 10s of HA startup: if HA restarted mid-trip,
         # MQTT sensors fire immediately on reconnect and may legitimately
@@ -1210,7 +1210,7 @@ async def async_setup_automations(
         import time as _time
         from datetime import timedelta
         start_mono = last_trip_start_monotonic.get("value")
-        within_grace = start_mono is not None and (_time.monotonic() - start_mono) < 5.0
+        within_grace = start_mono is not None and (_time.monotonic() - start_mono) < 10.0
         within_startup = (dt_util.utcnow() - STARTUP_TIME) < timedelta(seconds=10)
         if within_grace or within_startup:
             return
@@ -1430,6 +1430,20 @@ async def do_stop_trip(hass: HomeAssistant, imei: str = "", multi_device: bool =
     SENSOR_LAST_TRIP_AVG_SPEED = entity_id("sensor.scooter_last_trip_avg_speed")
     SENSOR_LAST_TRIP_BATT_CONSUMPTION = entity_id("sensor.scooter_last_trip_battery_consumption")
 
+    # Concurrency guard: if a previous do_stop_trip is still running, skip.
+    # Two trip_status off events firing in quick succession (e.g. due to MQTT
+    # flapping) would otherwise each record the trip and double-increment
+    # scooter_trips, tracked_distance, and the history file.
+    _domain_state = hass.data.setdefault(DOMAIN, {})
+    _stop_lock_key = f"stop_trip_in_progress:{imei or 'single'}"
+    if _domain_state.get(_stop_lock_key):
+        _LOGGER.info(
+            "do_stop_trip already in progress (reason=%s); skipping duplicate call",
+            reason,
+        )
+        return
+    _domain_state[_stop_lock_key] = True
+
     try:
         # 1) Determine end timestamp using helper
         end_timestamp = determine_trip_end_timestamp(hass, imei, multi_device)
@@ -1539,8 +1553,18 @@ async def do_stop_trip(hass: HomeAssistant, imei: str = "", multi_device: bool =
         )
 
         # 8) Calculate battery consumption
+        # Clamp to [0, 100] — a trip cannot consume more than the full pack.
+        # Upstream SoC glitches (e.g. >100% on reconnect) must not leak into
+        # history.json and downstream sensors.
         battery_debut_val = get_sensor_float_value(hass, NUMBER_BATT_SOC_DEBUT, 0.0)
-        batt_consumption = round(max(0, battery_debut_val - batt_soc_fin_val), 1)
+        raw_consumption = battery_debut_val - batt_soc_fin_val
+        batt_consumption = round(max(0.0, min(100.0, raw_consumption)), 1)
+        if raw_consumption < 0 or raw_consumption > 100:
+            _LOGGER.warning(
+                "Battery consumption out of range: debut=%.1f%%, fin=%.1f%%, "
+                "raw=%.1f%% -> clamped to %.1f%%",
+                battery_debut_val, batt_soc_fin_val, raw_consumption, batt_consumption,
+            )
         await set_writable_sensor_value(hass, SENSOR_LAST_TRIP_BATT_CONSUMPTION, batt_consumption)
 
         # 9) Update trip statistics using helper
@@ -1581,6 +1605,8 @@ async def do_stop_trip(hass: HomeAssistant, imei: str = "", multi_device: bool =
                 ErrorCategory.AUTOMATION_ERROR, ErrorSeverity.ERROR,
                 f"do_stop_trip failed: {e}", source="do_stop_trip",
             )
+    finally:
+        _domain_state[_stop_lock_key] = False
 
 async def do_update_trips_history(hass: HomeAssistant, imei: str = "", multi_device: bool = False):
     """Update trip history with validation.
