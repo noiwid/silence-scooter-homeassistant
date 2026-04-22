@@ -386,6 +386,13 @@ async def async_setup_automations(
     # a trip, avoiding a race with _do_last_start() writing odo_debut.
     last_trip_start_monotonic = {"value": None}
 
+    # Flags indicating whether tracking handlers have fired at least once
+    # during the current trip. Reset at trip start. Used by do_stop_trip
+    # to distinguish "tracked value" from "never tracked" (the first
+    # tracked value may coincidentally equal the debut value).
+    odo_tracking_fired = {"value": False}
+    battery_tracking_fired = {"value": False}
+
     #
     # Fonction helper pour vérifier si un trajet est en cours
     #
@@ -972,6 +979,11 @@ async def async_setup_automations(
         import time as _time
         last_trip_start_monotonic["value"] = _time.monotonic()
 
+        # Reset tracking-fired flags so do_stop_trip can tell whether the
+        # live handlers actually ran during this trip.
+        odo_tracking_fired["value"] = False
+        battery_tracking_fired["value"] = False
+
     remove_last_start = async_track_state_change_event(
         hass, [SENSOR_IS_MOVING], handle_scooter_last_start
     )
@@ -1046,8 +1058,17 @@ async def async_setup_automations(
         # Skip repair logic during the first 5 seconds after a trip start
         # to avoid racing with _do_last_start() writing odo_debut.
         import time as _time
+        from datetime import timedelta
         start_mono = last_trip_start_monotonic.get("value")
         within_grace = start_mono is not None and (_time.monotonic() - start_mono) < 5.0
+
+        # Also skip repair within 10s of HA startup: if HA restarted mid-trip,
+        # MQTT sensors fire immediately on reconnect and may legitimately
+        # "jump" from unknown/stale state, which should not trigger repair.
+        within_startup = (dt_util.utcnow() - STARTUP_TIME) < timedelta(seconds=10)
+
+        # Mark that tracking fired at least once for this trip.
+        odo_tracking_fired["value"] = True
 
         # Update odo_fin continuously so that the stop path never reads a
         # stale or unavailable value.
@@ -1061,8 +1082,9 @@ async def async_setup_automations(
             )
 
         # Repair is gated by the grace period — too early, odo_debut may
-        # not even be written yet.
-        if within_grace:
+        # not even be written yet. Also gated by HA-startup grace to avoid
+        # spurious repairs on reconnect after a restart.
+        if within_grace or within_startup:
             return
 
         # Repair odo_debut if it was captured while the sensor was stale or
@@ -1139,6 +1161,9 @@ async def async_setup_automations(
         hass.loop.create_task(_do_track_battery(new_soc, old_state))
 
     async def _do_track_battery(new_soc: float, old_state):
+        # Mark that tracking fired at least once for this trip.
+        battery_tracking_fired["value"] = True
+
         # Always keep odo_fin's battery counterpart in sync
         await hass.services.async_call(
             "number",
@@ -1147,10 +1172,13 @@ async def async_setup_automations(
             blocking=True,
         )
 
-        # Skip repair during grace period after trip start.
+        # Skip repair during grace period after trip start or after HA restart.
         import time as _time
+        from datetime import timedelta
         start_mono = last_trip_start_monotonic.get("value")
-        if start_mono is not None and (_time.monotonic() - start_mono) < 5.0:
+        within_grace = start_mono is not None and (_time.monotonic() - start_mono) < 5.0
+        within_startup = (dt_util.utcnow() - STARTUP_TIME) < timedelta(seconds=10)
+        if within_grace or within_startup:
             return
 
         # Repair debut if we detect a "stale -> real" jump at reconnect.
@@ -1367,13 +1395,22 @@ async def do_stop_trip(hass: HomeAssistant, imei: str = "", multi_device: bool =
             blocking=True
         )
 
-        # 3) Prefer the NUMBER_ODO_FIN value kept in sync by handle_track_odo
-        # during the trip. Only fall back to the live sensor (then odo_display)
-        # if the tracked value was never written (e.g. trip started before the
-        # tracking listener fired any update).
+        # 3) Prefer the NUMBER_ODO_FIN value kept in sync by handle_track_odo.
+        # Fall back to live sensor only if tracking never fired during the
+        # trip (flag odo_tracking_fired). We still take max() with the live
+        # sensor as a safety net in case tracking missed the very last km.
         tracked_fin = get_sensor_float_value(hass, NUMBER_ODO_FIN, 0.0)
         live_odo = get_sensor_float_value(hass, SENSOR_SCOOTER_ODO, 0.0, fallback_entity=entity_id("sensor.scooter_odo_display"))
-        odo_fin_val = max(tracked_fin, live_odo)
+
+        if odo_tracking_fired.get("value") and tracked_fin > 0:
+            # Tracking fired — trust it but take max with live sensor as
+            # a safety net (live may have advanced since the last tracked
+            # update, e.g. between the last ODO tick and the stop).
+            odo_fin_val = max(tracked_fin, live_odo)
+        else:
+            # Tracking never fired — fall back entirely to live sensor.
+            odo_fin_val = live_odo
+
         if odo_fin_val != tracked_fin:
             await hass.services.async_call(
                 "number",
@@ -1424,26 +1461,19 @@ async def do_stop_trip(hass: HomeAssistant, imei: str = "", multi_device: bool =
         # Unlike ODO, battery SoC decreases during a trip, so we keep the
         # most recently tracked value (latest reading during the trip)
         # rather than min/max. Fall back to live sensor only if tracking
-        # never fired (e.g. trip started with SoC sensor unavailable).
-        tracked_fin = hass.states.get(NUMBER_BATT_SOC_FIN)
+        # explicitly never fired (battery_tracking_fired flag), not by
+        # comparing values — the first tracked value may coincidentally
+        # equal the debut (e.g. SoC didn't change in the first few secs).
         tracked_fin_val = None
-        if tracked_fin and tracked_fin.state not in ["unknown", "unavailable"]:
-            try:
-                tracked_fin_val = float(tracked_fin.state)
-            except (ValueError, TypeError):
-                tracked_fin_val = None
+        if battery_tracking_fired.get("value"):
+            tracked_fin = hass.states.get(NUMBER_BATT_SOC_FIN)
+            if tracked_fin and tracked_fin.state not in ["unknown", "unavailable"]:
+                try:
+                    tracked_fin_val = float(tracked_fin.state)
+                except (ValueError, TypeError):
+                    tracked_fin_val = None
 
-        # If the debut value equals the tracked fin value, tracking may not
-        # have fired yet — fall back to live sensor in that case too.
-        debut_state = hass.states.get(NUMBER_BATT_SOC_DEBUT)
-        debut_val_check = None
-        if debut_state and debut_state.state not in ["unknown", "unavailable"]:
-            try:
-                debut_val_check = float(debut_state.state)
-            except (ValueError, TypeError):
-                debut_val_check = None
-
-        if tracked_fin_val is None or (debut_val_check is not None and tracked_fin_val == debut_val_check):
+        if tracked_fin_val is None:
             batt_soc_fin_val = get_sensor_float_value(hass, SENSOR_BATT_SOC, 0.0, fallback_entity=entity_id("sensor.scooter_battery_display"))
         else:
             batt_soc_fin_val = tracked_fin_val
