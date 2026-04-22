@@ -381,6 +381,11 @@ async def async_setup_automations(
     #
     scheduled_tasks = {}
 
+    # Timestamp of the last trip start. Used by the ODO/battery tracking
+    # handlers to skip stale-value repair during the first few seconds of
+    # a trip, avoiding a race with _do_last_start() writing odo_debut.
+    last_trip_start_monotonic = {"value": None}
+
     #
     # Fonction helper pour vérifier si un trajet est en cours
     #
@@ -962,6 +967,11 @@ async def async_setup_automations(
         
         _LOGGER.info("✅ TRIP STARTED: odo_start=%.1f, battery_start=%.1f%%", odo_val, batt_val)
 
+        # Record the start timestamp for the ODO/battery tracking handlers
+        # to use as a grace-period anchor (see handle_track_odo).
+        import time as _time
+        last_trip_start_monotonic["value"] = _time.monotonic()
+
     remove_last_start = async_track_state_change_event(
         hass, [SENSOR_IS_MOVING], handle_scooter_last_start
     )
@@ -994,6 +1004,188 @@ async def async_setup_automations(
 
     remove_update_max_speed = async_track_state_change_event(
         hass, [SENSOR_SCOOTER_SPEED], handle_update_max_speed
+    )
+
+    #
+    # 7b. "Scooter - Track ODO continuously during trip"
+    #    Keeps number.scooter_odo_fin in sync with the live ODO sensor
+    #    so that do_stop_trip() has a correct value even if the sensor
+    #    becomes unavailable at the moment of the stop.
+    #    Also repairs number.scooter_odo_debut if it was captured stale
+    #    (ODO sensor was unavailable when the trip started).
+    #
+    @callback
+    def handle_track_odo(event):
+        new_state = event.data.get("new_state")
+        old_state = event.data.get("old_state")
+        if not new_state or new_state.state in ["unknown", "unavailable"]:
+            return
+
+        try:
+            new_odo = float(new_state.state)
+        except (ValueError, TypeError):
+            return
+
+        if new_odo <= 0 or new_odo > 1_000_000:
+            return
+
+        if not is_trip_active():
+            return
+
+        # Don't track stale (>24h) active trips — these are bugs (trip
+        # never got stopped), and updating their counters pollutes stats.
+        start_time_st = hass.states.get(INPUT_DT_START_TIME)
+        if start_time_st and is_date_valid(start_time_st.state):
+            start_dt = get_valid_datetime(start_time_st.state)
+            if start_dt and (dt_util.now() - start_dt).total_seconds() > 86400:
+                return
+
+        hass.loop.create_task(_do_track_odo(new_odo, old_state))
+
+    async def _do_track_odo(new_odo: float, old_state):
+        # Skip repair logic during the first 5 seconds after a trip start
+        # to avoid racing with _do_last_start() writing odo_debut.
+        import time as _time
+        start_mono = last_trip_start_monotonic.get("value")
+        within_grace = start_mono is not None and (_time.monotonic() - start_mono) < 5.0
+
+        # Update odo_fin continuously so that the stop path never reads a
+        # stale or unavailable value.
+        current_fin = get_sensor_float_value(hass, NUMBER_ODO_FIN, 0.0)
+        if new_odo > current_fin:
+            await hass.services.async_call(
+                "number",
+                "set_value",
+                {"entity_id": NUMBER_ODO_FIN, "value": new_odo},
+                blocking=True,
+            )
+
+        # Repair is gated by the grace period — too early, odo_debut may
+        # not even be written yet.
+        if within_grace:
+            return
+
+        # Repair odo_debut if it was captured while the sensor was stale or
+        # unavailable. We detect this by looking at the previous ODO state:
+        # if it jumped significantly (> 5 km) between two consecutive
+        # readings, the old value was cached/stale and the trip's odo_debut
+        # is almost certainly wrong.
+        current_debut = get_sensor_float_value(hass, NUMBER_ODO_DEBUT, 0.0)
+        if current_debut <= 0 or old_state is None:
+            return
+
+        try:
+            prev_odo = float(old_state.state) if old_state.state not in ["unknown", "unavailable"] else None
+        except (ValueError, TypeError):
+            prev_odo = None
+
+        if prev_odo is None:
+            return
+
+        jump = new_odo - prev_odo
+        # A jump > 5 km in a single update means the old value was stale.
+        # If odo_debut was captured close to prev_odo (within 2 km), it is
+        # almost certainly the stale value — repair it to new_odo.
+        if jump > 5 and abs(current_debut - prev_odo) < 2 and new_odo > current_debut:
+            _LOGGER.info(
+                "🔧 ODO jump detected (%.1f -> %.1f = +%.1f km): repairing stale odo_debut "
+                "from %.1f to %.1f",
+                prev_odo, new_odo, jump, current_debut, new_odo,
+            )
+            await hass.services.async_call(
+                "number",
+                "set_value",
+                {"entity_id": NUMBER_ODO_DEBUT, "value": new_odo},
+                blocking=True,
+            )
+
+    remove_track_odo = async_track_state_change_event(
+        hass, [SENSOR_SCOOTER_ODO], handle_track_odo
+    )
+
+    #
+    # 7c. "Scooter - Track battery SoC continuously during trip"
+    #    Keeps number.scooter_battery_soc_fin in sync with the live SoC
+    #    sensor so that do_stop_trip() has a correct value even if the
+    #    sensor becomes unavailable at the moment of the stop.
+    #    Also repairs number.scooter_battery_soc_debut if it was captured
+    #    stale (SoC sensor was showing an old cached value at trip start).
+    #
+    @callback
+    def handle_track_battery(event):
+        new_state = event.data.get("new_state")
+        old_state = event.data.get("old_state")
+        if not new_state or new_state.state in ["unknown", "unavailable"]:
+            return
+
+        try:
+            new_soc = float(new_state.state)
+        except (ValueError, TypeError):
+            return
+
+        if new_soc < 0 or new_soc > 100:
+            return
+
+        if not is_trip_active():
+            return
+
+        # Don't track stale (>24h) active trips.
+        start_time_st = hass.states.get(INPUT_DT_START_TIME)
+        if start_time_st and is_date_valid(start_time_st.state):
+            start_dt = get_valid_datetime(start_time_st.state)
+            if start_dt and (dt_util.now() - start_dt).total_seconds() > 86400:
+                return
+
+        hass.loop.create_task(_do_track_battery(new_soc, old_state))
+
+    async def _do_track_battery(new_soc: float, old_state):
+        # Always keep odo_fin's battery counterpart in sync
+        await hass.services.async_call(
+            "number",
+            "set_value",
+            {"entity_id": NUMBER_BATT_SOC_FIN, "value": new_soc},
+            blocking=True,
+        )
+
+        # Skip repair during grace period after trip start.
+        import time as _time
+        start_mono = last_trip_start_monotonic.get("value")
+        if start_mono is not None and (_time.monotonic() - start_mono) < 5.0:
+            return
+
+        # Repair debut if we detect a "stale -> real" jump at reconnect.
+        # A sudden jump > 10% in a single update is suspicious: during a
+        # trip, SoC decreases gradually. A large positive jump means the
+        # previous value was a stale cache from before a disconnection.
+        current_debut = get_sensor_float_value(hass, NUMBER_BATT_SOC_DEBUT, 0.0)
+        if current_debut <= 0 or old_state is None:
+            return
+
+        try:
+            prev_soc = float(old_state.state) if old_state.state not in ["unknown", "unavailable"] else None
+        except (ValueError, TypeError):
+            prev_soc = None
+
+        if prev_soc is None:
+            return
+
+        jump = new_soc - prev_soc
+        # Positive jump > 10% -> stale cache was replaced by real value
+        if jump > 10 and abs(current_debut - prev_soc) < 2:
+            _LOGGER.info(
+                "🔧 Battery jump detected (%.1f -> %.1f = +%.1f%%): repairing stale "
+                "battery_soc_debut from %.1f to %.1f",
+                prev_soc, new_soc, jump, current_debut, new_soc,
+            )
+            await hass.services.async_call(
+                "number",
+                "set_value",
+                {"entity_id": NUMBER_BATT_SOC_DEBUT, "value": new_soc},
+                blocking=True,
+            )
+
+    remove_track_battery = async_track_state_change_event(
+        hass, [SENSOR_BATT_SOC], handle_track_battery
     )
 
     #
@@ -1106,6 +1298,8 @@ async def async_setup_automations(
         remove_stop_trip_now,
         remove_last_start,
         remove_update_max_speed,
+        remove_track_odo,
+        remove_track_battery,
         remove_update_tracker,
         watchdog_remove,
     ]
@@ -1173,17 +1367,23 @@ async def do_stop_trip(hass: HomeAssistant, imei: str = "", multi_device: bool =
             blocking=True
         )
 
-        # 3) Update scooter_odo_fin from current ODO (fallback to odo_display if unavailable)
-        odo_fin_val = get_sensor_float_value(hass, SENSOR_SCOOTER_ODO, 0.0, fallback_entity=entity_id("sensor.scooter_odo_display"))
-        await hass.services.async_call(
-            "number",
-            SERVICE_SET_VALUE,
-            {
-                "entity_id": NUMBER_ODO_FIN,
-                "value": odo_fin_val
-            },
-            blocking=True
-        )
+        # 3) Prefer the NUMBER_ODO_FIN value kept in sync by handle_track_odo
+        # during the trip. Only fall back to the live sensor (then odo_display)
+        # if the tracked value was never written (e.g. trip started before the
+        # tracking listener fired any update).
+        tracked_fin = get_sensor_float_value(hass, NUMBER_ODO_FIN, 0.0)
+        live_odo = get_sensor_float_value(hass, SENSOR_SCOOTER_ODO, 0.0, fallback_entity=entity_id("sensor.scooter_odo_display"))
+        odo_fin_val = max(tracked_fin, live_odo)
+        if odo_fin_val != tracked_fin:
+            await hass.services.async_call(
+                "number",
+                SERVICE_SET_VALUE,
+                {
+                    "entity_id": NUMBER_ODO_FIN,
+                    "value": odo_fin_val
+                },
+                blocking=True
+            )
 
         # 4) Calculate trip distance
         odo_debut_val = get_sensor_float_value(hass, NUMBER_ODO_DEBUT, 0.0)
@@ -1220,8 +1420,34 @@ async def do_stop_trip(hass: HomeAssistant, imei: str = "", multi_device: bool =
 
         await set_writable_sensor_value(hass, SENSOR_LAST_TRIP_AVG_SPEED, avg_speed)
 
-        # 7) Update battery_soc_fin (fallback to battery_display if unavailable)
-        batt_soc_fin_val = get_sensor_float_value(hass, SENSOR_BATT_SOC, 0.0, fallback_entity=entity_id("sensor.scooter_battery_display"))
+        # 7) Prefer NUMBER_BATT_SOC_FIN kept in sync by handle_track_battery.
+        # Unlike ODO, battery SoC decreases during a trip, so we keep the
+        # most recently tracked value (latest reading during the trip)
+        # rather than min/max. Fall back to live sensor only if tracking
+        # never fired (e.g. trip started with SoC sensor unavailable).
+        tracked_fin = hass.states.get(NUMBER_BATT_SOC_FIN)
+        tracked_fin_val = None
+        if tracked_fin and tracked_fin.state not in ["unknown", "unavailable"]:
+            try:
+                tracked_fin_val = float(tracked_fin.state)
+            except (ValueError, TypeError):
+                tracked_fin_val = None
+
+        # If the debut value equals the tracked fin value, tracking may not
+        # have fired yet — fall back to live sensor in that case too.
+        debut_state = hass.states.get(NUMBER_BATT_SOC_DEBUT)
+        debut_val_check = None
+        if debut_state and debut_state.state not in ["unknown", "unavailable"]:
+            try:
+                debut_val_check = float(debut_state.state)
+            except (ValueError, TypeError):
+                debut_val_check = None
+
+        if tracked_fin_val is None or (debut_val_check is not None and tracked_fin_val == debut_val_check):
+            batt_soc_fin_val = get_sensor_float_value(hass, SENSOR_BATT_SOC, 0.0, fallback_entity=entity_id("sensor.scooter_battery_display"))
+        else:
+            batt_soc_fin_val = tracked_fin_val
+
         await hass.services.async_call(
             "number",
             SERVICE_SET_VALUE,
