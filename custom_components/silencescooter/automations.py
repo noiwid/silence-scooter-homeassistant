@@ -909,14 +909,24 @@ async def async_setup_automations(
                 _LOGGER.info("⚠️ Trajet déjà actif, ignoring start trigger")
                 return
             
-            # Vérifier que le scooter est réellement en mouvement (status=4)
-            # Status=3 (prêt à conduire) ne suffit pas — un allumage à distance donne aussi status=3
+            # Vérifier que le scooter est dans un état de trajet actif.
+            # Status 3 = arrêté au feu / prêt à repartir (trajet en cours,
+            # speed=0), status 4 = en mouvement. Les deux comptent comme un
+            # trajet actif (cf. scooter_off = status in [0, 1, 5] côté
+            # messageParser et template scooter_is_moving dans silence.yaml).
+            # Un allumage à distance sans mouvement réel descend bien vers
+            # 0 rapidement via la séquence 3 → 2 → 0, protégée par la
+            # grace period de stop.
             scooter_status = hass.states.get(SENSOR_SCOOTER_STATUS)
             if scooter_status and scooter_status.state not in ["unknown", "unavailable"]:
                 try:
                     status = float(scooter_status.state)
-                    if status != 4.0:
-                        _LOGGER.info("⚠️ Scooter status=%s, ignoring start trigger (attendu: 4=en mouvement)", status)
+                    if status not in (3.0, 4.0):
+                        _LOGGER.info(
+                            "⚠️ Scooter status=%s, ignoring start trigger "
+                            "(expected 3=idle or 4=moving)",
+                            status,
+                        )
                         return
                 except (ValueError, TypeError):
                     _LOGGER.warning("Could not read scooter status, continuing anyway")
