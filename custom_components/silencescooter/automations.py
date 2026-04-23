@@ -624,20 +624,23 @@ async def async_setup_automations(
             
             _LOGGER.info("▶ Battery present: %s", battery_present)
 
-            # Arrêt immédiat si scooter éteint (status=0) ou batterie retirée
-            # Data analysis confirms status=0 always follows the real shutdown
-            # sequence (4→3→2→0) and never appears as a false positive during riding.
-            # Network drops during riding produce "unavailable", not "0".
+            # Always go through the delayed-stop path (2 min confirmation +
+            # 5 min tolerance), matching the v1.0.4 behaviour that ran for
+            # months without issue. Earlier releases shortcut the stop on
+            # status=0 or "battery removed", but MQTT glitches can produce
+            # those states transiently while still riding — and the delayed
+            # path already cancels itself correctly if the scooter really
+            # restarts. Cost of a false delayed stop: ~7 minutes of "trip
+            # still active" after the real shutdown. Cost of a false
+            # immediate stop: a legitimate 30-minute ride cut in half.
             should_stop_immediately = False
 
             if not raw_state or raw_state.state in ["unknown", "unavailable"]:
-                _LOGGER.info("Scooter unavailable -> arret differe (tolerance)")
+                _LOGGER.info("Scooter unavailable -> delayed stop (tolerance)")
             elif raw_state.state in ["0", "0.0"]:
-                should_stop_immediately = True
-                _LOGGER.info("Scooter eteint (status=0, sequence 3->2->0) -> arret immediat")
+                _LOGGER.info("Scooter off (status=0) -> delayed stop (tolerance)")
             elif not battery_present:
-                should_stop_immediately = True
-                _LOGGER.info("Batterie retiree -> arret immediat")
+                _LOGGER.info("Battery removed -> delayed stop (tolerance)")
 
             # Définir _immediate_stop AVANT son utilisation (sinon UnboundLocalError)
             async def _immediate_stop():
@@ -1650,28 +1653,37 @@ async def do_update_trips_history(hass: HomeAssistant, imei: str = "", multi_dev
         max_val = get_sensor_float_value(hass, SENSOR_LAST_TRIP_MAX_SPEED, 0.0)
         battery_consumed = get_sensor_float_value(hass, SENSOR_LAST_TRIP_BATT_CONSUMPTION, 0.0)
 
-        # === VALIDATION: Reject obviously invalid trips ===
-        validation_errors = []
+        # === VALIDATION ===
+        # Two tiers now:
+        #  - HARD REJECT: only physically impossible data (avg speed > 120 km/h
+        #    — the scooter is limited to ~100 km/h, so anything above that is
+        #    definitely a sensor glitch or a computed value using a wrong
+        #    duration/distance).
+        #  - SOFT WARN: suspicious but possibly legitimate data is logged and
+        #    still recorded. Earlier releases were strict enough to drop real
+        #    trips whenever a sensor hiccup produced inconsistent metrics.
+        hard_reject_errors = []
+        soft_warnings = []
 
-        # Reject very short trips with high distance (impossible physics)
-        if duration_val < 1.5 and distance_val > 2:
-            validation_errors.append(f"Trip too short: {duration_val} min for {distance_val} km")
-
-        # Reject superhuman speeds (scooter limited to ~100 km/h)
+        # Hard reject: superhuman avg speed (physically impossible)
         if avg_val > 120:
-            validation_errors.append(f"Speed too high: {avg_val} km/h > 120 km/h")
+            hard_reject_errors.append(f"Speed too high: {avg_val} km/h > 120 km/h")
 
-        # Check speed consistency: compare recorded speed vs calculated speed
-        # If they differ by more than 30%, data is inconsistent
+        # Soft warn: very short trips with high distance
+        if duration_val < 1.5 and distance_val > 2:
+            soft_warnings.append(f"Trip looks short: {duration_val} min for {distance_val} km")
+
+        # Soft warn: inconsistent speed calculation
         if duration_val > 0 and distance_val > 0:
             calculated_speed = (distance_val / duration_val) * 60
-            # If stored avg_speed differs by more than 30% from calculated, reject
             if avg_val > 0 and abs(calculated_speed - avg_val) / avg_val > 0.3:
-                validation_errors.append(f"Speed inconsistency: calculated={calculated_speed:.1f} vs recorded={avg_val}")
+                soft_warnings.append(
+                    f"Speed inconsistency: calculated={calculated_speed:.1f} vs recorded={avg_val}"
+                )
 
-        # If max speed is 0 but average speed is high, sensors were not working
+        # Soft warn: max_speed=0 but avg>10 (max_speed sensor didn't update)
         if max_val == 0 and avg_val > 10:
-            validation_errors.append(f"Max speed is 0 but avg is {avg_val} km/h")
+            soft_warnings.append(f"Max speed is 0 but avg is {avg_val} km/h")
 
         # Run error detector trip anomaly checks
         detector = get_error_detector(hass)
@@ -1681,14 +1693,24 @@ async def do_update_trips_history(hass: HomeAssistant, imei: str = "", multi_dev
                 max_speed=max_val, battery_consumption=battery_consumed,
             )
 
-        if validation_errors:
+        if hard_reject_errors:
             _LOGGER.error("⚠️ TRIP REJECTED - Data validation failed:")
-            for error in validation_errors:
+            for error in hard_reject_errors:
                 _LOGGER.error("  - %s", error)
-            _LOGGER.error("Trip data: distance=%.1f km, duration=%.1f min, avg_speed=%.1f km/h, battery=%.1f%%",
-                         distance_val, duration_val, avg_val, battery_consumed)
-            await log_event(hass, f"Trip rejected: {', '.join(validation_errors)}")
+            _LOGGER.error(
+                "Trip data: distance=%.1f km, duration=%.1f min, avg_speed=%.1f km/h, battery=%.1f%%",
+                distance_val, duration_val, avg_val, battery_consumed,
+            )
+            await log_event(hass, f"Trip rejected: {', '.join(hard_reject_errors)}")
             return
+
+        if soft_warnings:
+            _LOGGER.warning(
+                "Trip has suspicious data but will be recorded anyway: %s | "
+                "distance=%.1f km, duration=%.1f min, avg_speed=%.1f km/h, max_speed=%.1f km/h",
+                ", ".join(soft_warnings),
+                distance_val, duration_val, avg_val, max_val,
+            )
 
         # === Check for minimal trip data ===
         is_valid_trip = distance_val > 0 or duration_val > 0
