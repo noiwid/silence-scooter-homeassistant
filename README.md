@@ -3,6 +3,7 @@
 [![GitHub Release][releases-shield]][releases]
 [![License][license-shield]](LICENSE)
 [![hacs][hacsbadge]][hacs]
+[![Buy Me A Beer](https://img.shields.io/badge/Buy%20me%20a%20beer-FFDD00?style=for-the-badge&logo=buy-me-a-coffee&logoColor=black)](https://buymeacoffee.com/noiwid)
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/noiwid/silence-scooter-homeassistant/main/images/scooter.png" alt="Silence Scooter" width="400">
@@ -503,6 +504,11 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 This project is not affiliated with, endorsed by, or connected to Silence or Seat. Use at your own risk.
 
+## ☕ Support
+
+This integration is free and maintained on my spare time. If it helped you or saved you time, you can buy me a beer:
+
+[![Buy Me A Beer](https://img.shields.io/badge/Buy%20me%20a%20beer-FFDD00?style=for-the-badge&logo=buy-me-a-coffee&logoColor=black)](https://buymeacoffee.com/noiwid)
 ---
 
 **Made with ❤️ for the Silence Scooter community**
