@@ -2,629 +2,840 @@ views:
   - title: Silence Scooter
     type: masonry
     badges: []
+    background:
+      opacity: 70
+      alignment: center
+      size: auto
+      repeat: repeat
+      attachment: fixed
+    visible:
+      - user: d26d8d63f7a0412ba9843788fd479b55
+      - user: f8cb94b697d4447e8244fd9c01568984
+    theme: ios-dark-mode-blue-red
     cards:
       - type: custom:vertical-stack-in-card
-        card_mod:
-          style: |
-            ha-card {
-              overflow: hidden;
-            }
         cards:
-          - type: custom:stack-in-card
-            mode: vertical
-            card_mod:
-              style: |
-                ha-card {
-                  border: none !important;
-                  box-shadow: none !important;
-                  border-radius: 0 !important;
-                  margin: 0 !important;
-                  background: none !important;
-                }
-            cards:
-              - type: horizontal-stack
-                cards:
-                  - type: custom:button-card
-                    size: 35%
-                    icon: mdi:power-off
-                    name: 'OFF'
-                    entity: button.silence_scooter_command_off
-                    tap_action:
-                      action: toggle
-                      confirmation:
-                        text: Confirm turning off?
-                    styles:
-                      card:
-                        - font-size: 12px
-                        - background: transparent
-                        - box-shadow: none
-                  - type: custom:button-card
-                    size: 35%
-                    icon: mdi:power-on
-                    entity: button.silence_scooter_command_on
-                    name: 'ON'
-                    tap_action:
-                      action: toggle
-                      confirmation:
-                        text: Confirm turning on?
-                    styles:
-                      card:
-                        - font-size: 12px
-                        - background: transparent
-                        - box-shadow: none
-              - type: horizontal-stack
-                cards:
-                  - type: custom:button-card
-                    size: 25%
-                    name: OPEN SEAT
-                    icon: mdi:lock-open-outline
-                    entity: button.silence_scooter_command_open_seat
-                    tap_action:
-                      action: toggle
-                      confirmation:
-                        text: Confirm opening seat?
-                    styles:
-                      card:
-                        - font-size: 12px
-                        - background: transparent
-                        - box-shadow: none
-                  - type: custom:button-card
-                    size: 25%
-                    entity: button.silence_scooter_command_flash
-                    name: FLASH
-                    icon: mdi:alert-outline
-                    tap_action:
-                      action: toggle
-                      confirmation:
-                        text: Confirm warning lights?
-                    styles:
-                      card:
-                        - font-size: 12px
-                        - background: transparent
-                        - box-shadow: none
-                  - type: custom:button-card
-                    size: 25%
-                    entity: button.silence_scooter_command_beep_flash
-                    name: BEEP FLASH
-                    icon: mdi:air-horn
-                    tap_action:
-                      action: toggle
-                      confirmation:
-                        text: Confirm alarm?
-                    styles:
-                      card:
-                        - font-size: 12px
-                        - background: transparent
-                        - box-shadow: none
-          - type: picture
-            image: /local/silence/scooter.png
-            card_mod:
-              style: |
-                ha-card {
-                  border: none !important;
-                  box-shadow: none !important;
-                  border-radius: 0 !important;
-                  margin: 0 !important;
-                  padding: 0 !important;
-                  background: transparent !important;
-                }
+          - type: custom:button-card
+            entity: sensor.silence_scooter_last_update
+            show_name: false
+            show_state: false
+            show_icon: false
+            show_label: true
+            label: |
+              [[[
+                const lc = states['sensor.silence_scooter_last_update'].state;
+                const d = lc ? Math.round((new Date() - new Date(lc)) / 1000) : null;
+                const color = !d && d !== 0 ? 'var(--disabled-color)' : d < 60 ? 'var(--success-color)' : d < 300 ? 'var(--warning-color)' : 'var(--error-color)';
+                const text = !d && d !== 0 ? 'Unknown' : d < 60 ? d + ' sec' : d < 3600 ? Math.floor(d/60) + ' min' : d < 86400 ? Math.floor(d/3600) + 'h' : Math.floor(d/86400) + 'd';
+                return `<div style="display:flex;align-items:center;justify-content:center;gap:8px;">
+                  <span style="width:8px;height:8px;border-radius:50%;background:${color};flex-shrink:0;"></span>
+                  <span style="font-size:10px;letter-spacing:1px;text-transform:uppercase;color:rgba(255,255,255,0.4);">Last update</span>
+                  <span style="font-size:12px;color:rgba(255,255,255,0.7);">${text}</span>
+                </div>`;
+              ]]]
+            styles:
+              card:
+                - background: rgba(0,0,0,0.05)
+                - height: 44px
+                - box-shadow: none
+                - border: none
+                - border-top: 1px solid rgba(255,255,255,0.08) !important
+                - border-radius: 0 !important
+              label:
+                - width: 100%
+                - padding: 0
+          - type: divider
           - type: glance
             entities:
               - entity: sensor.scooter_status_display
                 name: Status
-              - entity: sensor.silence_scooter_speed
-                icon: mdi:speedometer
-                name: Speed
+                card_mod:
+                  style: >
+                    .name { font-size: 10px; text-transform: uppercase;
+                    letter-spacing: 1.5px; }
               - entity: sensor.scooter_battery_status
                 name: Battery
+                card_mod:
+                  style: >
+                    .name { font-size: 10px; text-transform: uppercase;
+                    letter-spacing: 1.5px; }
+              - entity: binary_sensor.silence_scooter_sidestand_down
+                name: Kickstand
+                icon: mdi:scooter
+                state_color: true
+                card_mod:
+                  style: >
+                    .name { font-size: 10px; text-transform: uppercase;
+                    letter-spacing: 1.5px; }
               - entity: sensor.scooter_odo_display
                 icon: mdi:counter
                 name: Odometer
+                card_mod:
+                  style: >
+                    .name { font-size: 10px; text-transform: uppercase;
+                    letter-spacing: 1.5px; }
+            show_state: true
+            show_name: true
             card_mod:
               style: |
                 ha-card {
                   border: none !important;
                   box-shadow: none !important;
                   border-radius: 0 !important;
-                  margin: 0 !important;
                   background: none !important;
                 }
-                .name {
-                  font-size: 11px;
-                  text-transform: uppercase;
-                  letter-spacing: 1.5px;
-                  line-height: 20px;
-                }
-      - type: custom:vertical-stack-in-card
-        cards:
-          - type: horizontal-stack
-            cards:
-              - type: gauge
-                entity: sensor.scooter_battery_display
-                name: Battery Level
-                severity:
-                  green: 70
-                  yellow: 30
-                  red: 0
-                needle: true
-                unit: '%'
-                min: 0
-                card_mod:
-                  style: |
-                    ha-card {
-                      background: none !important;
-                      box-shadow: none !important;
-                      border: none !important;
-                      border-right: 1px solid rgba(152, 152, 157, 0.3) !important;
-                      border-radius: 0 !important;
-                    }
-              - type: custom:button-card
-                entity: sensor.silence_scooter_last_update
-                name: Last Update
-                show_state: true
-                show_name: true
-                show_label: false
-                icon: |
-                  [[[
-                    const lastChanged = states['sensor.silence_scooter_last_update'].last_changed;
-                    if (!lastChanged) return 'mdi:clock-alert';
-
-                    const delta = Math.round((new Date() - new Date(lastChanged)) / 1000);
-
-                    if (delta < 60) {
-                      return 'mdi:check-circle';
-                    } else if (delta < 300) {
-                      return 'mdi:clock-alert-outline';
-                    } else {
-                      return 'mdi:alert-circle';
-                    }
-                  ]]]
-                state_display: |
-                  [[[
-                    const lastChanged = states['sensor.silence_scooter_last_update'].last_changed;
-                    if (!lastChanged) return 'Unknown';
-
-                    const delta = Math.round((new Date() - new Date(lastChanged)) / 1000);
-
-                    if (delta < 60) {
-                      return delta + ' seconds';
-                    } else if (delta < 3600) {
-                      const minutes = Math.floor(delta / 60);
-                      return minutes + ' minute' + (minutes > 1 ? 's' : '');
-                    } else if (delta < 86400) {
-                      const hours = Math.floor(delta / 3600);
-                      return hours + ' hour' + (hours > 1 ? 's' : '');
-                    } else {
-                      const days = Math.floor(delta / 86400);
-                      return days + ' day' + (days > 1 ? 's' : '');
-                    }
-                  ]]]
-                styles:
-                  card:
-                    - height: 100%
-                    - display: flex
-                    - flex-direction: column
-                    - justify-content: center
-                    - align-items: center
-                    - background: none
-                    - box-shadow: none
-                    - border: none
-                  icon:
-                    - height: 85px
-                    - color: |
-                        [[[
-                          const lastChanged = states['sensor.silence_scooter_last_update'].last_changed;
-                          if (!lastChanged) return 'var(--disabled-color)';
-
-                          const delta = Math.round((new Date() - new Date(lastChanged)) / 1000);
-
-                          if (delta < 60) {
-                            return 'var(--success-color)';
-                          } else if (delta < 300) {
-                            return 'var(--warning-color)';
-                          } else {
-                            return 'var(--error-color)';
-                          }
-                        ]]]
-                  name:
-                    - font-size: 14px
-                  state:
-                    - font-size: 12px
-                    - opacity: 0.7
-        card_mod:
-          style: |
-            ha-card {
-              background-color: var(--ha-card-background, var(--card-background-color, white));
-            }
-      - type: custom:stack-in-card
-        mode: vertical
-        cards:
-          - type: glance
-            entities:
-              - entity: sensor.scooter_estimated_range
-                name: Range
-                icon: mdi:road-variant
-                card_mod:
-                  style: |
-                    .name {
-                      font-size: 11px;
-                      text-transform: uppercase;
-                      letter-spacing: 1.5px;
-                      line-height: 20px;
-                    }
-              - entity: sensor.scooter_battery_per_km
-                name: Cons. / km
-                icon: mdi:battery-clock-outline
-                card_mod:
-                  style: |
-                    .name {
-                      font-size: 11px;
-                      text-transform: uppercase;
-                      letter-spacing: 1.5px;
-                      line-height: 20px;
-                    }
-              - entity: sensor.scooter_battery_percentage_regeneration
-                icon: mdi:battery-charging
-                name: Regeneration
-                card_mod:
-                  style: |
-                    .name {
-                      font-size: 11px;
-                      text-transform: uppercase;
-                      letter-spacing: 1.5px;
-                      line-height: 20px;
-                    }
-            show_state: true
-            show_name: true
-            state_color: true
+          - type: picture
+            image: /api/image/serve/0574853208bf98f8ea2331b59b45c8f3/512x512
             card_mod:
               style: |
                 ha-card {
-                  border-top: none !important;
-                  border-left: none !important;
-                  border-right: none !important;
-                  border-bottom: 1px solid var(--divider-color) !important;
+                  border: none !important;
+                  box-shadow: none !important;
+                  border-radius: 0 !important;
+                  background: transparent !important;
+                }
+          - type: horizontal-stack
+            cards:
+              - type: custom:button-card
+                size: 35%
+                icon: mdi:power-off
+                name: 'OFF'
+                entity: button.silence_scooter_command_off
+                tap_action:
+                  action: toggle
+                  confirmation:
+                    text: Confirm shutdown?
+                styles:
+                  card:
+                    - font-size: 12px
+                    - background: transparent
+                    - box-shadow: none
+              - type: custom:button-card
+                size: 35%
+                icon: mdi:power-on
+                name: 'ON'
+                entity: button.silence_scooter_command_on
+                tap_action:
+                  action: toggle
+                  confirmation:
+                    text: Confirm power on?
+                styles:
+                  card:
+                    - font-size: 12px
+                    - background: transparent
+                    - box-shadow: none
+          - type: horizontal-stack
+            cards:
+              - type: custom:button-card
+                size: 25%
+                name: SEAT
+                icon: mdi:lock-open-outline
+                entity: button.silence_scooter_command_open_seat
+                tap_action:
+                  action: toggle
+                  confirmation:
+                    text: Confirm seat opening?
+                styles:
+                  card:
+                    - font-size: 11px
+                    - background: transparent
+                    - box-shadow: none
+              - type: custom:button-card
+                size: 25%
+                name: FLASH
+                icon: mdi:alert-outline
+                entity: button.silence_scooter_command_flash
+                tap_action:
+                  action: toggle
+                  confirmation:
+                    text: Confirm hazard lights?
+                styles:
+                  card:
+                    - font-size: 11px
+                    - background: transparent
+                    - box-shadow: none
+              - type: custom:button-card
+                size: 25%
+                name: BEEP
+                icon: mdi:air-horn
+                entity: button.silence_scooter_command_beep_flash
+                tap_action:
+                  action: toggle
+                  confirmation:
+                    text: Confirm alarm?
+                styles:
+                  card:
+                    - font-size: 11px
+                    - background: transparent
+                    - box-shadow: none
+        card_mod:
+          style: |
+            ha-card { overflow: hidden; }
+      - type: conditional
+        conditions:
+          - condition: state
+            entity: sensor.scooter_trip_status
+            state: 'on'
+        card:
+          type: custom:vertical-stack-in-card
+          card_mod:
+            style: |
+              ha-card {
+                overflow: hidden;
+                border: 1px solid rgba(220,38,38,0.25) !important;
+                background-color: var(--ha-card-background, var(--card-background-color, white)) !important;
+              }
+          cards:
+            - type: custom:button-card
+              entity: script.scooter_stop_trip
+              show_name: false
+              show_state: false
+              show_icon: false
+              show_label: true
+              tap_action:
+                action: call-service
+                service: switch.turn_on
+                service_data:
+                  entity_id: switch.stop_trip_now
+                confirmation:
+                  text: Stop the current trip?
+              label: |
+                [[[
+                  return `
+                    <div style="display:flex;align-items:center;justify-content:center;gap:10px;padding:6px 0;">
+                      <svg viewBox="0 0 24 24" style="width:14px;height:14px;fill:#f87171;flex-shrink:0;">
+                        <rect x="4" y="4" width="16" height="16" rx="2"/>
+                      </svg>
+                      <span style="font-size:11px;letter-spacing:2px;color:#f87171;text-transform:uppercase;font-weight:600;">
+                        Stop trip
+                      </span>
+                    </div>
+                  `;
+                ]]]
+              styles:
+                card:
+                  - background: rgba(220,38,38,0.12) !important
+                  - border: none !important
+                  - border-bottom: 1px solid rgba(220,38,38,0.35) !important
+                  - box-shadow: none !important
+                  - border-radius: 0 !important
+                  - padding: 0
+                  - height: 38px
+                label:
+                  - width: 100%
+                  - text-align: center
+            - type: horizontal-stack
+              cards:
+                - type: custom:canvas-gauge-card
+                  entity: sensor.silence_scooter_speed
+                  card_height: 120
+                  card_mod:
+                    style: |
+                      ha-card {
+                        background: none !important;
+                        box-shadow: none !important;
+                        border: none !important;
+                        border-right: 1px solid rgba(152,152,157,0.3) !important;
+                        border-radius: 0 !important;
+                        overflow: hidden;
+                      }
+                  gauge:
+                    type: radial-gauge
+                    title: km/h
+                    width: 180
+                    height: 200
+                    borderShadowWidth: 0
+                    borderOuterWidth: 0
+                    borderMiddleWidth: 0
+                    borderInnerWidth: 0
+                    minValue: 0
+                    maxValue: 110
+                    startAngle: 90
+                    ticksAngle: 180
+                    valueBox: false
+                    majorTicks:
+                      - '0'
+                      - '20'
+                      - '40'
+                      - '60'
+                      - '80'
+                      - '100'
+                      - '110'
+                    minorTicks: 4
+                    strokeTicks: true
+                    highlights:
+                      - from: 82
+                        to: 110
+                        color: rgba(200,50,50,0.7)
+                    colorPlate: rgba(0,0,0,0)
+                    colorMajorTicks: rgba(255,255,255,0.55)
+                    colorMinorTicks: rgba(255,255,255,0.25)
+                    colorTitle: rgba(255,255,255,0.45)
+                    colorNumbers: rgba(255,255,255,0.75)
+                    colorNeedle: rgba(255,255,255,0.95)
+                    colorNeedleEnd: rgba(255,255,255,0.3)
+                    fontNumbers: sans-serif
+                    fontTitle: sans-serif
+                    borders: false
+                    needleType: arrow
+                    needleWidth: 2.5
+                    needleStart: 0
+                    needleEnd: 90
+                    animationDuration: 800
+                    animationRule: linear
+                - type: custom:button-card
+                  show_name: false
+                  show_state: false
+                  show_icon: false
+                  show_label: true
+                  label: |
+                    [[[
+                      const startTime = states['datetime.scooter_start_time']?.state;
+                      const isPaused = states['timer.scooter_stop_trip_tolerance']?.state === 'active';
+                      let timerText = '—';
+                      if (startTime && startTime !== 'unknown') {
+                        const dur = Math.round((new Date() - new Date(startTime)) / 60000);
+                        const h = Math.floor(dur / 60);
+                        const m = dur % 60;
+                        timerText = h > 0 ? `${h}h${String(m).padStart(2,'0')}` : `${dur} min`;
+                      }
+                      const modeRaw = (states['sensor.silence_scooter_drive_mode']?.state || '').toLowerCase();
+                      const modeLabel = { sport: 'SPORT', eco: 'ECO', boost: 'BOOST', city: 'CITY' }[modeRaw] || modeRaw.toUpperCase() || '—';
+                      const modeBg = modeRaw === 'eco' ? 'rgba(76,175,80,0.9)' : modeRaw === 'sport' ? 'rgba(233,30,99,0.9)' : modeRaw === 'boost' ? 'rgba(255,152,0,0.9)' : 'rgba(33,150,243,0.9)';
+                      const dotColor = isPaused ? '#ff9800' : '#4eaf58';
+                      const statusLabel = isPaused ? 'PAUSED' : 'RIDING';
+                      return `
+                        <div style="display:flex;flex-direction:column;align-items:flex-start;justify-content:center;
+                                    width:100%;height:100%;padding:0px 12px;gap:10px;">
+                          <div style="display:flex;align-items:center;gap:7px;">
+                            <span style="width:7px;height:7px;border-radius:50%;background:${dotColor};flex-shrink:0;"></span>
+                            <span style="font-size:10px;letter-spacing:2px;color:${dotColor};text-transform:uppercase;font-weight:500;">
+                              ${statusLabel}
+                            </span>
+                          </div>
+                          <div style="font-size:32px;font-weight:500;color:white;line-height:0.8;">${timerText}</div>
+                          <span style="font-size:10px;background:${modeBg};color:white;padding:3px 10px;
+                                       border-radius:3px;letter-spacing:1.5px;font-weight:500;">
+                            ${modeLabel}
+                          </span>
+                        </div>
+                      `;
+                    ]]]
+                  styles:
+                    card:
+                      - background: none !important
+                      - border: none !important
+                      - box-shadow: none !important
+                      - border-radius: 0 !important
+                      - padding: 0
+                      - height: 100%
+                    label:
+                      - width: 100%
+                      - text-align: left
+                      - height: 100%
+      - type: custom:vertical-stack-in-card
+        cards:
+          - type: custom:mushroom-entity-card
+            entity: sensor.scooter_battery_display
+            tap_action:
+              action: more-info
+            icon: ''
+            icon_color: white
+            primary_info: none
+            secondary_info: none
+            fill_container: false
+            layout: vertical
+            name: Battery
+            card_mod:
+              style:
+                .: |
+                  ha-card {
+                    --card-primary-font-size: 15px !important;
+                    --card-secondary-font-size: 12px !important;
+                    --card-primary-font-weight: bold !important;
+
+                    {% set level = states(config.entity) | float(0) %}
+                    {% set is_charging = is_state('silence_scooter_status', '6') %}
+                    
+                    {% if is_charging %}
+                       {% set color = '0, 255, 255' %}
+                    {% elif level <= 20 %}
+                      {% set color = '244, 67, 54' %}
+                    {% elif level <= 60 %}
+                      {% set color = '220, 100, 29' %}
+                    {% else %}
+                      {% set color = '78, 175, 88' %}
+                    {% endif %}
+
+                    --custom-level: {{ level }}%;
+                    --custom-color: rgba({{ color }}, 0.8);
+                    --custom-bubble: {{ 'block' if is_charging else 'none' }};
+                    --custom-icon-shadow: {{ '0 0 15px rgba(' ~ color ~ ', 0.6)' if is_charging else 'none' }};
+                    --text-color: {{ 'rgba(' ~ color ~ ', 1)' if level < 101 else 'rgba(255,255,255,0.7)' }};
+
+                    background: none !important;
+                    border: none !important;
+                    border-radius: 12px;
+                    position: relative;
+                    overflow: hidden;
+                    transition: all 0.5s ease;
+                    background-image: radial-gradient(circle at 24px 24px, rgba({{ color }}, 0.15) 0%, transparent 60%) !important;
+                  }
+
+                  mushroom-shape-icon {
+                    --icon-size: 65px;
+                    display: flex;
+                    padding-right: 15px;
+                    padding-bottom: 5px;
+                  }
+
+                  ha-card::before {
+                    content: '{{ level | round(0) }}%';
+                    position: absolute;
+                    top: 12px; right: 12px;
+                    font-size: 1rem; font-weight: 700;
+                    color: #fff;
+                    background: var(--text-color);
+                    border: 1px solid rgba(255, 255, 255, 0.1);
+                    padding: 2px 6px; border-radius: 4px;
+                  }
+
+                  ha-card::after {
+                    content: '';
+                    position: absolute;
+                    bottom: 0; left: 0;
+                    height: 4px;
+                    width: {{ level }}%;
+                    background: linear-gradient(90deg, transparent, rgb({{ color }}));
+                    box-shadow: 0 0 10px rgb({{ color }});
+                    transition: width 0.5s ease;
+                  }
+                mushroom-shape-icon$: |
+                  .shape {
+                    --liquid-level: var(--custom-level);
+                    --liquid-color: var(--custom-color);
+                    --bubble-display: var(--custom-bubble);
+                    background: rgba(255, 255, 255, 0.05) !important;
+                    overflow: hidden !important;
+                    position: relative;
+                    border: 1px solid rgba(255,255,255,0.1);
+                    box-shadow: var(--custom-icon-shadow) !important;
+                  }
+
+                  .shape::before {
+                    content: '';
+                    position: absolute;
+                    left: -50%;
+                    width: 200%;
+                    height: 200%;
+                    top: calc(100% - var(--liquid-level));
+                    background: var(--liquid-color);
+                    border-radius: 40%;
+                    animation: liquid-wave 6s linear infinite;
+                    opacity: 0.8;
+                  }
+
+                  .shape::after {
+                    content: '';
+                    display: var(--bubble-display);
+                    position: absolute;
+                    inset: 0;
+                    background-image: 
+                      radial-gradient(2px 2px at 20% 80%, rgba(255,255,255,0.8), transparent),
+                      radial-gradient(2px 2px at 50% 70%, rgba(255,255,255,0.8), transparent),
+                      radial-gradient(3px 3px at 80% 90%, rgba(255,255,255,0.8), transparent);
+                    background-size: 100% 100%;
+                    animation: bubbles-rise 0.7s linear infinite;
+                  }
+
+                  ha-icon {
+                    position: relative;
+                    z-index: 2;
+                    mix-blend-mode: overlay; 
+                    color: white !important;
+                  }
+
+                  @keyframes liquid-wave {
+                    0% { transform: rotate(0deg); }
+                    100% { transform: rotate(360deg); }
+                  }
+
+                  @keyframes bubbles-rise {
+                    0% { transform: translateY(10px); opacity: 0; }
+                    50% { opacity: 1; }
+                    100% { transform: translateY(-20px); opacity: 0; }
+                  }
+          - type: custom:vertical-stack-in-card
+            cards:
+              - type: horizontal-stack
+                cards:
+                  - type: glance
+                    entities:
+                      - entity: sensor.scooter_estimated_range
+                        name: Range
+                        icon: mdi:road-variant
+                        card_mod:
+                          style: >
+                            .name { font-size: 10px; text-transform: uppercase;
+                            letter-spacing: 1.5px; }
+                      - entity: sensor.scooter_battery_per_km
+                        name: Usage
+                        icon: mdi:battery-clock-outline
+                        card_mod:
+                          style: >
+                            .name { font-size: 10px; text-transform: uppercase;
+                            letter-spacing: 1.5px; }
+                        show_state: true
+                      - entity: sensor.scooter_battery_percentage_regeneration
+                        icon: mdi:battery-charging
+                        name: Regen.
+                        card_mod:
+                          style: >
+                            .name { font-size: 10px; text-transform: uppercase;
+                            letter-spacing: 1.5px; }
+                    show_state: true
+                    show_name: true
+                    state_color: true
+                    card_mod:
+                      style: |
+                        ha-card {
+                          border: none !important;
+                          box-shadow: none !important;
+                          border-radius: 0 !important;
+                          background: none !important;
+                        }
+            card_mod:
+              style: |
+                ha-card {
+                  border: none !important;
+                  box-shadow: none !important;
+                  border-radius: 0 !important;
                   background: none !important;
                 }
+      - type: custom:vertical-stack-in-card
+        cards:
+          - type: picture-elements
+            image: /local/Last_ride.png
+            elements:
+              - type: state-label
+                entity: sensor.scooter_last_trip_distance
+                style:
+                  top: 30%
+                  left: 25%
+                  font-size: 2.7em
+                  color: white
+              - type: state-label
+                entity: sensor.scooter_last_trip_duration
+                style:
+                  top: 40%
+                  left: 85%
+                  font-size: 0.9em
+                  color: '#F92672'
+              - type: state-label
+                entity: sensor.scooter_last_trip_avg_speed
+                style:
+                  top: 50%
+                  left: 65%
+                  font-size: 0.9em
+                  color: '#F92672'
+          - type: custom:map-card
+            card_mod:
+              style: |
+                ha-card {
+                  border: none !important;
+                  box-shadow: none !important;
+                  border-radius: 0 !important;
+                  overflow: hidden;
+                }
+            tile_layer_attribution: Scooter
+            entities:
+              - entity: device_tracker.silence_scooter_2
+                display: icon
+                size: 35
+                color: purple
+                history_start: sensor.scooter_start_time_iso
+                history_show_dots: false
+                history_line_color: purple
+            focus_entity: device_tracker.silence_scooter_2
+            theme_mode: auto
+            zoom: 16
+            card_size: 6
+            tile_layer_url: https://mt0.google.com/vt/lyrs=m&x={x}&y={y}&z={z}
+          - type: markdown
+            card_mod:
+              style: |
+                ha-card {
+                  border: none !important;
+                  border-top: 1px solid rgba(255,255,255,0.08) !important;
+                  background: none !important;
+                }
+            content: >-
+              <ha-icon icon="mdi:map-marker"></ha-icon>  [{{
+              states('sensor.silence_scooter_address')
+              }}](https://maps.google.com?q={{
+              state_attr('device_tracker.silence_scooter_2','latitude') }},{{
+              state_attr('device_tracker.silence_scooter_2','longitude') }})
+          - type: divider
+          - type: entities
+            card_mod:
+              style: |
+                ha-card {
+                  border: none !important;
+                  background: none !important;
+                  box-shadow: none !important;
+                }
+            entities:
+              - entity: sensor.scooter_end_time_relative
+                name: Last trip
+                icon: mdi:watch
+              - entity: sensor.scooter_last_trip_duration
+                name: Duration
+                icon: mdi:clock-outline
+              - entity: sensor.scooter_last_trip_distance
+                name: Distance
+                icon: mdi:map-marker-distance
+              - entity: sensor.scooter_last_trip_battery_consumption
+                name: Battery used
+                icon: mdi:battery-clock
+              - entity: sensor.scooter_last_trip_avg_speed
+                name: Average speed
+                icon: mdi:speedometer-medium
+                secondary_info: none
+              - entity: sensor.scooter_last_trip_max_speed
+                name: Max speed
+                icon: mdi:speedometer
+                secondary_info: none
+        card_mod:
+          style: |
+            ha-card { overflow: hidden; }
+      - type: custom:vertical-stack-in-card
+        card_mod:
+          style: |
+            ha-card { background: none !important; }
+        cards:
+          - type: markdown
+            title: 📅  Recent trips
+            content: >-
+              {% set trips = state_attr('sensor.scooter_trips','history') |
+              default([])
+              %}<table><tr><th>Date</th><th>Dur.</th><th>Dist.</th><th>Avg.</th></tr>{%
+              for trip in trips[:10] %}{% set dt = trip.start_time | as_datetime
+              %}<tr><td>{{ dt.day }}/{{ dt.month }}, {{ '%02d'|format(dt.hour)
+              }}h{{ '%02d'|format(dt.minute) }}</td><td>{{ trip.duration | round
+              }}<span>min</span></td><td>{{ trip.distance | round
+              }}<span>km</span></td><td>{{ trip.avg_speed
+              }}<span>km/h</span></td></tr>{% endfor %}</table>
+            card_mod:
+              style:
+                ha-markdown $:
+                  ha-markdown-element: >
+                    table { font-size:13px; border-spacing:0; width:100%; }
+
+                    th { letter-spacing:1.5px; font-size:10px; font-weight:400
+                    !important; text-transform:uppercase; border-bottom:1px
+                    solid
+                      rgba(255,255,255,.25); text-align:right !important;}
+                    th:first-child, td:first-child { text-align:left !important;
+                    }  td:first-child { font-weight:normal; }  td, th {
+                    text-align:right; padding:4px 8px; font-weight:bold; }
+                    tr:nth-child(odd) {
+                    background-color:rgba(var(--rgb-primary-text-color),0.05); }
+                    span { padding-left:2px; font-size:8px; color:#666;
+                    font-weight:normal; }
+      - type: custom:vertical-stack-in-card
+        title: 📊  Stats & Costs
+        cards:
           - type: glance
             entities:
               - entity: sensor.scooter_cost_per_km
-                name: Cost / km
+                name: Cost/km
                 icon: mdi:currency-eur
                 card_mod:
-                  style: |
-                    .name {
-                      font-size: 11px;
-                      text-transform: uppercase;
-                      letter-spacing: 1.5px;
-                      line-height: 20px;
-                    }
+                  style: >
+                    .name { font-size: 10px; text-transform: uppercase;
+                    letter-spacing: 1.5px; }
               - entity: sensor.scooter_energy_cost_weekly
                 name: Week
                 icon: mdi:calendar-week
                 card_mod:
-                  style: |
-                    .name {
-                      font-size: 11px;
-                      text-transform: uppercase;
-                      letter-spacing: 1.5px;
-                      line-height: 20px;
-                    }
+                  style: >
+                    .name { font-size: 10px; text-transform: uppercase;
+                    letter-spacing: 1.5px; }
               - entity: sensor.scooter_energy_cost_monthly
                 name: Month
                 icon: mdi:calendar-month
                 card_mod:
-                  style: |
-                    .name {
-                      font-size: 11px;
-                      text-transform: uppercase;
-                      letter-spacing: 1.5px;
-                      line-height: 20px;
-                    }
+                  style: >
+                    .name { font-size: 10px; text-transform: uppercase;
+                    letter-spacing: 1.5px; }
               - entity: sensor.scooter_energy_cost_yearly
                 name: Year
                 icon: mdi:calendar
                 card_mod:
-                  style: |
-                    .name {
-                      font-size: 11px;
-                      text-transform: uppercase;
-                      letter-spacing: 1.5px;
-                      line-height: 20px;
-                    }
+                  style: >
+                    .name { font-size: 10px; text-transform: uppercase;
+                    letter-spacing: 1.5px; }
             show_state: true
             show_name: true
             state_color: true
             card_mod:
-              style: |
-                ha-card {
-                  border:0;
+              style: >
+                ha-card { border: none !important; background: none !important;
                 }
-      - type: custom:vertical-stack-in-card
-        cards:
-          - type: custom:vertical-stack-in-card
-            card_mod:
-              style: |
-                ha-card {
-                  border-top: none !important;
-                  border-left: none !important;
-                  border-right: none !important;
-                  background: none !important;
-                  overflow: hidden;
-                }
-            cards:
-              - type: picture-elements
-                image: /local/silence/Last_ride.png
-                elements:
-                  - type: state-label
-                    entity: sensor.scooter_last_trip_distance
-                    style:
-                      top: 30%
-                      left: 25%
-                      font: roboto
-                      font-size: 2.7em
-                      color: white
-                  - type: state-label
-                    entity: sensor.scooter_last_trip_duration
-                    style:
-                      top: 40%
-                      left: 85%
-                      font: roboto
-                      font-size: 0.9em
-                      color: '#F92672'
-                  - type: state-label
-                    entity: sensor.scooter_last_trip_avg_speed
-                    style:
-                      top: 50%
-                      left: 65%
-                      font-size: 0.9em
-                      font: roboto
-                      color: '#F92672'
-              - type: custom:map-card
-                card_mod:
-                  style: |
-                    ha-card {
-                      border-top: none !important;
-                      border-left: none !important;
-                      border-right: none !important;
-                      background: none !important;
-                      overflow: hidden;
-                    }
-                aspect_ratio: '16:9'
-                auto_fit: true
-                entities:
-                  - entity: device_tracker.silence_scooter
-                    css: 'border-radius: 0'
-                    display: icon
-                    size: 35
-                    color: purple
-                    history_start: sensor.scooter_start_time_iso
-                    history_show_dots: false
-                    history_line_color: purple
-                focus_entity: device_tracker.silence_scooter
-                theme_mode: auto
-                zoom: 16
-                card_size: 6
-                tile_layer_url: https://mt0.google.com/vt/lyrs=m&x={x}&y={y}&z={z}
-                geo_location_enabled: true
-              - type: markdown
-                card_mod:
-                  style: |
-                    ha-card {
-                      border-top: none !important;
-                      border-left: none !important;
-                      border-right: none !important;
-                      background: none !important;
-                      overflow: hidden;
-                    }
-                content: >-
-                  <ha-icon icon="mdi:map-marker"></ha-icon>  [{{
-                  states('sensor.silence_scooter_address')
-                  }}](https://maps.google.com?q={{
-                  state_attr('device_tracker.silence_scooter','latitude')
-                  }},{{ state_attr('device_tracker.silence_scooter',
-                  'longitude') }})
-              - type: divider
-              - type: conditional
-                conditions:
-                  - condition: or
-                    conditions:
-                      - entity: sensor.scooter_is_moving
-                        state: 'on'
-                      - entity: timer.scooter_stop_trip_tolerance
-                        state: active
-                card:
-                  type: entities
-                  entities:
-                    - type: custom:template-entity-row
-                      entity: switch.stop_trip_now
-                      name: >
-                        {% set start_time =
-                        states('datetime.scooter_start_time') %} {% if
-                        start_time != 'unknown' %}
-                          {% set duration = ((as_timestamp(now()) - as_timestamp(start_time)) / 60) | int %}
-                          {% if is_state('timer.scooter_stop_trip_tolerance', 'active') %}
-                            Paused for {{ duration }} min.
-                          {% else %}
-                            On the road for {{ duration }} min.
-                          {% endif %}
-                        {% else %}
-                          Trip in progress
-                        {% endif %}
-                      icon: mdi:stop-circle-outline
-                      color: crimson
-                      state: STOP
-                      tap_action:
-                        action: call-service
-                        service: switch.turn_on
-                        service_data:
-                          entity_id: switch.stop_trip_now
-                        confirmation:
-                          text: Stop current trip?
-              - type: entities
-                card_mod:
-                  style: |
-                    ha-card {
-                      border-top: none !important;
-                      border-left: none !important;
-                      border-right: none !important;
-                      background: none !important;
-                      overflow: hidden;
-                    }
-                entities:
-                  - entity: sensor.scooter_end_time_relative
-                    name: Last trip
-                    icon: mdi:watch
-                  - entity: sensor.scooter_last_trip_duration
-                    name: Trip duration
-                    icon: mdi:clock
-                  - entity: sensor.scooter_last_trip_battery_consumption
-                    name: Battery consumed
-                    icon: mdi:battery-clock
-                  - entity: sensor.scooter_last_trip_avg_speed
-                    name: Average speed
-                    icon: mdi:speedometer-medium
-                    secondary_info: none
-                  - entity: sensor.scooter_last_trip_max_speed
-                    name: Maximum speed
-                    icon: mdi:speedometer
-                    secondary_info: none
-      - type: custom:vertical-stack-in-card
-        cards:
-          - type: markdown
-            title: 📅  Recent trips
-            content: >
-              {% set trips = state_attr('sensor.scooter_trips','history') |
-              default([]) %}<center>
-
-              <table>
-                <tr>
-                  <th>Date</th>
-                  <th>Duration</th>
-                  <th>Dist.</th>
-                  <th>Avg.</th>
-                </tr>
-                {% for trip in trips[:10] %}
-                {% set dt = trip.start_time | as_datetime %}
-
-                <tr>
-                  <td>
-                  {{ dt.day }}/{{ dt.month }},
-                  {{ '%02d'|format(dt.hour) }}h{{ '%02d'|format(dt.minute) }}
-                  </td>
-                  <td>{{ trip.duration | round }}<span>min</span></td>
-                  <td>{{ trip.distance | round }}<span>km</span></td>
-                  <td>{{ trip.avg_speed }}<span>km/h</span></td>
-                </tr>
-                {% endfor %}
-              </table></center>
-            card_mod:
-              style:
-                ha-markdown:
-                  $:
-                    ha-markdown-element: |
-                      table {
-                        font-size:13px;
-                        border-spacing: 0;
-                        width: 100%;
-                      }
-                      th {
-                        letter-spacing: 1.5px;
-                        font-size: 11px;
-                        font-weight: 400 !important;
-                        text-transform:uppercase;
-                        border-bottom: 1px solid rgba(255,255,255,.3);
-                      }
-                      th:first-child, td:first-child {
-                        border-left:0px;
-                        border-right:0px;
-                        border-top:0px;
-                        text-align:left;
-                      } th:first-child {
-                        border-top-left-radius:10px;
-                      }
-                      td:first-child {
-                        font-weight:normal;
-                      } th:last-child {
-                        border-top-right-radius:7px;
-                      } td, th  {
-                        border-top-right-radius: min(var(--ha-card-border-radius)/2, 5px);
-                        text-align:right;
-                        padding: 4px 8px;
-                        font-weight:bold
-                      }
-                      tr:nth-child(odd) {
-                        background-color: rgba(var(--rgb-primary-text-color), 0.05);
-                      } span {
-                        padding-left:2px;
-                        font-size:8px;
-                        color:#666;
-                        font-weight:normal;
-                      }
-        card_mod:
-          style: |
-            ha-card {
-              border-top: none !important;
-              border-left: none !important;
-              border-right: none !important;
-              background: none !important;
-            }
-      - type: custom:vertical-stack-in-card
-        title: 📊  Usage stats
-        cards:
+          - type: divider
           - type: glance
             entities:
               - entity: sensor.scooter_distance_per_charge
-                name: Distance / charge
+                name: Dist./charge
                 icon: mdi:map-marker-distance
                 card_mod:
-                  style: |
-                    .name {
-                      font-size: 11px;
-                      text-transform: uppercase;
-                      letter-spacing: 1.5px;
-                      line-height: 20px;
-                    }
+                  style: >
+                    .name { font-size: 10px; text-transform: uppercase;
+                    letter-spacing: 1.5px; }
               - entity: sensor.scooter_average_trip_distance
-                name: Average trip
+                name: Avg trip
                 icon: mdi:map-marker-path
                 card_mod:
-                  style: |
-                    .name {
-                      font-size: 11px;
-                      text-transform: uppercase;
-                      letter-spacing: 1.5px;
-                      line-height: 20px;
-                    }
+                  style: >
+                    .name { font-size: 10px; text-transform: uppercase;
+                    letter-spacing: 1.5px; }
               - entity: number.scooter_tracked_distance
-                name: Calculation basis
+                name: Calc base
                 icon: mdi:map-marker-path
                 card_mod:
-                  style: |
-                    .name {
-                      font-size: 11px;
-                      text-transform: uppercase;
-                      letter-spacing: 1.5px;
-                      line-height: 20px;
-                    }
+                  style: >
+                    .name { font-size: 10px; text-transform: uppercase;
+                    letter-spacing: 1.5px; }
             show_state: true
             show_name: true
             state_color: false
             card_mod:
-              style: |
-                ha-card {
-                  border-top: none !important;
-                  border-left: none !important;
-                  border-right: none !important;
-                  background: none !important;
+              style: >
+                ha-card { border: none !important; background: none !important;
                 }
-        card_mod: null
-        style: |
-          .card-header {
-            color: var(--primary-color) !important;
-          }
+      - type: custom:vertical-stack-in-card
+        title: ⚙️  Motor & Drivetrain
+        card_mod:
+          style: |
+            ha-card { overflow: hidden; }
+        cards:
+          - type: conditional
+            conditions:
+              - condition: state
+                entity: sensor.scooter_trip_status
+                state: 'on'
+            card:
+              type: horizontal-stack
+              cards:
+                - type: gauge
+                  entity: sensor.silence_scooter_motor_rpm
+                  name: RPM
+                  min: 0
+                  max: 6000
+                  severity:
+                    green: 0
+                    yellow: 3500
+                    red: 5000
+                  needle: true
+                  card_mod:
+                    style: >
+                      ha-card { background: none !important; box-shadow: none
+                      !important; border: none !important; }
+                - type: gauge
+                  entity: sensor.silence_scooter_motor_power
+                  name: Power
+                  min: -2000
+                  max: 6000
+                  needle: true
+                  card_mod:
+                    style: >
+                      ha-card { background: none !important; box-shadow: none
+                      !important; border: none !important; }
+          - type: conditional
+            conditions:
+              - condition: state
+                entity: sensor.scooter_trip_status
+                state: 'on'
+            card:
+              type: horizontal-stack
+              cards:
+                - type: gauge
+                  entity: sensor.silence_scooter_bus_voltage
+                  name: Bus Voltage
+                  unit: V
+                  min: 70
+                  max: 100
+                  severity:
+                    red: 70
+                    yellow: 80
+                    green: 85
+                  needle: true
+                  card_mod:
+                    style: >
+                      ha-card { background: none !important; box-shadow: none
+                      !important; border: none !important; }
+                - type: gauge
+                  entity: sensor.silence_scooter_bms_current
+                  name: BMS Current
+                  unit: A
+                  min: -300
+                  max: 50
+                  needle: true
+                  card_mod:
+                    style: >
+                      ha-card { background: none !important; box-shadow: none
+                      !important; border: none !important; }
+          - type: custom:mini-graph-card
+            entities:
+              - entity: sensor.silence_scooter_motor_power
+                name: Motor power
+                color: '#e74c3c'
+              - entity: sensor.silence_scooter_motor_rpm
+                name: RPM
+                color: '#3498db'
+                y_axis: secondary
+            hours_to_show: 24
+            points_per_hour: 60
+            line_width: 2
+            animate: true
+            show:
+              name: false
+              icon: false
+              state: false
+              legend: true
+              fill: fade
+            card_mod:
+              style: >
+                ha-card { box-shadow: none !important; border: none !important;
+                background: transparent !important; }
+          - type: custom:mini-graph-card
+            entities:
+              - entity: sensor.silence_scooter_bus_voltage
+                name: Bus Voltage
+                color: '#f39c12'
+              - entity: sensor.silence_scooter_bms_current
+                name: BMS Current
+                color: '#2ecc71'
+                y_axis: secondary
+            hours_to_show: 24
+            points_per_hour: 60
+            line_width: 2
+            animate: true
+            show:
+              name: false
+              icon: false
+              state: false
+              legend: true
+              fill: fade
+            card_mod:
+              style: >
+                ha-card { box-shadow: none !important; border: none !important;
+                background: transparent !important; }
       - type: custom:vertical-stack-in-card
         title: 🔋 Battery health
+        card_mod:
+          style: |
+            ha-card { overflow: hidden; }
         cards:
           - type: glance
             entities:
@@ -632,130 +843,77 @@ views:
                 name: Cycles
                 icon: mdi:battery-sync
                 card_mod:
-                  style: |
+                  style: >
                     :host {
-                      {% set cycles = states('sensor.scooter_battery_charge_cycles') | float(0) %}
-                      {% if cycles < 500 %}
-                        --state-icon-color: #4caf50 !important;
-                      {% elif cycles < 800 %}
-                        --state-icon-color: #ff9800 !important;
-                      {% else %}
-                        --state-icon-color: #f44336 !important;
-                      {% endif %}
+                      {% set c = states('sensor.scooter_battery_charge_cycles') | float(0) %}
+                      {% if c < 500 %}--state-icon-color: #4caf50 !important;
+                      {% elif c < 800 %}--state-icon-color: #ff9800 !important;
+                      {% else %}--state-icon-color: #f44336 !important;{% endif %}
                     }
-                    .name {
-                      font-size: 11px;
-                      text-transform: uppercase;
-                      letter-spacing: 1.5px;
-                      line-height: 20px;
-                    }
+
+                    .name { font-size: 10px; text-transform: uppercase;
+                    letter-spacing: 1.5px; }
               - entity: sensor.scooter_battery_cell_imbalance
                 name: Imbalance
                 icon: mdi:battery-alert-variant-outline
                 card_mod:
-                  style: |
+                  style: >
                     :host {
-                      {% set imbalance = states('sensor.scooter_battery_cell_imbalance') | float(0) %}
-                      {% if imbalance < 30 %}
-                        --state-icon-color: #4caf50 !important;
-                      {% elif imbalance < 50 %}
-                        --state-icon-color: #ff9800 !important;
-                      {% else %}
-                        --state-icon-color: #f44336 !important;
-                      {% endif %}
+                      {% set i = states('sensor.scooter_battery_cell_imbalance') | float(0) %}
+                      {% if i < 30 %}--state-icon-color: #4caf50 !important;
+                      {% elif i < 50 %}--state-icon-color: #ff9800 !important;
+                      {% else %}--state-icon-color: #f44336 !important;{% endif %}
                     }
-                    .name {
-                      font-size: 11px;
-                      text-transform: uppercase;
-                      letter-spacing: 1.5px;
-                      line-height: 20px;
-                    }
+
+                    .name { font-size: 10px; text-transform: uppercase;
+                    letter-spacing: 1.5px; }
               - entity: sensor.scooter_battery_soc_deviation
-                name: SOC Deviation
+                name: SOC deviation
                 icon: mdi:delta
                 card_mod:
-                  style: |
+                  style: >
                     :host {
-                      {% set deviation = states('sensor.scooter_battery_soc_deviation') | float(0) | abs %}
-                      {% if deviation < 5 %}
-                        --state-icon-color: #4caf50 !important;
-                      {% elif deviation < 10 %}
-                        --state-icon-color: #ff9800 !important;
-                      {% else %}
-                        --state-icon-color: #f44336 !important;
-                      {% endif %}
+                      {% set d = states('sensor.scooter_battery_soc_deviation') | float(0) | abs %}
+                      {% if d < 5 %}--state-icon-color: #4caf50 !important;
+                      {% elif d < 10 %}--state-icon-color: #ff9800 !important;
+                      {% else %}--state-icon-color: #f44336 !important;{% endif %}
                     }
-                    .name {
-                      font-size: 11px;
-                      text-transform: uppercase;
-                      letter-spacing: 1.5px;
-                      line-height: 20px;
-                    }
+
+                    .name { font-size: 10px; text-transform: uppercase;
+                    letter-spacing: 1.5px; }
               - entity: sensor.silence_scooter_battery_volt
                 name: Voltage
                 icon: mdi:lightning-bolt
                 card_mod:
-                  style: |
-                    .name {
-                      font-size: 11px;
-                      text-transform: uppercase;
-                      letter-spacing: 1.5px;
-                      line-height: 20px;
-                    }
+                  style: >
+                    .name { font-size: 10px; text-transform: uppercase;
+                    letter-spacing: 1.5px; }
             show_state: true
             show_name: true
             card_mod:
-              style: |
-                ha-card {
-                  border-top: none !important;
-                  border-left: none !important;
-                  border-right: none !important;
-                  background: none !important;
+              style: >
+                ha-card { border: none !important; background: none !important;
                 }
           - type: entities
-            card_mod:
-              style: |
-                ha-card {
-                  border-top: none !important;
-                  border-left: none !important;
-                  border-right: none !important;
-                  background: none !important;
-                  overflow: hidden;
-                  box-shadow: none !important;
-                  padding-top: 0 !important;
-                }
-                #states > div {
-                  margin: 0 !important;
-                }
             entities:
               - type: custom:fold-entity-row
                 head:
                   entity: sensor.scooter_battery_charge_cycles
-                  name: 🔍 Show all detailed diagnostics
-                  icon: mdi:chevron-down
+                  name: View all detailed diagnostics
+                  icon: mdi:magnify
                 padding: 0
                 entities:
                   - type: custom:hui-markdown-card
                     content: |
                       ### 🏥 Battery health
                     card_mod:
-                      style: |
-                        ha-card {
-                          box-shadow: none !important;
-                          border: none !important;
-                          background: transparent !important;
-                          padding: 16px 0 4px 0 !important;
-                          margin: 0 !important;
-                        }
-                        ha-markdown {
-                          padding: 0 !important;
-                        }
-                        h3 {
-                          margin: 0 !important;
-                          font-size: 14px !important;
-                          font-weight: 600 !important;
-                          color: var(--primary-text-color) !important;
-                        }
+                      style: >
+                        ha-card { box-shadow:none !important; border:none
+                        !important; background:transparent !important;
+                        padding:16px 0 4px !important; margin:0 !important; }
+
+                        h3 { margin:0 !important; font-size:14px !important;
+                        font-weight:600 !important; }
                   - entity: sensor.scooter_battery_cell_imbalance
                     name: Cell imbalance
                     icon: mdi:battery-alert-variant-outline
@@ -764,7 +922,7 @@ views:
                     name: Cumulative charge cycles
                     icon: mdi:battery-sync
                   - entity: sensor.scooter_battery_soc_deviation
-                    name: SOC Deviation (Displayed - Calculated)
+                    name: SOC deviation (Displayed - Calculated)
                     icon: mdi:delta
                   - type: custom:mini-graph-card
                     hours_to_show: 24
@@ -784,59 +942,38 @@ views:
                       legend: true
                       fill: fade
                     card_mod:
-                      style: |
-                        ha-card {
-                          box-shadow: none !important;
-                          border: none !important;
-                          background: transparent !important;
-                          margin: 16px 0 24px 0 !important;
-                          padding: 0 !important;
-                        }
+                      style: >
+                        ha-card { box-shadow:none !important; border:none
+                        !important; background:transparent !important;
+                        margin:16px 0 24px !important; }
                   - type: custom:hui-markdown-card
                     content: |
-                      ### 🌡️ Detailed temperatures
+                      ### 🌡️ Temperatures
                     card_mod:
-                      style: |
-                        ha-card {
-                          box-shadow: none !important;
-                          border: none !important;
-                          background: transparent !important;
-                          padding: 24px 0 4px 0 !important;
-                          margin: 0 !important;
-                        }
-                        ha-markdown {
-                          padding: 0 !important;
-                        }
-                        h3 {
-                          margin: 0 !important;
-                          font-size: 14px !important;
-                          font-weight: 600 !important;
-                          color: var(--primary-text-color) !important;
-                        }
-                  - entity: sensor.silence_scooter_battery_temperature_max
-                    name: Battery temperature (max)
-                    icon: mdi:thermometer-high
-                  - entity: sensor.silence_scooter_battery_temperature_min
-                    name: Battery temperature (min)
-                    icon: mdi:thermometer-low
-                  - type: custom:template-entity-row
-                    entity: sensor.silence_scooter_battery_temp_max
-                    name: Temperature delta
-                    icon: mdi:thermometer-lines
-                    state: >
-                      {% set temp_max =
-                      states('sensor.silence_scooter_battery_temperature_max') |
-                      float(0) %} {% set temp_min =
-                      states('sensor.silence_scooter_battery_temperature_min') |
-                      float(0) %} {{ (temp_max - temp_min) | round(1) }} °C
+                      style: >
+                        ha-card { box-shadow:none !important; border:none
+                        !important; background:transparent !important;
+                        padding:24px 0 4px !important; margin:0 !important; }
+
+                        h3 { margin:0 !important; font-size:14px !important;
+                        font-weight:600 !important; }
                   - type: custom:mini-graph-card
                     entities:
-                      - entity: sensor.silence_scooter_battery_temperature_max
-                        name: Battery
+                      - entity: sensor.silence_scooter_battery_ntc_1
+                        name: NTC 1
+                        color: '#2ecc71'
+                      - entity: sensor.silence_scooter_battery_ntc_2
+                        name: NTC 2
+                        color: '#27ae60'
+                      - entity: sensor.silence_scooter_battery_ntc_3
+                        name: NTC 3
+                        color: '#1abc9c'
                       - entity: sensor.silence_scooter_motor_temperature
                         name: Motor
+                        color: '#e74c3c'
                       - entity: sensor.silence_scooter_inverter_temperature
                         name: Inverter
+                        color: '#f39c12'
                     upper_bound: 75
                     hours_to_show: 240
                     line_width: 3
@@ -849,38 +986,48 @@ views:
                       fill: fade
                       labels: true
                     card_mod:
-                      style: |
-                        ha-card {
-                          box-shadow: none !important;
-                          border: none !important;
-                          background: transparent !important;
-                          margin: 0 0 24px 0 !important;
-                          padding: 0 !important;
-                        }
+                      style: >
+                        ha-card { box-shadow:none !important; border:none
+                        !important; background:transparent !important; margin:0
+                        0 24px !important; }
                   - type: custom:hui-markdown-card
                     content: |
                       ### ⚡ Electrical data
                     card_mod:
-                      style: |
-                        ha-card {
-                          box-shadow: none !important;
-                          border: none !important;
-                          background: transparent !important;
-                          padding: 24px 0 4px 0 !important;
-                          margin: 0 !important;
-                        }
-                        ha-markdown {
-                          padding: 0 !important;
-                        }
-                        h3 {
-                          margin: 0 !important;
-                          font-size: 14px !important;
-                          font-weight: 600 !important;
-                          color: var(--primary-text-color) !important;
-                        }
+                      style: >
+                        ha-card { box-shadow:none !important; border:none
+                        !important; background:transparent !important;
+                        padding:24px 0 4px !important; margin:0 !important; }
+
+                        h3 { margin:0 !important; font-size:14px !important;
+                        font-weight:600 !important; }
                   - entity: sensor.silence_scooter_battery_volt
-                    name: Battery voltage
+                    name: Battery voltage (pack)
                     icon: mdi:lightning-bolt
+                  - entity: sensor.silence_scooter_bus_voltage
+                    name: DC bus voltage (Votol)
+                    icon: mdi:flash-triangle
                   - entity: sensor.silence_scooter_battery_current
                     name: Battery current
                     icon: mdi:current-dc
+                  - entity: sensor.silence_scooter_bms_current
+                    name: BMS current (live)
+                    icon: mdi:current-dc
+                  - entity: sensor.silence_scooter_battery_ntc_1
+                    name: NTC 1 temperature
+                    icon: mdi:thermometer
+                  - entity: sensor.silence_scooter_battery_ntc_2
+                    name: NTC 2 temperature
+                    icon: mdi:thermometer
+                  - entity: sensor.silence_scooter_battery_ntc_3
+                    name: NTC 3 temperature
+                    icon: mdi:thermometer
+            card_mod:
+              style: |
+                ha-card {
+                  border: none !important;
+                  background: none !important;
+                  box-shadow: none !important;
+                  padding-top: 0 !important;
+                }
+                #states > div { margin: 0 !important; }
