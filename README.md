@@ -513,8 +513,8 @@ This integration is free and maintained on my spare time. If it helped you or sa
 
 **Made with ❤️ for the Silence Scooter community**
 
-[releases-shield]: https://img.shields.io/github/release/noiwid/silence-scooter-homeassistant.svg?style=for-the-badge
-[releases]: https://github.com/noiwid/silence-scooter-homeassistant/releases
-[license-shield]: https://img.shields.io/github/license/noiwid/silence-scooter-homeassistant.svg?style=for-the-badge
 [hacs]: https://github.com/hacs/integration
 [hacsbadge]: https://img.shields.io/badge/HACS-Custom-orange.svg?style=for-the-badge
+[releases-shield]: https://img.shields.io/github/v/release/noiwid/silence-scooter-homeassistant.svg?style=for-the-badge&cacheSeconds=300
+[releases]: https://github.com/noiwid/silence-scooter-homeassistant/releases
+[license-shield]: https://img.shields.io/github/license/noiwid/silence-scooter-homeassistant.svg?style=for-the-badge&cacheSeconds=86400
