@@ -8,9 +8,6 @@ views:
       size: auto
       repeat: repeat
       attachment: fixed
-    visible:
-      - user: d26d8d63f7a0412ba9843788fd479b55
-      - user: f8cb94b697d4447e8244fd9c01568984
     theme: ios-dark-mode-blue-red
     cards:
       - type: custom:vertical-stack-in-card
