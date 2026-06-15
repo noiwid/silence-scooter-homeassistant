@@ -1,8 +1,8 @@
 # Silence Scooter - Home Assistant Integration
 
 [![GitHub Release][releases-shield]][releases]
-[![License][license-shield]](LICENSE)
 [![hacs][hacsbadge]][hacs]
+[![License][license-shield]](LICENSE)
 [![Buy Me A Beer](https://img.shields.io/badge/Buy%20me%20a%20beer-FFDD00?style=for-the-badge&logo=buy-me-a-coffee&logoColor=black)](https://buymeacoffee.com/noiwid)
 
 <p align="center">
@@ -516,5 +516,6 @@ This integration is free and maintained on my spare time. If it helped you or sa
 [hacs]: https://github.com/hacs/integration
 [hacsbadge]: https://img.shields.io/badge/HACS-Custom-orange.svg?style=for-the-badge
 [releases-shield]: https://img.shields.io/github/v/release/noiwid/silence-scooter-homeassistant.svg?style=for-the-badge&cacheSeconds=300
+
 [releases]: https://github.com/noiwid/silence-scooter-homeassistant/releases
 [license-shield]: https://img.shields.io/github/license/noiwid/silence-scooter-homeassistant.svg?style=for-the-badge&cacheSeconds=86400
