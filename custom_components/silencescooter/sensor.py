@@ -316,6 +316,18 @@ class ScooterWritableSensor(SensorEntity, RestoreEntity):
         """Restore last state when added to hass."""
         await super().async_added_to_hass()
 
+        # RestoreEntity : sans cette restauration effective, chaque
+        # redémarrage de HA remettait tous les capteurs writable à 0
+        # (max_speed du trajet en cours, displays persistants…) — c'est
+        # l'origine des max_speed=0 avec avg_speed>0 dans l'historique.
+        last_state = await self.async_get_last_state()
+        if last_state is not None and last_state.state not in ("unknown", "unavailable"):
+            try:
+                self._attr_native_value = float(last_state.state)
+                _LOGGER.debug("Writable sensor %s restored to %s", self.entity_id, last_state.state)
+            except (ValueError, TypeError):
+                pass
+
         if DOMAIN in self.hass.data:
             self.hass.data[DOMAIN].setdefault("sensors", {})[self.entity_id] = self
             _LOGGER.info("Writable sensor registered: %s", self.entity_id)
@@ -387,8 +399,13 @@ class ScooterTriggerSensor(ScooterTemplateSensor):
                 if not isinstance(entity_ids, list):
                     entity_ids = [entity_ids]
                 for entity_id in entity_ids:
-                    async_track_state_change_event(
-                        self.hass, [entity_id], self._handle_event_trigger
+                    # Conserver l'unsubscribe : sans ça, chaque reload
+                    # ré-enregistrait un listener supplémentaire (fuite +
+                    # double évaluation des templates).
+                    self._time_listeners.append(
+                        async_track_state_change_event(
+                            self.hass, [entity_id], self._handle_event_trigger
+                        )
                     )
 
             elif platform == "time_pattern":
@@ -409,6 +426,11 @@ class ScooterTriggerSensor(ScooterTemplateSensor):
     async def _handle_event_trigger(self, event) -> None:
         """Handle a state change that should trigger an update."""
         await self.async_update()
+        # async_update calcule la valeur mais ne la publie pas : sans cette
+        # écriture, l'état visible ne changeait qu'au prochain poll de la
+        # plateforme ou au tick time_pattern — le moteur de trajets réagissait
+        # donc avec un décalage non déterministe aux transitions MQTT.
+        self.async_write_ha_state()
 
     @callback
     def _handle_time_trigger(self, *_):

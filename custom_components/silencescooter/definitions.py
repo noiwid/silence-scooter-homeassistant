@@ -320,7 +320,16 @@ TRIGGER_SENSORS = {
                     {% if new_value < 0 %}
                         {{ current_value }}
                     {% elif current_value == initial_value %}
-                        {{ new_value | round(3) }}
+                        {# Branche d'initialisation / post-redémarrage. Une
+                           BAISSE ici signifie des valeurs MQTT retained
+                           périmées rejouées au restart (le compteur vie-
+                           entière ne recule jamais) : on garde la valeur
+                           restaurée plutôt que de faire reculer les meters. #}
+                        {% if new_value >= current_value %}
+                            {{ new_value | round(3) }}
+                        {% else %}
+                            {{ current_value }}
+                        {% endif %}
                     {% elif new_value > current_value and (new_value - current_value) <= max_variation %}
                         {{ new_value | round(3) }}
                     {% else %}
