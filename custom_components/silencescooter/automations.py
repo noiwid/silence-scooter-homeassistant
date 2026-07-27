@@ -409,6 +409,7 @@ async def async_setup_automations(
             "odo_tracking_fired": False,
             "battery_tracking_fired": False,
             "last_telemetry_utc": None,
+            "pause_is_connectivity_loss": False,
         },
     )
     _tracking_state = hass.data[DOMAIN]["trip_tracking_state"]
@@ -753,7 +754,14 @@ async def async_setup_automations(
                         _LOGGER.info("🔄 CONFIRM OFF: état changé -> annulation de l'arrêt")
 
                 # Maintenant qu'on a défini les fonctions, on peut les utiliser
-                # Enregistrer le début de la pause
+                # Enregistrer le début de la pause.
+                # On mémorise AUSSI la nature de l'interruption : une perte de
+                # connectivité (le scooter ne répond plus) n'est PAS une pause
+                # — le scooter roule très probablement encore. La déduire de la
+                # durée nette faussait tout : 4 coupures de ~1,5 min sur le
+                # trajet du 2026-07-27 donnaient « 11 km en 11 min à 60 km/h »
+                # pour un trajet réel de 18 min.
+                _tracking_state["pause_is_connectivity_loss"] = connectivity_loss
                 hass.loop.create_task(
                     hass.services.async_call(
                         "datetime",
@@ -838,9 +846,35 @@ async def async_setup_automations(
 
                 hass.loop.create_task(do_log_event(hass, "Pause stopped, trip restarted"))
     
+    async def _reset_pause_start():
+        """Remet la sentinelle sur pause_start (pause traitée ou ignorée)."""
+        await hass.services.async_call(
+            "datetime",
+            "set_value",
+            {
+                "entity_id": entity_id("datetime.scooter_pause_start"),
+                "datetime": "1970-01-01 00:00:00"
+            },
+            blocking=True
+        )
+
     async def _record_pause_end():
-        """Enregistre la durée de la pause qui vient de se terminer."""
+        """Enregistre la durée de la pause qui vient de se terminer.
+
+        Une interruption due à une PERTE DE CONNECTIVITÉ n'est pas une pause :
+        le scooter roulait selon toute vraisemblance (tunnel, zone blanche,
+        bus CAN qui décroche). La déduire de la durée nette produit des
+        durées trop courtes et des vitesses moyennes absurdes.
+        """
         try:
+            if _tracking_state.get("pause_is_connectivity_loss"):
+                _LOGGER.info(
+                    "Interruption de connectivité (pas une pause) — durée non déduite"
+                )
+                _tracking_state["pause_is_connectivity_loss"] = False
+                await _reset_pause_start()
+                return
+
             pause_start = hass.states.get(entity_id("datetime.scooter_pause_start"))
             if pause_start and is_date_valid(pause_start.state):
                 pause_start_dt = dt_util.parse_datetime(pause_start.state)
@@ -857,6 +891,7 @@ async def async_setup_automations(
                             "Durée de pause aberrante (%.1f min), ignorée (pause_start périmé: %s)",
                             pause_duration, pause_start.state,
                         )
+                        await _reset_pause_start()
                         return
 
                     # Ajouter à la durée totale des pauses
@@ -884,15 +919,7 @@ async def async_setup_automations(
 
                     # Réinitialiser pause_start (sentinelle) pour qu'un double
                     # événement de reprise ne recompte pas la même pause.
-                    await hass.services.async_call(
-                        "datetime",
-                        "set_value",
-                        {
-                            "entity_id": entity_id("datetime.scooter_pause_start"),
-                            "datetime": "1970-01-01 00:00:00"
-                        },
-                        blocking=True
-                    )
+                    await _reset_pause_start()
         except Exception as e:
             _LOGGER.error("Erreur dans _record_pause_end: %s", e)
 
@@ -1097,6 +1124,7 @@ async def async_setup_automations(
         # live handlers actually ran during this trip.
         odo_tracking_fired["value"] = False
         battery_tracking_fired["value"] = False
+        _tracking_state["pause_is_connectivity_loss"] = False
 
     remove_last_start = async_track_state_change_event(
         hass, [SENSOR_IS_MOVING], handle_scooter_last_start
