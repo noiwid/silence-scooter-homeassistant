@@ -470,6 +470,32 @@ async def async_setup_automations(
     #    La première fois qu'on reçoit des données valides du scooter,
     #    on capture la valeur actuelle comme baseline
     #
+    #
+    # 0bis. Marqueur de fraîcheur de la télémétrie
+    #    Toute trame MQTT du scooter (quel que soit le capteur) rafraîchit
+    #    last_telemetry_utc. C'est LE signal qui distingue une coupure réseau
+    #    d'un arrêt réel : sans expire_after, les capteurs MQTT conservent
+    #    indéfiniment leur dernière valeur et ne passent jamais unavailable.
+    #
+    @callback
+    def handle_telemetry_seen(event):
+        new_state = event.data.get("new_state")
+        if not new_state or new_state.state in ("unknown", "unavailable"):
+            return
+        _tracking_state["last_telemetry_utc"] = dt_util.utcnow()
+
+    remove_telemetry_seen = async_track_state_change_event(
+        hass,
+        [
+            SENSOR_SCOOTER_STATUS,
+            SENSOR_SCOOTER_SPEED,
+            SENSOR_SCOOTER_ODO,
+            SENSOR_BATT_SOC,
+            SENSOR_SCOOTER_LAST_UPDATE,
+        ],
+        handle_telemetry_seen,
+    )
+
     @callback
     def handle_energy_baseline_init(event):
         """Auto-initialize energy consumption baseline on first valid MQTT data."""
@@ -644,18 +670,40 @@ async def async_setup_automations(
             # immediate stop: a legitimate 30-minute ride cut in half.
             should_stop_immediately = False
 
-            # Perte de connectivité (status unknown/unavailable) vs arrêt réel
-            # (status=0, batterie retirée…). Les deux cas ne doivent PAS avoir
-            # la même échéance : en perte de signal, le scooter roule peut-être
-            # encore (coupure GSM, tunnel) et seule la tolérance
-            # (pause_max_duration) doit décider. Avant ce fix, le délai de
-            # confirmation (2 min) clôturait toujours en premier et scindait
-            # les trajets réels dès qu'une coupure dépassait ~2,5 min
-            # (observé le 2026-07-24 : commute de 12 km enregistré en 2×6 km).
-            connectivity_loss = not raw_state or raw_state.state in ["unknown", "unavailable"]
+            # Perte de connectivité vs arrêt réel (status=0, batterie
+            # retirée…). Les deux cas ne doivent PAS avoir la même échéance :
+            # en perte de signal, le scooter roule peut-être encore (coupure
+            # GSM, tunnel) et seule la tolérance (pause_max_duration) doit
+            # décider. Sinon le délai de confirmation (2 min) clôture toujours
+            # en premier et scinde les trajets réels
+            # (2026-07-24 : commute de 12 km enregistré en 2×6 km).
+            #
+            # ⚠️ Ne PAS se fier au seul état unknown/unavailable du capteur :
+            # sans `expire_after` côté MQTT, un capteur garde indéfiniment sa
+            # dernière valeur, donc une coupure réseau ne le fait PAS passer
+            # unavailable. Le 2026-07-27 le trajet retour a ainsi été scindé
+            # en 3 (trous de 2min47 et 2min03, status resté à 4) : le seul
+            # signal fiable est la FRAÎCHEUR de la télémétrie.
+            stale_after = min(
+                60.0,
+                max(20.0, get_config_value(hass, CONF_CONFIRMATION_DELAY, DEFAULT_CONFIRMATION_DELAY) / 4),
+            )
+            last_seen = _tracking_state.get("last_telemetry_utc")
+            telemetry_age = (
+                (dt_util.utcnow() - last_seen).total_seconds() if last_seen else None
+            )
+            telemetry_stale = telemetry_age is not None and telemetry_age > stale_after
+
+            sensor_unavailable = not raw_state or raw_state.state in ["unknown", "unavailable"]
+            connectivity_loss = sensor_unavailable or telemetry_stale
 
             if connectivity_loss:
-                _LOGGER.info("Scooter unavailable -> delayed stop (tolerance only)")
+                _LOGGER.info(
+                    "Perte de connectivité -> delayed stop (tolérance seule) "
+                    "[capteur=%s, dernière trame il y a %s s]",
+                    "unavailable" if sensor_unavailable else raw_state.state,
+                    f"{telemetry_age:.0f}" if telemetry_age is not None else "?",
+                )
             elif raw_state.state in ["0", "0.0"]:
                 _LOGGER.info("Scooter off (status=0) -> delayed stop (confirmation)")
             elif not battery_present:
@@ -736,6 +784,23 @@ async def async_setup_automations(
                     if not is_trip_active():
                         _LOGGER.info("⏰ CONFIRM OFF: trajet déjà clôturé, rien à faire")
                         return
+
+                    # Re-vérifier la fraîcheur : si plus aucune trame n'est
+                    # arrivée depuis l'armement, l'arrêt supposé n'est en fait
+                    # qu'une coupure réseau. On repasse la main à la tolérance
+                    # au lieu de clôturer (sinon le trajet est scindé).
+                    last_seen_now = _tracking_state.get("last_telemetry_utc")
+                    if last_seen_now:
+                        age_now = (dt_util.utcnow() - last_seen_now).total_seconds()
+                        if age_now > stale_after:
+                            _LOGGER.info(
+                                "⏰ CONFIRM OFF annulé : aucune trame depuis %.0fs "
+                                "(coupure réseau, pas un arrêt) -> tolérance seule",
+                                age_now,
+                            )
+                            _tracking_state["pause_is_connectivity_loss"] = True
+                            _start_tolerance_timer()
+                            return
 
                     state = hass.states.get(SENSOR_TRIP_STATUS)
                     # On considère unavailable/unknown comme un vrai arrêt aussi
@@ -1516,6 +1581,7 @@ async def async_setup_automations(
 
     # Return all cancel listeners for cleanup
     cancel_listeners = [
+        remove_telemetry_seen,
         remove_energy_baseline_init,
         remove_tracker_dernier_mouvement,
         remove_trip_status_off,
