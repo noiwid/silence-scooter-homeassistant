@@ -26,8 +26,7 @@ from __future__ import annotations
 import logging
 from datetime import datetime
 
-from homeassistant.components.device_tracker import SourceType
-from homeassistant.components.device_tracker.config_entry import TrackerEntity
+from homeassistant.components.device_tracker import SourceType, TrackerEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import Event, HomeAssistant, callback
 from homeassistant.helpers import entity_registry as er
@@ -102,6 +101,9 @@ class ScooterDeviceTracker(TrackerEntity, RestoreEntity):
 
     _attr_should_poll = False
     _attr_icon = "mdi:moped-electric"
+    _attr_source_type = SourceType.GPS
+    # Le firmware Astra ne publie pas de précision : 0 = "inconnue" pour HA
+    _attr_location_accuracy = 0
 
     def __init__(self, imei: str, multi_device: bool, min_distance_m: float) -> None:
         self._imei = imei
@@ -138,9 +140,11 @@ class ScooterDeviceTracker(TrackerEntity, RestoreEntity):
         ]
         self._batt_sensor = eid("sensor.silence_scooter_battery_soc")
 
-        self._latitude: float | None = None
-        self._longitude: float | None = None
-        self._battery: int | None = None
+        # Position / batterie via les _attr_ shorthand de TrackerEntity (HA
+        # déprécie la surcharge des propriétés latitude/longitude/battery_level).
+        self._attr_latitude = None
+        self._attr_longitude = None
+        self._attr_battery_level = None
         self._last_fix: datetime | None = None
         self._rejected = 0
         self._debounce_cancel = None
@@ -149,27 +153,6 @@ class ScooterDeviceTracker(TrackerEntity, RestoreEntity):
     # ------------------------------------------------------------------ #
     # TrackerEntity surface
     # ------------------------------------------------------------------ #
-    @property
-    def source_type(self) -> SourceType:
-        return SourceType.GPS
-
-    @property
-    def latitude(self) -> float | None:
-        return self._latitude
-
-    @property
-    def longitude(self) -> float | None:
-        return self._longitude
-
-    @property
-    def battery_level(self) -> int | None:
-        return self._battery
-
-    @property
-    def location_accuracy(self) -> int:
-        # Le firmware Astra ne publie pas de précision : 0 = "inconnue" pour HA
-        return 0
-
     @property
     def extra_state_attributes(self) -> dict:
         return {
@@ -188,16 +171,16 @@ class ScooterDeviceTracker(TrackerEntity, RestoreEntity):
         # dernière position connue pour ne pas perdre le scooter sur la carte.
         last = await self.async_get_last_state()
         if last is not None:
-            self._latitude = self._restore_float(last.attributes.get("latitude"))
-            self._longitude = self._restore_float(last.attributes.get("longitude"))
+            self._attr_latitude = self._restore_float(last.attributes.get("latitude"))
+            self._attr_longitude = self._restore_float(last.attributes.get("longitude"))
             batt = self._restore_float(last.attributes.get("battery_level"))
-            self._battery = int(batt) if batt is not None else None
+            self._attr_battery_level = int(batt) if batt is not None else None
             last_fix = last.attributes.get(ATTR_LAST_FIX)
             if isinstance(last_fix, str):
                 parsed = dt_util.parse_datetime(last_fix)
                 self._last_fix = dt_util.as_utc(parsed) if parsed else None
-            if self._latitude is None or self._longitude is None:
-                self._latitude = self._longitude = None
+            if self._attr_latitude is None or self._attr_longitude is None:
+                self._attr_latitude = self._attr_longitude = None
 
         self._unsub_sensors = async_track_state_change_event(
             self.hass,
@@ -240,8 +223,8 @@ class ScooterDeviceTracker(TrackerEntity, RestoreEntity):
         batt = self._read_float([self._batt_sensor])
         if batt is not None:
             batt_int = int(round(max(0.0, min(100.0, batt))))
-            if batt_int != self._battery:
-                self._battery = batt_int
+            if batt_int != self._attr_battery_level:
+                self._attr_battery_level = batt_int
                 changed = True
 
         lat = self._read_float(self._lat_sensors)
@@ -281,8 +264,8 @@ class ScooterDeviceTracker(TrackerEntity, RestoreEntity):
         """Apply the distance / speed filter. Returns True if position changed."""
         now = dt_util.utcnow()
 
-        if self._latitude is not None and self._longitude is not None:
-            dist_m = gps_distance(self._latitude, self._longitude, lat, lon) or 0.0
+        if self._attr_latitude is not None and self._attr_longitude is not None:
+            dist_m = gps_distance(self._attr_latitude, self._attr_longitude, lat, lon) or 0.0
 
             if dist_m < self._min_distance_m:
                 # Jitter à l'arrêt : on garde le point précédent
@@ -306,8 +289,8 @@ class ScooterDeviceTracker(TrackerEntity, RestoreEntity):
                             self.entity_id, self._rejected, lat, lon,
                         )
 
-        self._latitude = lat
-        self._longitude = lon
+        self._attr_latitude = lat
+        self._attr_longitude = lon
         self._last_fix = now
         self._rejected = 0
         return True
