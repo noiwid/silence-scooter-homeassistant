@@ -185,9 +185,10 @@ To integrate with Home Assistant's Energy Dashboard:
 ### GPS Tracking Not Working
 
 1. Ensure your Silence Private Server is publishing GPS coordinates
-2. Verify the `device_tracker.silence_scooter_2` entity exists
+2. Verify the `device_tracker.silence_scooter` entity exists (option *Create the device_tracker entity* in the integration options)
 3. Check that latitude and longitude sensors are updating
-4. Confirm the map-card custom component is installed
+4. If you upgraded from ≤ 1.3.7, remove the `silence_scooter` entry from `known_devices.yaml` and restart
+5. Confirm the map-card custom component is installed
 
 ## Advanced Configuration
 

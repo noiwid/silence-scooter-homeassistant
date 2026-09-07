@@ -5,6 +5,7 @@ This page documents all entities created by the Silence Scooter integration.
 - [Numbers (11 entities)](#numbers-11-entities)  
 - [DateTimes (4 entities)](#datetimes-4-entities)  
 - [Switch (1 entity)](#switch-1-entity)  
+- [Device Tracker (1 entity)](#device-tracker-1-entity)  
 - [Sensors (23+ entities)](#sensors-23+-entities)  
   - [Trigger Sensors (5)](#trigger-sensors)  
   - [Template Sensors (6)](#template-sensors)  
@@ -53,6 +54,15 @@ These entities store timestamps for trip management.
 | Entity ID                | Name                   | Description                              |
 |--------------------------|------------------------|------------------------------------------|
 | `switch.stop_trip_now`    | Stop the trip now      | Triggers an immediate manual stop of the active trip |
+
+---
+
+## Device Tracker (1 entity)  
+| Entity ID                        | Name            | Description                                                                 |
+|----------------------------------|-----------------|-----------------------------------------------------------------------------|
+| `device_tracker.silence_scooter` | Silence Scooter | Native GPS tracker (source type `gps`) fed by the MQTT latitude/longitude sensors. Attributes: `latitude`, `longitude`, `battery_level`, `last_fix`, `rejected_fixes`. Multi-device: `device_tracker.silence_scooter_XXXX`. |
+
+> **Note**: Points closer than *Minimum distance between two GPS points* (default 15 m) to the last accepted fix are ignored, and jumps implying more than 120 km/h are rejected (accepted anyway after 3 consecutive rejections, so one bad fix cannot freeze the tracker). The last position is restored after a Home Assistant restart. Uncheck *Create the device_tracker entity* in the options to disable it.
 
 ---
 

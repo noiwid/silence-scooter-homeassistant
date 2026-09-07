@@ -294,7 +294,10 @@ Once configured, the integration creates **39+ entities** organized into several
 - `switch.stop_trip_now` - Manual trip stop button (turn ON to stop current trip)
 
 ### 📍 Device Tracker
-- `device_tracker.silence_scooter` - GPS location tracker with route history
+- `device_tracker.silence_scooter` - Native GPS tracker fed by the MQTT latitude/longitude sensors (battery level, `last_fix`, route history on the map card). Points closer than the configured minimum distance (default 15 m) and physically impossible jumps (> 120 km/h) are filtered out so the trace stays smooth. Can be disabled in the integration options if you track the scooter another way (Traccar, OwnTracks…).
+
+> **Upgrading from ≤ 1.3.7:** the tracker used to be created through the deprecated `device_tracker.see` service and lived in `known_devices.yaml`. Remove the `silence_scooter:` block from that file (or the whole file if it is the only entry) and restart, otherwise the native entity is registered as `device_tracker.silence_scooter_2` and your dashboards keep pointing at the dead legacy tracker.
+
 ### Quick Summary
 
 | Category | Count | Description |

@@ -345,8 +345,6 @@ async def async_setup_automations(
     SWITCH_STOP_NOW = entity_id("switch.stop_trip_now")
 
     SENSOR_SCOOTER_SPEED = entity_id("sensor.silence_scooter_speed")
-    SENSOR_LAT = entity_id("sensor.silence_scooter_silence_latitude")
-    SENSOR_LON = entity_id("sensor.silence_scooter_silence_longitude")
     SENSOR_BATT_SOC = entity_id("sensor.silence_scooter_battery_soc")
 
     # Pour la logique "Last start"
@@ -355,9 +353,6 @@ async def async_setup_automations(
     NUMBER_ODO_DEBUT = entity_id("number.scooter_odo_debut")
     INPUT_DT_START_TIME = entity_id("datetime.scooter_start_time")
     NUMBER_BATT_SOC_DEBUT = entity_id("number.scooter_battery_soc_debut")
-
-    # Pour la mise à jour device_tracker
-    DEVICE_TRACKER_ID = entity_id("silence_scooter")
 
     # Entités gérées par la logique stop_trip
     NUMBER_ODO_FIN = entity_id("number.scooter_odo_fin")
@@ -1452,51 +1447,12 @@ async def async_setup_automations(
     )
 
     #
-    # 8. "Scooter - Update Device Tracker Position"
-    #    => changes in sensor.silence_scooter_silence_latitude,
-    #                   sensor.silence_scooter_silence_longitude,
-    #                   sensor.silence_scooter_battery_soc
+    # 8. (supprimé) "Scooter - Update Device Tracker Position"
+    #    La position GPS est désormais portée par l'entité native
+    #    device_tracker.silence_scooter (plateforme device_tracker.py, filtrage
+    #    distance/vitesse inclus). L'ancien appel au service device_tracker.see
+    #    est obsolète et disparaît dans Home Assistant 2027.5.
     #
-    @callback
-    def handle_update_tracker(event):
-        hass.loop.create_task(_do_update_tracker())
-
-    async def _do_update_tracker():
-        # Deux conventions de nommage cohabitent selon l'origine des capteurs
-        # MQTT (ancien scooter_package.yaml → silence_scooter_silence_latitude,
-        # examples/silence.yaml → silence_scooter_latitude) : on tente les deux.
-        lat = get_sensor_float_value(hass, SENSOR_LAT, 0.0,
-                                     fallback_entity=entity_id("sensor.silence_scooter_latitude"))
-        lon = get_sensor_float_value(hass, SENSOR_LON, 0.0,
-                                     fallback_entity=entity_id("sensor.silence_scooter_longitude"))
-        batt = 0
-        batt_state = hass.states.get(SENSOR_BATT_SOC)
-        if batt_state and batt_state.state not in ["unknown", "unavailable"]:
-            try:
-                batt = int(float(batt_state.state))
-            except (ValueError, TypeError):
-                batt = 0
-
-        # Sans position valide, ne pas téléporter le tracker à [0, 0]
-        # (île Null au large du Ghana) à chaque trame batterie.
-        if lat == 0.0 and lon == 0.0:
-            _LOGGER.debug("No valid GPS position available, skipping device_tracker update")
-            return
-
-        await hass.services.async_call(
-            "device_tracker",
-            "see",
-            {
-                "dev_id": DEVICE_TRACKER_ID,
-                "gps": [lat, lon],
-                "battery": batt
-            },
-            blocking=True
-        )
-
-    remove_update_tracker = async_track_state_change_event(
-        hass, [SENSOR_LAT, SENSOR_LON, SENSOR_BATT_SOC], handle_update_tracker
-    )
 
     #
     # 9. "Scooter - Watchdog pour fin de trajet"
@@ -1591,7 +1547,6 @@ async def async_setup_automations(
         remove_update_max_speed,
         remove_track_odo,
         remove_track_battery,
-        remove_update_tracker,
         watchdog_remove,
         _cancel_scheduled_stop_tasks,
     ]

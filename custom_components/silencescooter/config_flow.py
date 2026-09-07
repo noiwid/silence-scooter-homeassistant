@@ -21,6 +21,8 @@ from .const import (
     CONF_OUTDOOR_TEMP_SOURCE,
     CONF_OUTDOOR_TEMP_ENTITY,
     CONF_MULTI_DEVICE,
+    CONF_DEVICE_TRACKER,
+    CONF_TRACKER_MIN_DISTANCE,
     DEFAULT_TARIFF_SENSOR,
     DEFAULT_CONFIRMATION_DELAY,
     DEFAULT_PAUSE_MAX_DURATION,
@@ -29,6 +31,8 @@ from .const import (
     DEFAULT_OUTDOOR_TEMP_SOURCE,
     DEFAULT_OUTDOOR_TEMP_ENTITY,
     DEFAULT_MULTI_DEVICE,
+    DEFAULT_DEVICE_TRACKER,
+    DEFAULT_TRACKER_MIN_DISTANCE,
     OUTDOOR_TEMP_SOURCE_SCOOTER,
     OUTDOOR_TEMP_SOURCE_EXTERNAL,
 )
@@ -242,6 +246,14 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 default=DEFAULT_MULTI_DEVICE,
             ): selector.BooleanSelector(),
             vol.Optional(
+                CONF_DEVICE_TRACKER,
+                default=DEFAULT_DEVICE_TRACKER,
+            ): selector.BooleanSelector(),
+            vol.Optional(
+                CONF_TRACKER_MIN_DISTANCE,
+                default=DEFAULT_TRACKER_MIN_DISTANCE,
+            ): vol.All(vol.Coerce(int), vol.Range(min=0, max=500)),
+            vol.Optional(
                 CONF_CONFIRMATION_DELAY,
                 default=DEFAULT_CONFIRMATION_DELAY,
             ): vol.All(vol.Coerce(int), vol.Range(min=30, max=600)),
@@ -408,6 +420,14 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
                 CONF_MULTI_DEVICE,
                 default=current_data.get(CONF_MULTI_DEVICE, DEFAULT_MULTI_DEVICE),
             ): selector.BooleanSelector(),
+            vol.Optional(
+                CONF_DEVICE_TRACKER,
+                default=current_data.get(CONF_DEVICE_TRACKER, DEFAULT_DEVICE_TRACKER),
+            ): selector.BooleanSelector(),
+            vol.Optional(
+                CONF_TRACKER_MIN_DISTANCE,
+                default=current_data.get(CONF_TRACKER_MIN_DISTANCE, DEFAULT_TRACKER_MIN_DISTANCE),
+            ): vol.All(vol.Coerce(int), vol.Range(min=0, max=500)),
             vol.Optional(
                 CONF_CONFIRMATION_DELAY,
                 default=current_data.get(CONF_CONFIRMATION_DELAY, DEFAULT_CONFIRMATION_DELAY),
