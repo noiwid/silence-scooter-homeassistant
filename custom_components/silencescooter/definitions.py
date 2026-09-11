@@ -115,7 +115,10 @@ INPUT_NUMBERS = {
     "scooter_energy_consumption_base": {
         "name": "Base consommation énergie scooter",
         "min": 0,
-        "max": 1000,
+        # 2026-09-11 : 1000 kWh était atteint après ~17 000 km (60 Wh/km) et
+        # faisait échouer number.set_value dans update_trip_statistics à
+        # chaque fin de trajet. Même plafond que tracked_distance.
+        "max": 100000,
         "step": 0.001,
         "unit_of_measurement": "kWh",
         "initial": 0,
