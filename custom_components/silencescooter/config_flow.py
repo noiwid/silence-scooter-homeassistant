@@ -17,6 +17,7 @@ from .const import (
     CONF_CONFIRMATION_DELAY,
     CONF_PAUSE_MAX_DURATION,
     CONF_WATCHDOG_DELAY,
+    CONF_CONNECTIVITY_LOSS_TOLERANCE,
     CONF_USE_TRACKED_DISTANCE,
     CONF_OUTDOOR_TEMP_SOURCE,
     CONF_OUTDOOR_TEMP_ENTITY,
@@ -27,6 +28,7 @@ from .const import (
     DEFAULT_CONFIRMATION_DELAY,
     DEFAULT_PAUSE_MAX_DURATION,
     DEFAULT_WATCHDOG_DELAY,
+    DEFAULT_CONNECTIVITY_LOSS_TOLERANCE,
     DEFAULT_USE_TRACKED_DISTANCE,
     DEFAULT_OUTDOOR_TEMP_SOURCE,
     DEFAULT_OUTDOOR_TEMP_ENTITY,
@@ -265,6 +267,10 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 CONF_WATCHDOG_DELAY,
                 default=DEFAULT_WATCHDOG_DELAY,
             ): vol.All(vol.Coerce(int), vol.Range(min=1, max=60)),
+            vol.Optional(
+                CONF_CONNECTIVITY_LOSS_TOLERANCE,
+                default=DEFAULT_CONNECTIVITY_LOSS_TOLERANCE,
+            ): vol.All(vol.Coerce(int), vol.Range(min=1, max=60)),
         })
 
         return self.async_show_form(
@@ -439,6 +445,10 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
             vol.Optional(
                 CONF_WATCHDOG_DELAY,
                 default=current_data.get(CONF_WATCHDOG_DELAY, DEFAULT_WATCHDOG_DELAY),
+            ): vol.All(vol.Coerce(int), vol.Range(min=1, max=60)),
+            vol.Optional(
+                CONF_CONNECTIVITY_LOSS_TOLERANCE,
+                default=current_data.get(CONF_CONNECTIVITY_LOSS_TOLERANCE, DEFAULT_CONNECTIVITY_LOSS_TOLERANCE),
             ): vol.All(vol.Coerce(int), vol.Range(min=1, max=60)),
         })
 

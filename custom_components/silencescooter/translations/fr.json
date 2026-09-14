@@ -14,7 +14,8 @@
           "tracker_min_distance": "Distance minimale entre deux points GPS (mètres)",
           "confirmation_delay": "Délai de confirmation d'arrêt (secondes)",
           "pause_max_duration": "Durée maximale d'une pause (minutes)",
-          "watchdog_delay": "Délai watchdog hors-ligne (minutes)"
+          "watchdog_delay": "Délai watchdog hors-ligne (minutes)",
+          "connectivity_loss_tolerance": "Tolérance sur perte de connectivité (minutes)"
         },
         "data_description": {
           "tariff_sensor": "Sélectionnez votre sensor de tarif dynamique (ou laissez sensor.tarif_base_ttc pour utiliser celui par défaut)",
@@ -26,7 +27,8 @@
           "tracker_min_distance": "Un point plus proche que cette distance du précédent est ignoré : lisse la trace à l'arrêt et aux feux rouges. 0 = aucun filtrage. Les sauts impossibles (> 120 km/h) sont toujours rejetés.",
           "confirmation_delay": "Filtre les oscillations capteurs et micro-coupures réseau avant de considérer le scooter arrêté (recommandé: 120s, augmentez en zone faible)",
           "pause_max_duration": "Temps max avec scooter ÉTEINT avant fin de trajet. Course rapide < 5min = pause, > 5min = fin",
-          "watchdog_delay": "Si aucune communication pendant cette durée, le trajet s'arrête (ex: garage sans réseau)"
+          "watchdog_delay": "Si aucune communication pendant cette durée, le trajet s'arrête (ex: garage sans réseau)",
+          "connectivity_loss_tolerance": "Quand le scooter ne communique plus (tunnel, zone blanche, module qui se reconnecte) sans avoir signalé d'arrêt, le trajet reste ouvert pendant cette durée avant d'être clôturé, avec une fin calée sur la dernière trame reçue. À régler au-dessus de la durée maximale d'une pause (recommandé : 15 min). Le watchdog attend au moins cette durée."
         }
       }
     },
@@ -60,7 +62,8 @@
           "tracker_min_distance": "Distance minimale entre deux points GPS (mètres)",
           "confirmation_delay": "Délai de confirmation d'arrêt (secondes)",
           "pause_max_duration": "Durée maximale d'une pause (minutes)",
-          "watchdog_delay": "Délai watchdog hors-ligne (minutes)"
+          "watchdog_delay": "Délai watchdog hors-ligne (minutes)",
+          "connectivity_loss_tolerance": "Tolérance sur perte de connectivité (minutes)"
         },
         "data_description": {
           "tariff_sensor": "Sélectionnez votre sensor de tarif dynamique (ou laissez sensor.tarif_base_ttc pour utiliser celui par défaut)",
@@ -72,7 +75,8 @@
           "tracker_min_distance": "Un point plus proche que cette distance du précédent est ignoré : lisse la trace à l'arrêt et aux feux rouges. 0 = aucun filtrage. Les sauts impossibles (> 120 km/h) sont toujours rejetés.",
           "confirmation_delay": "Filtre les oscillations capteurs et micro-coupures réseau avant de considérer le scooter arrêté (recommandé: 120s, augmentez en zone faible)",
           "pause_max_duration": "Temps max avec scooter ÉTEINT avant fin de trajet. Course rapide < 5min = pause, > 5min = fin",
-          "watchdog_delay": "Si aucune communication pendant cette durée, le trajet s'arrête (ex: garage sans réseau)"
+          "watchdog_delay": "Si aucune communication pendant cette durée, le trajet s'arrête (ex: garage sans réseau)",
+          "connectivity_loss_tolerance": "Quand le scooter ne communique plus (tunnel, zone blanche, module qui se reconnecte) sans avoir signalé d'arrêt, le trajet reste ouvert pendant cette durée avant d'être clôturé, avec une fin calée sur la dernière trame reçue. À régler au-dessus de la durée maximale d'une pause (recommandé : 15 min). Le watchdog attend au moins cette durée."
         }
       }
     },

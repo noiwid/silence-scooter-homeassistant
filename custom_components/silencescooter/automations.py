@@ -17,11 +17,13 @@ from .const import (
     CONF_CONFIRMATION_DELAY,
     CONF_PAUSE_MAX_DURATION,
     CONF_WATCHDOG_DELAY,
+    CONF_CONNECTIVITY_LOSS_TOLERANCE,
     CONF_OUTDOOR_TEMP_SOURCE,
     CONF_OUTDOOR_TEMP_ENTITY,
     DEFAULT_CONFIRMATION_DELAY,
     DEFAULT_PAUSE_MAX_DURATION,
     DEFAULT_WATCHDOG_DELAY,
+    DEFAULT_CONNECTIVITY_LOSS_TOLERANCE,
     DEFAULT_OUTDOOR_TEMP_SOURCE,
     OUTDOOR_TEMP_SOURCE_SCOOTER,
     OUTDOOR_TEMP_SOURCE_EXTERNAL,
@@ -738,10 +740,26 @@ async def async_setup_automations(
                 _LOGGER.info("DELAYED STOP triggered (2min + 5min timer)")
 
                 # Définir les fonctions async AVANT de les utiliser
-                def _start_tolerance_timer():
-                    """Démarre le timer de tolérance (durée configurable)."""
-                    # Get configured pause duration (in minutes)
-                    pause_duration_min = get_config_value(hass, CONF_PAUSE_MAX_DURATION, DEFAULT_PAUSE_MAX_DURATION)
+                def _start_tolerance_timer(connectivity=False):
+                    """Démarre le timer de tolérance (durée configurable).
+
+                    connectivity=True : coupure réseau (tunnel, zone blanche,
+                    module Astra qui se ré-enregistre) sans arrêt signalé. Le
+                    scooter roule très probablement encore : on applique la
+                    tolérance dédiée, plus longue que la pause maximale. Le
+                    2026-09-14 un commute a été scindé en deux par 8 min de
+                    silence à la Porte de la Muette (> 5 min de pause max).
+                    La fin du trajet reste calée sur la dernière trame, donc
+                    la durée enregistrée ne dépend pas de cette tolérance.
+                    """
+                    if connectivity:
+                        pause_duration_min = get_config_value(
+                            hass, CONF_CONNECTIVITY_LOSS_TOLERANCE, DEFAULT_CONNECTIVITY_LOSS_TOLERANCE
+                        )
+                        stop_reason = "connectivity-timeout"
+                    else:
+                        pause_duration_min = get_config_value(hass, CONF_PAUSE_MAX_DURATION, DEFAULT_PAUSE_MAX_DURATION)
+                        stop_reason = "tolerance-timeout"
                     # Convert to seconds
                     duration_seconds = pause_duration_min * 60
 
@@ -757,8 +775,8 @@ async def async_setup_automations(
                             _LOGGER.info("⏱️ Timer de tolérance expiré mais trajet déjà clôturé, rien à faire")
                             return
                         _LOGGER.info("⏱️ Timer de tolérance terminé (%d min), arrêt définitif du trajet", pause_duration_min)
-                        await do_log_event(hass, f"Trip auto-stopped: tolerance timer expired ({pause_duration_min}min)")
-                        await do_stop_trip(hass, imei=imei, multi_device=multi_device, reason="tolerance-timeout")
+                        await do_log_event(hass, f"Trip auto-stopped: {stop_reason} ({pause_duration_min}min)")
+                        await do_stop_trip(hass, imei=imei, multi_device=multi_device, reason=stop_reason)
 
                     task = hass.loop.call_later(duration_seconds, lambda: hass.loop.create_task(_on_tolerance_expired()))
                     scheduled_tasks["tolerance_timer"] = task
@@ -794,7 +812,7 @@ async def async_setup_automations(
                                 age_now,
                             )
                             _tracking_state["pause_is_connectivity_loss"] = True
-                            _start_tolerance_timer()
+                            _start_tolerance_timer(connectivity=True)
                             return
 
                     state = hass.states.get(SENSOR_TRIP_STATUS)
@@ -849,7 +867,7 @@ async def async_setup_automations(
                     # enregistre la pause ; si le scooter est réellement garé
                     # (garage), la tolérance clôturera avec l'end_time basé sur
                     # last_moving_time, pas sur l'heure d'expiration.
-                    _start_tolerance_timer()
+                    _start_tolerance_timer(connectivity=True)
                 else:
                     # Arrêt réel signalé (status=0, batterie retirée…) :
                     # 1) Planifie l'arrêt après le délai de confirmation configurable
@@ -940,6 +958,21 @@ async def async_setup_automations(
                 pause_start_dt = dt_util.parse_datetime(pause_start.state)
                 if pause_start_dt:
                     pause_duration = (dt_util.now() - dt_util.as_local(pause_start_dt)).total_seconds() / 60
+
+                    # Un arrêt plus court que le délai de confirmation n'est
+                    # pas une pause : feu rouge, bouchon, statut 0 transitoire.
+                    # Ils font partie intégrante du trajet (décision Benoit,
+                    # 2026-09-14 : les déduire donnait « 4 km en 2 min à
+                    # 120 km/h »). Seul un arrêt confirmé (>= délai de
+                    # confirmation) est déduit de la durée nette.
+                    confirmation_delay = get_config_value(hass, CONF_CONFIRMATION_DELAY, DEFAULT_CONFIRMATION_DELAY)
+                    if 0 <= pause_duration * 60 < confirmation_delay:
+                        _LOGGER.info(
+                            "Arrêt court (%.1f min < %ds de confirmation) : compté dans le trajet, non déduit",
+                            pause_duration, confirmation_delay,
+                        )
+                        await _reset_pause_start()
+                        return
 
                     # Clamp de sécurité : une pause ne peut pas dépasser la
                     # tolérance de beaucoup (le timer aurait clôturé). Une
@@ -1495,6 +1528,13 @@ async def async_setup_automations(
 
                 # Si pas de mise à jour depuis plus de X minutes (configurable)
                 watchdog_delay_min = get_config_value(hass, CONF_WATCHDOG_DELAY, DEFAULT_WATCHDOG_DELAY)
+                # Le silence radio est d'abord une coupure réseau possible :
+                # le watchdog ne doit pas clôturer avant la tolérance dédiée,
+                # sinon il scinde un trajet que la tolérance aurait gardé.
+                watchdog_delay_min = max(
+                    watchdog_delay_min,
+                    get_config_value(hass, CONF_CONNECTIVITY_LOSS_TOLERANCE, DEFAULT_CONNECTIVITY_LOSS_TOLERANCE),
+                )
                 watchdog_delay_sec = watchdog_delay_min * 60
                 if (dt_util.utcnow() - ref_time).total_seconds() > watchdog_delay_sec:
                     _LOGGER.info(f"🔔 Watchdog: Scooter non mis à jour depuis >{watchdog_delay_min}min, arrêt du trajet")

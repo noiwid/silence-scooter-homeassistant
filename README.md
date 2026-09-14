@@ -148,6 +148,7 @@ mqtt:
 | **Confirmation Delay** | 120 seconds | Anti-bounce delay before confirming trip stop. Prevents false stops from brief signal loss or sensor oscillations. |
 | **Pause Max Duration** | 5 minutes | Maximum pause duration before ending trip. Pauses shorter than this (e.g., quick errands) keep the trip active. |
 | **Watchdog Delay** | 5 minutes | Offline detection timeout. Automatically ends trip if scooter doesn't communicate for this duration (e.g., parked in underground garage without signal). |
+| **Connectivity Loss Tolerance** | 15 minutes | How long a trip stays open when the scooter goes silent (tunnel, dead zone, telemetry module re-registering) without having reported a stop. Must exceed the pause max duration; the end time is always the last frame received, so the recorded duration does not depend on it. The watchdog waits at least this long. |
 | **Use Tracked Distance** | `false` | When enabled, uses internal tracked distance instead of ODO delta. Useful if ODO sensor has issues. |
 
 **💡 Tip:** The Watchdog Delay ensures trips are automatically closed even when the scooter loses connectivity (garage, tunnel, etc.), preventing "stuck" trips that never end.
