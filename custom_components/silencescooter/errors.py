@@ -266,6 +266,12 @@ class ErrorDetector:
 
     def detect_mqtt_disconnect(self, mqtt_sensors: list[str]) -> bool:
         """Check if MQTT sensors indicate a disconnect. Returns True if disconnected."""
+        # Capteurs inconnus avec un broker connecté = scooter en veille (il
+        # n'émet rien garé, Status expire au bout de 120 s) : pas une coupure.
+        from homeassistant.components import mqtt
+        if mqtt.is_connected(self._hass):
+            return False
+
         if not mqtt_sensors:
             return False
 
