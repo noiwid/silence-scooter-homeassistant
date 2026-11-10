@@ -34,6 +34,43 @@ class NumberCaps(unittest.TestCase):
             self.assertGreaterEqual(numbers[key]["max"], 100000, key)
 
 
+class RecordTime(unittest.TestCase):
+    """Heure de mesure des relevés : bornes d'utilisation."""
+
+    @classmethod
+    def setUpClass(cls):
+        spec = importlib.util.spec_from_file_location("record_time", COMPONENT / "record_time.py")
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        cls.usable = staticmethod(module.usable_record_time)
+
+    def setUp(self):
+        import datetime as dt
+        self.dt = dt
+        self.tz = dt.timezone(dt.timedelta(hours=1))
+        self.now = dt.datetime(2026, 11, 10, 14, 0, 0, tzinfo=self.tz)
+        self.quarter = dt.timedelta(minutes=15)
+
+    def test_recent_reading_is_used(self):
+        got = self.usable("2026-11-10T13:51:00+01:00", self.now, self.quarter)
+        self.assertEqual(got, self.dt.datetime(2026, 11, 10, 13, 51, tzinfo=self.tz))
+
+    def test_backlog_from_the_previous_trip_is_rejected(self):
+        # relevé de 11:01 livré à 14:00 : ne doit pas dater le départ de 14:00
+        self.assertIsNone(self.usable("2026-11-10T11:01:30+01:00", self.now, self.quarter))
+
+    def test_reading_before_the_trip_start_is_rejected(self):
+        start = self.dt.datetime(2026, 11, 10, 13, 55, tzinfo=self.tz)
+        day = self.dt.timedelta(hours=24)
+        self.assertIsNone(self.usable("2026-11-10T13:51:00+01:00", self.now, day, start))
+        self.assertIsNotNone(self.usable("2026-11-10T13:58:00+01:00", self.now, day, start))
+
+    def test_future_unknown_and_naive_are_rejected(self):
+        for state in ("2026-11-10T14:05:00+01:00", "unknown", "unavailable", "", None,
+                      "pas une date", "2026-11-10T13:51:00"):
+            self.assertIsNone(self.usable(state, self.now, self.quarter), state)
+
+
 try:
     import jinja2
 except ImportError:  # pragma: no cover
@@ -77,6 +114,10 @@ class EnergyTemplate(unittest.TestCase):
 
     def test_never_decreases(self):
         self.assertEqual(self._render(1000, 1000, 1090, 100), 1000)
+
+    def test_unreadable_base_does_not_lift_the_cap(self):
+        # base pas encore chargée au démarrage : ce n'est pas "jamais initialisé"
+        self.assertEqual(self._render("unknown", 0, 1154.4, 100), 0)
 
     def test_keeps_value_when_scooter_offline(self):
         self.assertEqual(self._render(1000, 1000, "unknown", "unknown"), 1000)

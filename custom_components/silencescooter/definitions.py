@@ -351,9 +351,11 @@ TRIGGER_SENSORS = {
                     {% set current_value = safe_current %}
                     {% if new_value < 0 %}
                         {{ current_value }}
-                    {% elif initial_value == 0 and new_value > current_value %}
+                    {% elif base_val == 0 and new_value > current_value %}
                         {# Base jamais initialisée (installation neuve) : on
-                           prend le premier relevé tel quel. #}
+                           prend le premier relevé tel quel. Base ILLISIBLE
+                           (base_val = -1, entité pas encore chargée) : le
+                           plafond reste en place. #}
                         {{ new_value | round(3) }}
                     {% elif initial_value > current_value %}
                         {# Le moteur a écrit une base en avance sur le capteur

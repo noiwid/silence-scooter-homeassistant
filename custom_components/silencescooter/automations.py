@@ -32,6 +32,7 @@ from .helpers import (
     insert_imei_in_entity_id, get_history_file,
 )
 from .errors import ErrorCategory, ErrorSeverity, get_error_detector
+from .record_time import usable_record_time
 
 STARTUP_TIME = dt_util.utcnow()
 
@@ -208,6 +209,19 @@ def determine_trip_end_timestamp(hass: HomeAssistant, imei: str = "", multi_devi
                     return last_up.state
             except Exception as e:
                 _LOGGER.warning("last_update non valide: %s", e)
+
+    # Trajet daté à l'heure de mesure (voir get_record_time) : la fin aussi,
+    # sinon un arrêt manuel scooter en marche rallonge le trajet du retard.
+    if hass.data.get(DOMAIN, {}).get(_tracking_key(imei), {}).get("start_uses_record_time"):
+        record_st = hass.states.get(entity_id("sensor.silence_scooter_record_time"))
+        start_st = hass.states.get(entity_id("datetime.scooter_start_time"))
+        record_dt = usable_record_time(
+            record_st.state if record_st else None, dt_util.now(), timedelta(hours=24),
+            get_valid_datetime(start_st.state) if start_st else None,
+        )
+        if record_dt is not None:
+            _LOGGER.info("Using record time: %s", record_dt.isoformat())
+            return record_dt.isoformat()
 
     current_time = dt_util.now().isoformat()
     _LOGGER.info("Using current time: %s", current_time)
@@ -433,7 +447,7 @@ async def async_setup_automations(
     SENSOR_SCOOTER_LAST_UPDATE = entity_id("sensor.silence_scooter_last_update")
     SENSOR_SCOOTER_RECORD_TIME = entity_id("sensor.silence_scooter_record_time")
 
-    def get_record_time(not_before=None):
+    def get_record_time(max_age, not_before=None):
         """Heure de MESURE du dernier relevé du scooter, ou None.
 
         Publiée par le serveur (topic record-time, serveur >= 2026-11). Quand
@@ -444,23 +458,10 @@ async def async_setup_automations(
         l'heure de réception, comme avant.
         """
         state = hass.states.get(SENSOR_SCOOTER_RECORD_TIME)
-        if state is None or state.state in ("unknown", "unavailable"):
-            return None
-        try:
-            record_dt = dt_util.parse_datetime(state.state)
-        except (ValueError, TypeError):
-            return None
-        if record_dt is None:
-            return None
-        record_dt = dt_util.as_local(record_dt)
-        now = dt_util.now()
-        # Dans le futur, ou trop vieux pour décrire le trajet en cours
-        # (le module rejoue parfois des relevés de la veille).
-        if record_dt > now + timedelta(minutes=1) or record_dt < now - timedelta(hours=6):
-            return None
-        if not_before is not None and record_dt < not_before:
-            return None
-        return record_dt
+        return usable_record_time(
+            state.state if state is not None else None, dt_util.now(), max_age, not_before
+        )
+
     BINARY_SENSOR_BATTERY_IN = entity_id("binary_sensor.silence_scooter_battery_in")
 
     #
@@ -674,7 +675,13 @@ async def async_setup_automations(
         # appartient au trajet en cours (pas antérieure au départ).
         start_st = hass.states.get(INPUT_DT_START_TIME)
         start_dt = get_valid_datetime(start_st.state) if start_st else None
-        record_dt = get_record_time(not_before=start_dt)
+        # Une seule horloge par trajet : l'heure de mesure ne date l'arrivée
+        # que si elle a daté le départ. Mélanger (départ à l'heure de
+        # réception, arrivée à l'heure de mesure) raccourcirait le trajet du
+        # retard du module.
+        record_dt = None
+        if _tracking_state.get("start_uses_record_time"):
+            record_dt = get_record_time(timedelta(hours=24), not_before=start_dt)
 
         # Use the scooter's last MQTT update timestamp instead of now()
         # This avoids adding ~5min of artificial delay in the garage scenario
@@ -1248,7 +1255,13 @@ async def async_setup_automations(
 
         # (5) datetime.scooter_start_time => heure de mesure du relevé qui a
         # déclenché le départ (publiée avant le status par le serveur), sinon now
-        now_str = (get_record_time() or dt_util.now()).isoformat()
+        # Seulement si ce relevé est récent (tolérance réseau) : le module
+        # livre parfois d'abord des relevés restés en attente depuis des
+        # heures, qui feraient démarrer le trajet à l'heure du trajet précédent.
+        record_start = get_record_time(timedelta(minutes=get_config_value(
+            hass, CONF_CONNECTIVITY_LOSS_TOLERANCE, DEFAULT_CONNECTIVITY_LOSS_TOLERANCE, imei)))
+        _tracking_state["start_uses_record_time"] = record_start is not None
+        now_str = (record_start or dt_util.now()).isoformat()
         await hass.services.async_call(
             "datetime",
             "set_value",
