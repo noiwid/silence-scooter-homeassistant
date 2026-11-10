@@ -264,25 +264,34 @@ class ScooterTemplateSensor(SensorEntity, RestoreEntity):
         """Handle entity added to Home Assistant."""
         await super().async_added_to_hass()
 
-        # Les capteurs de mesure / compteurs (state_class) republient leur
-        # dernier état AVANT le premier calcul. Sans ça, les compteurs dont le
-        # template relit sa propre valeur (scooter_energy_consumption,
-        # scooter_battery_charge_cycles, total_increasing) retombaient à 0 à
-        # chaque redémarrage puis remontaient, ce que les statistiques HA
-        # comptaient comme une nouvelle consommation. Pas de reprise pour les
-        # capteurs d'état (trip_status, is_moving) : un « on » périmé
-        # réapparaîtrait un instant.
-        if self._attr_state_class:
+        # Un compteur (total_increasing) ne redescend jamais : après le premier
+        # calcul, on garde la valeur d'avant le redémarrage si elle est plus
+        # haute. Sans ça, les compteurs dont le template relit sa propre valeur
+        # (scooter_energy_consumption, scooter_battery_charge_cycles)
+        # retombaient à 0 à chaque redémarrage puis remontaient, ce que les
+        # statistiques HA comptaient comme une nouvelle consommation.
+        # NB : écrire l'état repris AVANT le calcul ne marche pas — un
+        # async_write_ha_state() fait pendant l'ajout de l'entité n'est pas
+        # visible du template (constaté le 2026-11-10).
+        restored = None
+        if self._attr_state_class == SensorStateClass.TOTAL_INCREASING:
             last_state = await self.async_get_last_state()
-            if last_state is not None and last_state.state not in ("unknown", "unavailable"):
-                self._attr_native_value = last_state.state
-                try:
-                    self.async_write_ha_state()
-                except ValueError:
-                    # État restauré non numérique pour un capteur numérique
-                    self._attr_native_value = None
+            try:
+                restored = float(last_state.state)
+            except (AttributeError, ValueError, TypeError):
+                restored = None
 
         await self.async_update()
+
+        if restored is not None:
+            try:
+                current = float(self._attr_native_value)
+            except (ValueError, TypeError):
+                current = None
+            if current is None or current < restored:
+                _LOGGER.info("Counter %s restored to %s (first render gave %s)",
+                             self.entity_id, restored, self._attr_native_value)
+                self._attr_native_value = restored
 
     async def async_update(self) -> None:
         """Update the state."""
@@ -413,9 +422,10 @@ class ScooterTriggerSensor(ScooterTemplateSensor):
 
     async def async_added_to_hass(self) -> None:
         """Handle entity added to Home Assistant."""
+        # (le premier calcul et la reprise des compteurs sont faits par la
+        # classe mère ; ne pas recalculer ici, la valeur reprise serait perdue)
         await super().async_added_to_hass()
 
-        await self.async_update()
         for trigger in self._triggers:
             platform = trigger.get("platform")
             if platform == "state":
