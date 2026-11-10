@@ -111,9 +111,9 @@ These sensors monitor the health of the battery.
 | Entity ID                               | Name                               | Unit | State Class | Device Class | Description                                                              |
 |----------------------------------------|------------------------------------|------|-------------|--------------|--------------------------------------------------------------------------|
 | `sensor.scooter_battery_cell_imbalance`| Battery – Cell imbalance            | mV   | measurement  | –            | Difference in voltage between the highest and lowest cell                |
-| `sensor.scooter_battery_soc_calculated`| Battery – SOC calculated (Voltage) | %    | measurement  | battery       | SOC computed from voltage (46.2 V–58.8 V for 14S battery)                 |
-| `sensor.scooter_battery_soc_deviation` | Battery – SOC displayed/calculated deviation | % | measurement  | –    | Difference between displayed SOC and SOC calculated from voltage         |
-| `sensor.scooter_battery_charge_cycles` | Battery – Cumulative charge cycles | cycles | total_increasing | –        | Equivalent full charge cycles (charged_energy / 5.6 kWh)                |
+| `sensor.scooter_battery_capacity` | Battery – Real capacity | kWh | measurement | – | Energy delivered per 100 % of charge, averaged over the last trips |
+| `sensor.scooter_battery_health` | Battery – State of health | % | measurement | – | Real capacity relative to the nominal 5.6 kWh |
+| `sensor.scooter_battery_charge_cycles` | Battery – Equivalent cycles | cycles | total_increasing | – | Equivalent full charge cycles (charged_energy / 5.6 kWh) |
 
 > **Critical imbalance**: A cell imbalance > 100 mV may indicate a BMS or cell fault.  
 

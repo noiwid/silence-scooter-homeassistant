@@ -11,6 +11,7 @@ from homeassistant.components.sensor import (
 )
 from homeassistant.const import CONF_NAME, CONF_ICON, CONF_UNIT_OF_MEASUREMENT, Platform, EntityCategory
 from homeassistant.core import HomeAssistant, callback
+from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.event import async_track_state_change_event, async_track_time_interval
 from homeassistant.util import dt as dt_util
@@ -75,6 +76,15 @@ async def async_setup_entry(
         )
 
     entities = []
+
+    # Capteurs retirés en 2026-11 (remplacés par la capacité réelle) : ôter
+    # l'entité orpheline du registre, sinon elle reste « indisponible ».
+    registry = er.async_get(hass)
+    for removed in ("scooter_battery_soc_calculated", "scooter_battery_soc_deviation"):
+        unique_id = f"{imei}_{removed}" if multi_device and imei else f"{DOMAIN}_{removed}"
+        stale = registry.async_get_entity_id("sensor", DOMAIN, unique_id)
+        if stale:
+            registry.async_remove(stale)
 
     for sensor_id, config in WRITABLE_SENSORS.items():
         entities.append(ScooterWritableSensor(hass, sensor_id, config, imei, multi_device))
@@ -680,6 +690,24 @@ class ScooterUtilityMeterSensor(SensorEntity, RestoreEntity):
     async def _handle_source_update(self, event):
         """Handle source sensor update."""
         try:
+            # Changement de période AVANT toute garde sur la source. Sinon,
+            # source illisible ou à 0 à minuit (scooter éteint), la remise à
+            # zéro attendait la prochaine trame et repartait de sa valeur :
+            # la tuile affichait la période précédente pendant des heures et
+            # l'énergie du premier trajet était perdue (le 2026-11-02, mois
+            # compté 6,45 kWh au lieu de 7,37). La nouvelle période repart de
+            # la dernière valeur connue de la source (départ + consommation).
+            now = dt_util.now()
+            if self._should_reset_cycle(now):
+                _LOGGER.info("Resetting %s for new %s cycle", self.entity_id, self._cycle)
+                if self._cycle_start_value:
+                    self._cycle_start_value = round(
+                        self._cycle_start_value + float(self._attr_native_value or 0), 3
+                    )
+                self._last_reset = self._get_cycle_start(now)
+                self._attr_native_value = 0
+                self.async_write_ha_state()
+
             source_state = self.hass.states.get(self._source)
             if not source_state or source_state.state in ["unknown", "unavailable"]:
                 return
@@ -723,15 +751,7 @@ class ScooterUtilityMeterSensor(SensorEntity, RestoreEntity):
                 )
                 return
 
-            now = dt_util.now()
-            should_reset = self._should_reset_cycle(now)
-
-            if should_reset:
-                _LOGGER.info("Resetting %s for new %s cycle", self.entity_id, self._cycle)
-                self._cycle_start_value = source_value
-                self._last_reset = self._get_cycle_start(now)
-                self._attr_native_value = 0
-            elif self._cycle_start_value is None or self._cycle_start_value == 0.0:
+            if self._cycle_start_value is None or self._cycle_start_value == 0.0:
                 _LOGGER.info("Initializing %s: cycle_start_value=%s", self.entity_id, source_value)
                 self._cycle_start_value = source_value
                 self._attr_native_value = 0

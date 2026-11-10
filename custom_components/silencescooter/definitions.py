@@ -126,6 +126,27 @@ INPUT_NUMBERS = {
         "initial": 0,
         "internal": True
     },
+    # Capacité réelle de la batterie : sommes glissantes (oubli exponentiel,
+    # voir update_trip_statistics) de l'énergie sortie et des % consommés sur
+    # les derniers trajets. Leur rapport donne les kWh pour 100 % de charge.
+    "scooter_capacity_energy_sum": {
+        "name": "Capacité batterie - énergie cumulée",
+        "min": 0,
+        "max": 1000,
+        "step": 0.001,
+        "unit_of_measurement": "kWh",
+        "initial": 0,
+        "internal": True
+    },
+    "scooter_capacity_soc_sum": {
+        "name": "Capacité batterie - % cumulés",
+        "min": 0,
+        "max": 10000,
+        "step": 0.1,
+        "unit_of_measurement": "%",
+        "initial": 0,
+        "internal": True
+    },
 }
 
 INPUT_BOOLEANS = {
@@ -574,68 +595,45 @@ BATTERY_HEALTH_SENSORS = {
             {% endif %}
         """
     },
-    "scooter_battery_soc_calculated": {
-        "name": "Batterie - SOC calculé (Voltage)",
-        "unit_of_measurement": "%",
+    "scooter_battery_capacity": {
+        "name": "Batterie - Capacité réelle",
+        "unit_of_measurement": "kWh",
         "state_class": "measurement",
-        "device_class": "battery",
-        "icon": "mdi:battery-charging-outline",
+        "icon": "mdi:battery-heart-variant",
         "value_template": """
-            {% set volt = states('sensor.silence_scooter_battery_volt') | float(0) %}
-            {# NMC 14S Li-ion lookup table: cell voltage (OCV) -> SOC%
-               Based on typical NMC discharge curve at C/5, 25C #}
-            {% if volt <= 0 %}
-                {{ none }}
+            {# Énergie réellement sortie de la batterie pour 100 % de charge,
+               moyennée sur les derniers trajets. Remplace l'ancien « SOC
+               calculé » : sa table tension -> SOC supposait 100 % à 4,20 V par
+               cellule alors que le pack s'arrête à 4,11 V, d'où un écart
+               permanent de -12 à -20 % sans rapport avec la santé. #}
+            {% set energy = states('number.scooter_capacity_energy_sum') | float(0) %}
+            {% set soc = states('number.scooter_capacity_soc_sum') | float(0) %}
+            {% if soc >= 30 and energy > 0 %}
+                {{ (energy / soc * 100) | round(2) }}
             {% else %}
-                {% set cell_v = volt / 14 %}
-                {% set lut = [
-                    (2.80, 0), (3.00, 1), (3.10, 3), (3.20, 5),
-                    (3.30, 10), (3.40, 15), (3.50, 25), (3.55, 30),
-                    (3.60, 38), (3.65, 45), (3.70, 55), (3.75, 65),
-                    (3.80, 72), (3.85, 78), (3.90, 84), (3.95, 89),
-                    (4.00, 93), (4.05, 96), (4.10, 98), (4.15, 99),
-                    (4.20, 100)
-                ] %}
-                {% if cell_v <= lut[0][0] %}
-                    0
-                {% elif cell_v >= lut[-1][0] %}
-                    100
-                {% else %}
-                    {% set ns = namespace(soc=0) %}
-                    {% for i in range(lut | length - 1) %}
-                        {% if cell_v >= lut[i][0] and cell_v < lut[i+1][0] %}
-                            {% set ratio = (cell_v - lut[i][0]) / (lut[i+1][0] - lut[i][0]) %}
-                            {% set ns.soc = lut[i][1] + ratio * (lut[i+1][1] - lut[i][1]) %}
-                        {% endif %}
-                    {% endfor %}
-                    {{ ns.soc | round(1) }}
-                {% endif %}
+                {{ none }}
             {% endif %}
         """
     },
-    "scooter_battery_soc_deviation": {
-        "name": "Batterie - Écart SOC affiché/calculé",
+    "scooter_battery_health": {
+        "name": "Batterie - État de santé",
         "unit_of_measurement": "%",
         "state_class": "measurement",
-        "icon": "mdi:delta",
+        "icon": "mdi:heart-pulse",
         "value_template": """
-            {% set displayed_st = states('sensor.scooter_battery_display') %}
-            {% set calculated_st = states('sensor.scooter_battery_soc_calculated') %}
-            {% if displayed_st not in ['unknown', 'unavailable'] and calculated_st not in ['unknown', 'unavailable'] %}
-                {% set soc_displayed = displayed_st | float(0) %}
-                {% set soc_calculated = calculated_st | float(0) %}
-                {% if soc_displayed > 0 or soc_calculated > 0 %}
-                    {{ (soc_displayed - soc_calculated) | round(1) }}
-                {% else %}
-                    {{ none }}
-                {% endif %}
+            {# Capacité réelle rapportée à la capacité nominale du pack
+               (5,6 kWh = 51,1 V x 109 Ah). #}
+            {% set capacity = states('sensor.scooter_battery_capacity') | float(0) %}
+            {% set battery_capacity = 5.6 %}
+            {% if capacity > 0 %}
+                {{ (capacity / battery_capacity * 100) | round(0) }}
             {% else %}
                 {{ none }}
             {% endif %}
         """
     },
     "scooter_battery_charge_cycles": {
-        "name": "Batterie - Cycles de charge cumulés",
+        "name": "Batterie - Cycles équivalents",
         "unit_of_measurement": "cycles",
         "state_class": "total_increasing",
         "icon": "mdi:battery-sync",

@@ -78,6 +78,30 @@ except ImportError:  # pragma: no cover
 
 
 @unittest.skipUnless(jinja2, "jinja2 requis")
+class BatteryCapacityTemplate(unittest.TestCase):
+    """Capacité réelle = énergie cumulée / % cumulés des derniers trajets."""
+
+    def _render(self, energy, soc):
+        states = {"number.scooter_capacity_energy_sum": energy, "number.scooter_capacity_soc_sum": soc}
+        template = _load_definitions().BATTERY_HEALTH_SENSORS["scooter_battery_capacity"]["value_template"]
+        env = jinja2.Environment()
+        env.globals["states"] = lambda entity_id: str(states[entity_id])
+        return env.from_string(template).render().strip()
+
+    def test_capacity_is_energy_per_hundred_percent(self):
+        self.assertEqual(float(self._render(4.79, 100)), 4.79)
+
+    def test_no_value_before_enough_trips(self):
+        self.assertEqual(self._render(0.5, 10), "None")
+        self.assertEqual(self._render("unknown", "unknown"), "None")
+
+    def test_voltage_based_soc_sensors_are_gone(self):
+        sensors = _load_definitions().BATTERY_HEALTH_SENSORS
+        self.assertNotIn("scooter_battery_soc_calculated", sensors)
+        self.assertNotIn("scooter_battery_soc_deviation", sensors)
+
+
+@unittest.skipUnless(jinja2, "jinja2 requis")
 class EnergyTemplate(unittest.TestCase):
     """scooter_energy_consumption : compteur à vie, hausse plafonnée à 5.6 kWh."""
 

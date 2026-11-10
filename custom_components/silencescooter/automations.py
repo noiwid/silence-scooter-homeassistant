@@ -352,6 +352,29 @@ async def update_trip_statistics(
     # Update energy_consumption_base
     energy_val = get_sensor_float_value(hass, entity_id("sensor.scooter_energy_consumption"), 0.0)
 
+    # Capacité réelle de la batterie : énergie sortie pendant le trajet et %
+    # consommés, cumulés avec un oubli exponentiel (0,9 par trajet, soit une
+    # dizaine de trajets de mémoire). Le SoC est entier : un trajet seul est
+    # imprécis, d'où le cumul et le seuil de 5 %. Une estimation hors de
+    # 3-7 kWh (énergie d'un trajet non suivi comptée ici, SoC de départ
+    # périmé) est écartée.
+    start_energy = hass.data.get(DOMAIN, {}).get(_tracking_key(imei), {}).get("energy_at_start")
+    trip_energy = energy_val - start_energy if start_energy else 0.0
+    if batt_consumption >= 5 and trip_energy > 0 and 3.0 <= trip_energy / batt_consumption * 100 <= 7.0:
+        for base, added in (
+            ("number.scooter_capacity_energy_sum", trip_energy),
+            ("number.scooter_capacity_soc_sum", batt_consumption),
+        ):
+            await hass.services.async_call(
+                "number",
+                SERVICE_SET_VALUE,
+                {
+                    "entity_id": entity_id(base),
+                    "value": round(get_sensor_float_value(hass, entity_id(base), 0.0) * 0.9 + added, 3),
+                },
+                blocking=True
+            )
+
     # Le template scooter_energy_consumption refuse toute hausse > 5.6 kWh
     # (pic du compteur brut). Un vrai retard plus grand (HA ou serveur coupés
     # plusieurs jours) resterait donc figé pour toujours. Si l'écart avec le
@@ -1184,6 +1207,28 @@ async def async_setup_automations(
             _LOGGER.info("✅ START CONFIRMED: démarrage du trajet (scooter status OK)")
             hass.async_create_task(_do_last_start())
 
+    async def _recover_untracked_km(km: float):
+        """Ajoute au suivi les km que l'odomètre a pris hors de tout trajet.
+
+        Trajet jamais vu (télémétrie absente), rejeté ou perdu : en novembre
+        2026 l'odomètre avait pris 117 km et le suivi 81. La batterie est
+        ajoutée au prorata de la moyenne suivie, pour ne pas fausser les
+        indicateurs en km par % ; son vrai niveau entre deux trajets est
+        inconnu (recharge, échange).
+        """
+        if not 0 < km <= 100:
+            return
+        tracked_dist = get_sensor_float_value(hass, NUMBER_TRACKED_DISTANCE, 0.0)
+        tracked_batt = get_sensor_float_value(hass, NUMBER_TRACKED_BATT_USED, 0.0)
+        updates = [(NUMBER_TRACKED_DISTANCE, tracked_dist + km)]
+        if tracked_dist > 0:
+            updates.append((NUMBER_TRACKED_BATT_USED, tracked_batt + km * tracked_batt / tracked_dist))
+        for number, value in updates:
+            await hass.services.async_call(
+                "number", "set_value", {"entity_id": number, "value": round(value, 1)}, blocking=True
+            )
+        await do_log_event(hass, f"Untracked distance recovered: {km:.0f}km")
+
     async def _do_last_start():
         # Vérifier une dernière fois qu'un trajet n'est pas déjà en cours
         if is_trip_active():
@@ -1240,6 +1285,12 @@ async def async_setup_automations(
             },
             blocking=True
         )
+        # L'odomètre a avancé depuis la fin du trajet précédent : ces km ont
+        # été roulés sans trajet enregistré, on les rend au suivi.
+        previous_fin = get_sensor_float_value(hass, NUMBER_ODO_FIN, 0.0)
+        if previous_fin > 0:
+            await _recover_untracked_km(odo_val - previous_fin)
+
         # odo_fin repart du même point : handle_track_odo ne fait que le
         # monter, donc un seul relevé aberrant trop haut restait pour tous
         # les trajets suivants (distances de centaines de km).
@@ -1298,6 +1349,9 @@ async def async_setup_automations(
         battery_tracking_fired["value"] = False
         _tracking_state["pause_is_connectivity_loss"] = False
         _tracking_state["energy_gap_at_start"] = get_energy_gap(hass, imei, multi_device)
+        # Lu en fin de démarrage : le compteur d'énergie de la même rafale MQTT
+        # est alors arrivé (voir la capacité réelle dans update_trip_statistics).
+        _tracking_state["energy_at_start"] = get_sensor_float_value(hass, SENSOR_ENERGY_CONSUMPTION, 0.0) or None
 
     remove_last_start = async_track_state_change_event(
         hass, [SENSOR_IS_MOVING], handle_scooter_last_start
@@ -1460,6 +1514,8 @@ async def async_setup_automations(
                 {"entity_id": NUMBER_ODO_DEBUT, "value": new_odo},
                 blocking=True,
             )
+            # Les km retirés du trajet ont bien été roulés (avant lui)
+            await _recover_untracked_km(new_odo - current_debut)
 
     remove_track_odo = async_track_state_change_event(
         hass, [SENSOR_SCOOTER_ODO], handle_track_odo

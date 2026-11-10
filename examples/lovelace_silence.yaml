@@ -864,15 +864,15 @@ views:
 
                     .name { font-size: 10px; text-transform: uppercase;
                     letter-spacing: 1.5px; }
-              - entity: sensor.scooter_battery_soc_deviation
-                name: Écart SOC
-                icon: mdi:delta
+              - entity: sensor.scooter_battery_capacity
+                name: Capacité
+                icon: mdi:battery-heart-variant
                 card_mod:
                   style: >
                     :host {
-                      {% set d = states('sensor.scooter_battery_soc_deviation') | float(0) | abs %}
-                      {% if d < 5 %}--state-icon-color: #4caf50 !important;
-                      {% elif d < 10 %}--state-icon-color: #ff9800 !important;
+                      {% set h = states('sensor.scooter_battery_health') | float(100) %}
+                      {% if h >= 80 %}--state-icon-color: #4caf50 !important;
+                      {% elif h >= 70 %}--state-icon-color: #ff9800 !important;
                       {% else %}--state-icon-color: #f44336 !important;{% endif %}
                     }
 
@@ -916,22 +916,22 @@ views:
                     icon: mdi:battery-alert-variant-outline
                     secondary_info: last-changed
                   - entity: sensor.scooter_battery_charge_cycles
-                    name: Cycles de charge cumulés
+                    name: Cycles équivalents
                     icon: mdi:battery-sync
-                  - entity: sensor.scooter_battery_soc_deviation
-                    name: Écart SOC (Affiché - Calculé)
-                    icon: mdi:delta
+                  - entity: sensor.scooter_battery_capacity
+                    name: Capacité réelle (pour 100 %)
+                    icon: mdi:battery-heart-variant
+                  - entity: sensor.scooter_battery_health
+                    name: État de santé (sur 5,6 kWh)
+                    icon: mdi:heart-pulse
                   - type: custom:mini-graph-card
-                    hours_to_show: 24
-                    points_per_hour: 4
+                    hours_to_show: 720
+                    points_per_hour: 0.25
                     line_width: 2
                     entities:
-                      - entity: sensor.scooter_battery_display
-                        name: SOC affiché (BMS)
+                      - entity: sensor.scooter_battery_capacity
+                        name: Capacité réelle (kWh)
                         color: '#3498db'
-                      - entity: sensor.scooter_battery_soc_calculated
-                        name: SOC calculé (Voltage)
-                        color: '#e74c3c'
                     show:
                       name: false
                       icon: false

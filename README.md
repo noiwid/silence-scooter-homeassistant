@@ -260,9 +260,9 @@ Once configured, the integration creates **39+ entities** organized into several
 
 #### Battery Health
 - `sensor.scooter_battery_cell_imbalance` (mV) - Cell voltage imbalance
-- `sensor.scooter_battery_soc_calculated` (%) - SOC calculated from voltage
-- `sensor.scooter_battery_soc_deviation` (%) - Difference between displayed and calculated SOC
-- `sensor.scooter_battery_charge_cycles` (cycles) - Cumulative charge cycles
+- `sensor.scooter_battery_capacity` (kWh) - Real capacity: energy delivered per 100 % of charge, averaged over the last trips
+- `sensor.scooter_battery_health` (%) - Real capacity relative to the nominal 5.6 kWh
+- `sensor.scooter_battery_charge_cycles` (cycles) - Equivalent full charge cycles
 
 #### Usage Statistics
 - `sensor.scooter_distance_per_charge` (km) - Average distance per full charge
@@ -325,7 +325,7 @@ Once configured, the integration creates **39+ entities** organized into several
 
 **Battery Health:**
 - `sensor.scooter_battery_cell_imbalance` - Cell voltage difference (mV)
-- `sensor.scooter_battery_soc_calculated` - Voltage-based SOC
+- `sensor.scooter_battery_capacity` - Real capacity (kWh per 100 %)
 - `sensor.scooter_battery_charge_cycles` - Total charge cycles
 
 **Controls:**
