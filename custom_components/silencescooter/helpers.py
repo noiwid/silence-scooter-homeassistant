@@ -8,7 +8,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.util import dt as dt_util
 from homeassistant.helpers.entity import DeviceInfo
 
-from .const import DOMAIN, HISTORY_FILE, HISTORY_SCRIPT, LOG_FILE, MANUFACTURER
+from .const import DOMAIN, HISTORY_FILE, HISTORY_SCRIPT, LOG_FILE, MANUFACTURER, PERSISTENT_DATA_PATH
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -94,6 +94,12 @@ def insert_imei_in_entity_id(entity_id: str, imei: str, multi_device: bool) -> s
     # Fallback: append at end
     return f"{entity_id}{suffix}"
 
+
+def get_history_file(imei: str = "", multi_device: bool = False) -> Path:
+    """history.json du scooter : fichier unique en mono, un par IMEI en multi."""
+    if multi_device and imei:
+        return PERSISTENT_DATA_PATH / f"history_{imei[-4:]}.json"
+    return HISTORY_FILE
 
 
 def is_date_valid(date_str: str) -> bool:
@@ -203,7 +209,7 @@ async def update_history(hass: HomeAssistant, **kwargs):
         # so the script writes to the persistent location (outside the integration
         # folder) regardless of where it's installed.
         script_env = os.environ.copy()
-        script_env["JSON_FILE"] = str(HISTORY_FILE)
+        script_env["JSON_FILE"] = str(kwargs.get("history_file") or HISTORY_FILE)
 
         def run_script():
             return subprocess.run(cmd, capture_output=True, text=True, timeout=30, env=script_env)

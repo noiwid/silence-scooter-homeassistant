@@ -106,7 +106,9 @@ INPUT_NUMBERS = {
     "scooter_tracked_battery_used": {
         "name": "Batterie suivie (manuel)",
         "min": 0,
-        "max": 10000,
+        # Cumul des % consommés : 10000 aurait été atteint vers 900 trajets et
+        # faisait échouer number.set_value (même panne que la base énergie).
+        "max": 10000000,
         "step": 0.1,
         "unit_of_measurement": "%",
         "icon": "mdi:battery-arrow-down-outline",
@@ -235,6 +237,33 @@ TRIGGER_SENSORS = {
                 {% set last_update = as_timestamp(last_update_str) %}
                 {% set now_ts = as_timestamp(now()) %}
                 {% if status is not none and status in [3.0, 4.0] and last_update and (now_ts - last_update) < 300 %}
+                    on
+                {% else %}
+                    off
+                {% endif %}
+            {% else %}
+                off
+            {% endif %}
+        """
+    },
+    "scooter_is_moving": {
+        "name": "En mouvement",
+        # Mêmes déclencheurs que scooter_trip_status : simple template, il
+        # n'était réévalué qu'au poll (30 s) et le départ était vu trop tard,
+        # odomètre et batterie de départ déjà entamés.
+        "triggers": [
+            {"platform": "state", "entity_id": "sensor.silence_scooter_status"},
+            {"platform": "state", "entity_id": "sensor.silence_scooter_last_update"},
+            {"platform": "time_pattern", "minutes": "/1"}
+        ],
+        "value_template": """
+            {% set status_raw = states('sensor.silence_scooter_status') %}
+            {% set status = status_raw | float(default=None) %}
+            {% set last_update_str = states('sensor.silence_scooter_last_update') %}
+            {% if last_update_str not in ['unknown', 'unavailable', None] %}
+                {% set last_update = as_timestamp(last_update_str) %}
+                {% set now_ts = as_timestamp(now()) %}
+                {% if status is not none and status in [3.0, 4.0] and (now_ts - last_update) < 300 %}
                     on
                 {% else %}
                     off
@@ -442,25 +471,6 @@ TEMPLATE_SENSORS = {
                 {{ ((net_consumption / battery_capacity * 100) / odo) | round(2) }}
             {% else %}
                 0
-            {% endif %}
-        """
-    },
-    "scooter_is_moving": {
-        "name": "En mouvement",
-        "value_template": """
-            {% set status_raw = states('sensor.silence_scooter_status') %}
-            {% set status = status_raw | float(default=None) %}
-            {% set last_update_str = states('sensor.silence_scooter_last_update') %}
-            {% if last_update_str not in ['unknown', 'unavailable', None] %}
-                {% set last_update = as_timestamp(last_update_str) %}
-                {% set now_ts = as_timestamp(now()) %}
-                {% if status is not none and status in [3.0, 4.0] and (now_ts - last_update) < 300 %}
-                    on
-                {% else %}
-                    off
-                {% endif %}
-            {% else %}
-                off
             {% endif %}
         """
     },
@@ -678,13 +688,9 @@ USAGE_STATISTICS_SENSORS = {
         "state_class": "measurement",
         "icon": "mdi:map-marker-path",
         "value_template": """
-            {% set trips = state_attr('sensor.scooter_trips', 'history') %}
-            {% if trips is not none and trips | length > 0 %}
-                {% set total = trips | map(attribute='distance') | map('float') | sum %}
-                {{ (total / (trips | length)) | round(1) }}
-            {% else %}
-                0
-            {% endif %}
+            {# Moyenne sur TOUT l'historique, calculée par sensor.scooter_trips
+               (l'attribut history ne contient que les 10 derniers trajets). #}
+            {{ state_attr('sensor.scooter_trips', 'average_distance') | float(0) }}
         """
     }
 }

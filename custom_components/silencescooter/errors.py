@@ -75,7 +75,6 @@ PATTERN_WINDOW = 3600  # 1 hour
 PATTERN_THRESHOLD = 3
 
 # Stale sensor timeout (seconds)
-STALE_SENSOR_TIMEOUT = 900  # 15 minutes
 
 
 class ErrorDetector:
@@ -90,7 +89,6 @@ class ErrorDetector:
         self._multi_device = multi_device
         self._errors: deque[ErrorEvent] = deque(maxlen=MAX_ERROR_HISTORY)
         self._patterns: dict[str, ErrorPattern] = {}
-        self._sensor_last_update: dict[str, float] = {}
         self._cascade_tracker: dict[str, list[str]] = {}
         self._listeners: list = []
         self._started = False
@@ -151,69 +149,6 @@ class ErrorDetector:
             _LOGGER.warning(
                 "%s Warning [%s] %s: %s", prefix, category.value, source, message,
             )
-
-    def record_sensor_update(self, entity_id: str) -> None:
-        """Record that a sensor was successfully updated."""
-        self._sensor_last_update[entity_id] = time.monotonic()
-
-    def check_sensor_staleness(self, entity_id: str) -> bool:
-        """Check if a sensor has gone stale. Returns True if stale."""
-        last_update = self._sensor_last_update.get(entity_id)
-        if last_update is None:
-            return False
-        return (time.monotonic() - last_update) > STALE_SENSOR_TIMEOUT
-
-    def check_sensor_value(
-        self,
-        entity_id: str,
-        value: object,
-        min_val: Optional[float] = None,
-        max_val: Optional[float] = None,
-    ) -> bool:
-        """Validate a sensor value is within expected bounds. Returns True if valid."""
-        if value is None or str(value) in ("unknown", "unavailable", ""):
-            self.record_error(
-                ErrorCategory.SENSOR_UNAVAILABLE,
-                ErrorSeverity.WARNING,
-                f"Sensor {entity_id} is unavailable or unknown",
-                source="sensor_check",
-                entity_id=entity_id,
-            )
-            return False
-
-        try:
-            float_val = float(value)
-        except (ValueError, TypeError):
-            self.record_error(
-                ErrorCategory.SENSOR_INVALID,
-                ErrorSeverity.WARNING,
-                f"Sensor {entity_id} has non-numeric value: {value}",
-                source="sensor_check",
-                entity_id=entity_id,
-            )
-            return False
-
-        if min_val is not None and float_val < min_val:
-            self.record_error(
-                ErrorCategory.SENSOR_INVALID,
-                ErrorSeverity.WARNING,
-                f"Sensor {entity_id} value {float_val} below minimum {min_val}",
-                source="sensor_check",
-                entity_id=entity_id,
-            )
-            return False
-
-        if max_val is not None and float_val > max_val:
-            self.record_error(
-                ErrorCategory.SENSOR_INVALID,
-                ErrorSeverity.WARNING,
-                f"Sensor {entity_id} value {float_val} above maximum {max_val}",
-                source="sensor_check",
-                entity_id=entity_id,
-            )
-            return False
-
-        return True
 
     def check_trip_anomaly(
         self,
@@ -330,17 +265,11 @@ class ErrorDetector:
                 "entity_id": event.entity_id,
             })
 
-        stale_sensors = [
-            eid for eid in self._sensor_last_update
-            if self.check_sensor_staleness(eid)
-        ]
-
         return {
             "total_errors": len(self._errors),
             "errors_by_category": category_counts,
             "errors_by_severity": severity_counts,
             "recurring_patterns": len(self.get_recurring_patterns()),
-            "stale_sensors": stale_sensors,
             "recent_errors": recent_errors,
             "imei": self._label,
         }
@@ -402,17 +331,6 @@ class ErrorDetector:
             for s in base_sensors
         ]
         self.detect_mqtt_disconnect(mqtt_sensors)
-
-        # Check for stale sensors
-        for entity_id in list(self._sensor_last_update.keys()):
-            if self.check_sensor_staleness(entity_id):
-                self.record_error(
-                    ErrorCategory.SENSOR_STALE,
-                    ErrorSeverity.WARNING,
-                    f"Sensor {entity_id} has not updated in >{STALE_SENSOR_TIMEOUT}s",
-                    source="health_check",
-                    entity_id=entity_id,
-                )
 
         active = self.get_active_issues_count()
         if active > 0:

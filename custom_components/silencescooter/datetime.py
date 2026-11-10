@@ -57,7 +57,7 @@ class ScooterDateTimeEntity(DateTimeEntity, RestoreEntity):
             self._attr_has_entity_name = True
             self._attr_unique_id = f"{imei}_{datetime_id}"
             self._attr_name = config['name']
-            self._attr_device_info = get_device_info(imei, multi_device)
+            self.entity_id = insert_imei_in_entity_id(f"datetime.{datetime_id}", imei, multi_device)
         else:
             # Legacy mode: same as v1.0.4
             self._attr_unique_id = f"{DOMAIN}_{datetime_id}"

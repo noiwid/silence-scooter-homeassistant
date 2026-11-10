@@ -1,0 +1,2 @@
+# history.sh tourne sous bash côté HA : des fins de ligne CRLF le cassent
+*.sh text eol=lf

@@ -10,7 +10,7 @@ from homeassistant.helpers.restore_state import RestoreEntity
 
 from .const import DOMAIN, CONF_IMEI, CONF_MULTI_DEVICE, DEFAULT_MULTI_DEVICE
 from .definitions import INPUT_NUMBERS
-from .helpers import get_device_info
+from .helpers import get_device_info, insert_imei_in_entity_id
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -46,7 +46,9 @@ class ScooterNumberEntity(NumberEntity, RestoreEntity):
             self._attr_has_entity_name = True
             self._attr_unique_id = f"{imei}_{number_id}"
             self._attr_name = config['name']
-            self._attr_device_info = get_device_info(imei, multi_device)
+            # L'identifiant doit être celui que le moteur calcule, pas celui
+            # que HA dérive du nom d'appareil + nom d'entité.
+            self.entity_id = insert_imei_in_entity_id(f"number.{number_id}", imei, multi_device)
         else:
             # Legacy mode: same as v1.0.4
             self._attr_unique_id = f"{DOMAIN}_{number_id}"

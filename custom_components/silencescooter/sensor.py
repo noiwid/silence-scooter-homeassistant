@@ -21,7 +21,6 @@ from homeassistant.exceptions import TemplateError
 
 from .const import (
     DOMAIN,
-    HISTORY_FILE,
     CONF_IMEI,
     CONF_TARIFF_SENSOR,
     CONF_USE_TRACKED_DISTANCE,
@@ -30,7 +29,7 @@ from .const import (
     DEFAULT_USE_TRACKED_DISTANCE,
     DEFAULT_MULTI_DEVICE,
 )
-from .helpers import get_device_info, insert_imei_in_entity_id, generate_entity_id_suffix
+from .helpers import get_device_info, insert_imei_in_entity_id, generate_entity_id_suffix, get_history_file
 from .errors import ErrorCategory, ErrorSeverity, get_error_detector
 from .definitions import (
     WRITABLE_SENSORS,
@@ -80,7 +79,7 @@ async def async_setup_entry(
     for sensor_id, config in WRITABLE_SENSORS.items():
         entities.append(ScooterWritableSensor(hass, sensor_id, config, imei, multi_device))
 
-    configured_tariff_sensor = hass.data.get(DOMAIN, {}).get("config", {}).get(
+    configured_tariff_sensor = config_entry.data.get(
         CONF_TARIFF_SENSOR, DEFAULT_TARIFF_SENSOR
     )
 
@@ -89,7 +88,7 @@ async def async_setup_entry(
         entities.append(ScooterDefaultTariffSensor(hass, imei, multi_device))
         configured_tariff_sensor = "sensor.silencescooter_default_electricity_price"
 
-    use_tracked_distance = hass.data.get(DOMAIN, {}).get("config", {}).get(
+    use_tracked_distance = config_entry.data.get(
         CONF_USE_TRACKED_DISTANCE, DEFAULT_USE_TRACKED_DISTANCE
     )
 
@@ -116,6 +115,15 @@ async def async_setup_entry(
         config_copy = config.copy()
         if "value_template" in config_copy:
             config_copy["value_template"] = adapt_template_for_multi_device(config_copy["value_template"])
+        if multi_device and imei:
+            # Les déclencheurs écoutaient les identifiants sans IMEI
+            config_copy["triggers"] = [
+                {**t, "entity_id": [
+                    insert_imei_in_entity_id(e, imei, multi_device)
+                    for e in (t["entity_id"] if isinstance(t["entity_id"], list) else [t["entity_id"]])
+                ]} if "entity_id" in t else t
+                for t in config_copy.get("triggers", [])
+            ]
         entities.append(ScooterTriggerSensor(hass, sensor_id, config_copy, imei, multi_device))
 
     for sensor_id, config in ENERGY_COST_SENSORS.items():
@@ -197,6 +205,9 @@ class ScooterDefaultTariffSensor(SensorEntity):
             self._attr_has_entity_name = True
             self._attr_unique_id = f"{imei}_default_electricity_price"
             self._attr_name = "Default Electricity Price"
+            self.entity_id = insert_imei_in_entity_id(
+                "sensor.silencescooter_default_electricity_price", imei, multi_device
+            )
         else:
             # Legacy mode: same as v1.0.4
             self._attr_unique_id = f"{DOMAIN}_default_electricity_price"
@@ -231,6 +242,7 @@ class ScooterTemplateSensor(SensorEntity, RestoreEntity):
             self._attr_unique_id = f"{imei}_{sensor_id}"
             sensor_type = sensor_id.replace("scooter_", "").replace("_", " ").title()
             self._attr_name = sensor_type
+            self.entity_id = insert_imei_in_entity_id(f"sensor.{sensor_id}", imei, multi_device)
         else:
             # Legacy mode: same as v1.0.4
             self._attr_unique_id = f"{DOMAIN}_{sensor_id}"
@@ -299,6 +311,7 @@ class ScooterWritableSensor(SensorEntity, RestoreEntity):
             self._attr_has_entity_name = True
             self._attr_unique_id = f"{imei}_{sensor_id}"
             self._attr_name = config.get("name", sensor_id.replace("_", " ").title())
+            self.entity_id = insert_imei_in_entity_id(f"sensor.{sensor_id}", imei, multi_device)
         else:
             # Legacy mode: same as v1.0.4
             self._attr_unique_id = f"{DOMAIN}_{sensor_id}"
@@ -316,18 +329,10 @@ class ScooterWritableSensor(SensorEntity, RestoreEntity):
         """Restore last state when added to hass."""
         await super().async_added_to_hass()
 
-        # RestoreEntity : sans cette restauration effective, chaque
+        # RestoreEntity : sans restauration effective (plus bas), chaque
         # redémarrage de HA remettait tous les capteurs writable à 0
         # (max_speed du trajet en cours, displays persistants…) — c'est
         # l'origine des max_speed=0 avec avg_speed>0 dans l'historique.
-        last_state = await self.async_get_last_state()
-        if last_state is not None and last_state.state not in ("unknown", "unavailable"):
-            try:
-                self._attr_native_value = float(last_state.state)
-                _LOGGER.debug("Writable sensor %s restored to %s", self.entity_id, last_state.state)
-            except (ValueError, TypeError):
-                pass
-
         if DOMAIN in self.hass.data:
             self.hass.data[DOMAIN].setdefault("sensors", {})[self.entity_id] = self
             _LOGGER.info("Writable sensor registered: %s", self.entity_id)
@@ -391,6 +396,20 @@ class ScooterTriggerSensor(ScooterTemplateSensor):
         """Handle entity added to Home Assistant."""
         await super().async_added_to_hass()
 
+        # Un capteur à déclencheur garde sa valeur entre deux déclenchements :
+        # on republie le dernier état AVANT de recalculer. Sans ça,
+        # scooter_energy_consumption (total_increasing) retombait à 0 à chaque
+        # redémarrage puis remontait à ~1000 kWh, ce que les statistiques HA
+        # comptaient comme une nouvelle consommation.
+        last_state = await self.async_get_last_state()
+        if last_state is not None and last_state.state not in ("unknown", "unavailable"):
+            self._attr_native_value = last_state.state
+            try:
+                self.async_write_ha_state()
+            except ValueError:
+                # État restauré non numérique pour un capteur numérique
+                self._attr_native_value = None
+
         await self.async_update()
         for trigger in self._triggers:
             platform = trigger.get("platform")
@@ -451,6 +470,7 @@ class ScooterTripsSensor(SensorEntity, RestoreEntity):
             self._attr_has_entity_name = True
             self._attr_unique_id = f"{imei}_trips"
             self._attr_name = "Trips"
+            self.entity_id = insert_imei_in_entity_id("sensor.scooter_trips", imei, multi_device)
         else:
             # Legacy mode: same as v1.0.4
             self._attr_unique_id = f"{DOMAIN}_trips"
@@ -460,6 +480,7 @@ class ScooterTripsSensor(SensorEntity, RestoreEntity):
         self._attr_native_value = 0
         self._attr_extra_state_attributes = {"history": []}
         self._attr_device_info = get_device_info(imei, multi_device)
+        self._history_file = get_history_file(imei, multi_device)
 
     async def async_added_to_hass(self) -> None:
         """Handle entity which will be added."""
@@ -478,7 +499,16 @@ class ScooterTripsSensor(SensorEntity, RestoreEntity):
 
             if content:
                 self._attr_native_value = len(content)
-                self._attr_extra_state_attributes = {"history": content[:10]}
+                distances = []
+                for trip in content:
+                    try:
+                        distances.append(float(trip.get("distance", 0)))
+                    except (ValueError, TypeError, AttributeError):
+                        pass
+                self._attr_extra_state_attributes = {
+                    "history": content[:10],
+                    "average_distance": round(sum(distances) / len(distances), 1) if distances else 0,
+                }
 
         except Exception as e:
             _LOGGER.error("Error updating sensor: %s", e)
@@ -486,8 +516,8 @@ class ScooterTripsSensor(SensorEntity, RestoreEntity):
     def _read_history_file(self) -> Optional[list]:
         """Read and parse the history file."""
         try:
-            if HISTORY_FILE.exists():
-                with open(HISTORY_FILE, 'r') as file:
+            if self._history_file.exists():
+                with open(self._history_file, 'r') as file:
                     return json.load(file)
         except Exception as e:
             _LOGGER.error("Error reading history file: %s", e)
@@ -510,6 +540,7 @@ class ScooterUtilityMeterSensor(SensorEntity, RestoreEntity):
             self._attr_unique_id = f"{imei}_{meter_id}"
             sensor_type = meter_id.replace("scooter_", "").replace("_", " ").title()
             self._attr_name = sensor_type
+            self.entity_id = insert_imei_in_entity_id(f"sensor.{meter_id}", imei, multi_device)
         else:
             # Legacy mode: same as v1.0.4
             self._attr_unique_id = f"{DOMAIN}_{meter_id}"
@@ -605,9 +636,9 @@ class ScooterUtilityMeterSensor(SensorEntity, RestoreEntity):
             """Handle source sensor state change."""
             self.hass.async_create_task(self._handle_source_update(event))
 
-        async_track_state_change_event(
+        self.async_on_remove(async_track_state_change_event(
             self.hass, [self._source], source_changed
-        )
+        ))
 
         # Add periodic check for cycle reset (every 5 minutes for all cycles)
         # This ensures we detect cycle changes even if source sensor doesn't update
@@ -620,11 +651,11 @@ class ScooterUtilityMeterSensor(SensorEntity, RestoreEntity):
         # Weekly/Monthly/Yearly: check every hour (sufficient for these longer cycles)
         interval = timedelta(minutes=5) if self._cycle == "daily" else timedelta(hours=1)
 
-        async_track_time_interval(
+        self.async_on_remove(async_track_time_interval(
             self.hass,
             periodic_check,
             interval
-        )
+        ))
 
         _LOGGER.info("Utility meter %s: periodic check every %s",
                      self.entity_id, interval)
@@ -787,6 +818,7 @@ class ScooterErrorDetectionSensor(SensorEntity):
             self._attr_has_entity_name = True
             self._attr_unique_id = f"{imei}_error_detection"
             self._attr_name = "Error Detection"
+            self.entity_id = insert_imei_in_entity_id("sensor.scooter_error_detection", imei, multi_device)
         else:
             self._attr_unique_id = f"{DOMAIN}_error_detection"
             self._attr_name = "Scooter - Error Detection"
@@ -805,7 +837,7 @@ class ScooterErrorDetectionSensor(SensorEntity):
         def _refresh(_now):
             self.async_schedule_update_ha_state(True)
 
-        async_track_time_interval(self.hass, _refresh, timedelta(minutes=5))
+        self.async_on_remove(async_track_time_interval(self.hass, _refresh, timedelta(minutes=5)))
         await self.async_update()
 
     async def async_update(self) -> None:
@@ -834,6 +866,5 @@ class ScooterErrorDetectionSensor(SensorEntity):
             "errors_by_category": self._summary.get("errors_by_category", {}),
             "errors_by_severity": self._summary.get("errors_by_severity", {}),
             "recurring_patterns": self._summary.get("recurring_patterns", 0),
-            "stale_sensors": self._summary.get("stale_sensors", []),
             "recent_errors": self._summary.get("recent_errors", []),
         }

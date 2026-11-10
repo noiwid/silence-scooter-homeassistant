@@ -124,7 +124,7 @@ These sensors provide usage statistics.
 |-----------------------------------|------------------------------|------|-------------|----------------------------------------------------------|
 | `sensor.scooter_distance_per_charge`| Usage – Distance per charge  | km   | measurement  | Average distance per full charge cycle                   |
 | `sensor.scooter_cost_per_km`        | Usage – Cost per kilometre   | €/km | measurement  | Average cost per kilometre travelled                      |
-| `sensor.scooter_average_trip_distance`| Usage – Average trip distance | km | measurement  | Average distance computed from the trip history          |
+| `sensor.scooter_average_trip_distance`| Usage – Average trip distance | km | measurement  | Average distance over the whole trip history              |
 
 ### Utility Meters  
 These sensors are counters that reset automatically according to their cycle.

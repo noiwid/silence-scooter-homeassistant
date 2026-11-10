@@ -209,89 +209,14 @@ async def publish_mqtt_discovery_configs(hass: HomeAssistant, imei: str, multi_d
             },
 
             # Battery cell voltages (14 cells)
-            "Cell1Voltage": {
-                "name": "Cell 1 Voltage",
-                "unit": "V",
-                "device_class": "voltage",
-                "value_template": "{{ (value | float / 1000) | round(3) }}"
-            },
-            "Cell2Voltage": {
-                "name": "Cell 2 Voltage",
-                "unit": "V",
-                "device_class": "voltage",
-                "value_template": "{{ (value | float / 1000) | round(3) }}"
-            },
-            "Cell3Voltage": {
-                "name": "Cell 3 Voltage",
-                "unit": "V",
-                "device_class": "voltage",
-                "value_template": "{{ (value | float / 1000) | round(3) }}"
-            },
-            "Cell4Voltage": {
-                "name": "Cell 4 Voltage",
-                "unit": "V",
-                "device_class": "voltage",
-                "value_template": "{{ (value | float / 1000) | round(3) }}"
-            },
-            "Cell5Voltage": {
-                "name": "Cell 5 Voltage",
-                "unit": "V",
-                "device_class": "voltage",
-                "value_template": "{{ (value | float / 1000) | round(3) }}"
-            },
-            "Cell6Voltage": {
-                "name": "Cell 6 Voltage",
-                "unit": "V",
-                "device_class": "voltage",
-                "value_template": "{{ (value | float / 1000) | round(3) }}"
-            },
-            "Cell7Voltage": {
-                "name": "Cell 7 Voltage",
-                "unit": "V",
-                "device_class": "voltage",
-                "value_template": "{{ (value | float / 1000) | round(3) }}"
-            },
-            "Cell8Voltage": {
-                "name": "Cell 8 Voltage",
-                "unit": "V",
-                "device_class": "voltage",
-                "value_template": "{{ (value | float / 1000) | round(3) }}"
-            },
-            "Cell9Voltage": {
-                "name": "Cell 9 Voltage",
-                "unit": "V",
-                "device_class": "voltage",
-                "value_template": "{{ (value | float / 1000) | round(3) }}"
-            },
-            "Cell10Voltage": {
-                "name": "Cell 10 Voltage",
-                "unit": "V",
-                "device_class": "voltage",
-                "value_template": "{{ (value | float / 1000) | round(3) }}"
-            },
-            "Cell11Voltage": {
-                "name": "Cell 11 Voltage",
-                "unit": "V",
-                "device_class": "voltage",
-                "value_template": "{{ (value | float / 1000) | round(3) }}"
-            },
-            "Cell12Voltage": {
-                "name": "Cell 12 Voltage",
-                "unit": "V",
-                "device_class": "voltage",
-                "value_template": "{{ (value | float / 1000) | round(3) }}"
-            },
-            "Cell13Voltage": {
-                "name": "Cell 13 Voltage",
-                "unit": "V",
-                "device_class": "voltage",
-                "value_template": "{{ (value | float / 1000) | round(3) }}"
-            },
-            "Cell14Voltage": {
-                "name": "Cell 14 Voltage",
-                "unit": "V",
-                "device_class": "voltage",
-                "value_template": "{{ (value | float / 1000) | round(3) }}"
+            **{
+                f"Cell{i}Voltage": {
+                    "name": f"Cell {i} Voltage",
+                    "unit": "V",
+                    "device_class": "voltage",
+                    "value_template": "{{ (value | float / 1000) | round(3) }}",
+                }
+                for i in range(1, 15)
             },
 
             # Extended CAN sensors (from $RCAN discovery)
@@ -624,23 +549,13 @@ async def async_setup_services(hass: HomeAssistant) -> None:
                 _LOGGER.error("No IMEI found for device %s", device_id)
                 return
 
-            imei_short = imei[-4:] if len(imei) >= 4 else imei
-
-            # Find source entity for this device
-            source_entity_id = None
-            for entity in er.async_entries_for_device(entity_registry, device_id):
-                if "energy_consumption" in entity.entity_id and "daily" not in entity.entity_id:
-                    source_entity_id = entity.entity_id
-                    break
-
-            if not source_entity_id:
-                _LOGGER.error("Source energy consumption sensor not found for device")
-                return
-
+            multi = True
         else:
             # Legacy mode - use default entity IDs
-            imei_short = ""
-            source_entity_id = "sensor.scooter_energy_consumption"
+            imei, multi = "", False
+
+        # Même convention d'identifiants que le moteur (IMEI inséré après "scooter_")
+        source_entity_id = insert_imei_in_entity_id("sensor.scooter_energy_consumption", imei, multi)
 
         # Get source value
         if source_value_param is not None:
@@ -678,45 +593,14 @@ async def async_setup_services(hass: HomeAssistant) -> None:
                 return
 
         # Build target entity IDs
-        if imei_short:
-            targets = {
-                f"sensor.scooter_energy_consumption_daily_{imei_short}": {
-                    "consumption": daily_value / electricity_price,
-                    "cycle_start": source_value - (daily_value / electricity_price)
-                },
-                f"sensor.scooter_energy_consumption_weekly_{imei_short}": {
-                    "consumption": weekly_value / electricity_price,
-                    "cycle_start": source_value - (weekly_value / electricity_price)
-                },
-                f"sensor.scooter_energy_consumption_monthly_{imei_short}": {
-                    "consumption": monthly_value / electricity_price,
-                    "cycle_start": source_value - (monthly_value / electricity_price)
-                },
-                f"sensor.scooter_energy_consumption_yearly_{imei_short}": {
-                    "consumption": yearly_value / electricity_price,
-                    "cycle_start": source_value - (yearly_value / electricity_price)
-                },
-            }
-        else:
-            # Legacy mode
-            targets = {
-                "sensor.scooter_energy_consumption_daily": {
-                    "consumption": daily_value / electricity_price,
-                    "cycle_start": source_value - (daily_value / electricity_price)
-                },
-                "sensor.scooter_energy_consumption_weekly": {
-                    "consumption": weekly_value / electricity_price,
-                    "cycle_start": source_value - (weekly_value / electricity_price)
-                },
-                "sensor.scooter_energy_consumption_monthly": {
-                    "consumption": monthly_value / electricity_price,
-                    "cycle_start": source_value - (monthly_value / electricity_price)
-                },
-                "sensor.scooter_energy_consumption_yearly": {
-                    "consumption": yearly_value / electricity_price,
-                    "cycle_start": source_value - (yearly_value / electricity_price)
-                },
-            }
+        targets = {}
+        for cycle, eur in (
+            ("daily", daily_value), ("weekly", weekly_value),
+            ("monthly", monthly_value), ("yearly", yearly_value),
+        ):
+            kwh = eur / electricity_price
+            target_id = insert_imei_in_entity_id(f"sensor.scooter_energy_consumption_{cycle}", imei, multi)
+            targets[target_id] = {"consumption": kwh, "cycle_start": source_value - kwh}
 
         # Find and update sensor objects via hass.data[DOMAIN]["sensors"]
         updated_count = 0
@@ -813,7 +697,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             "error_detector": error_detector,
         }
         # Also store at domain level for backward compat with automations
-        hass.data[DOMAIN]["sensors"] = {}
+        # setdefault : en multi-device, repartir de {} effaçait le registre
+        # des capteurs writable du scooter chargé avant.
+        hass.data[DOMAIN].setdefault("sensors", {})
         hass.data[DOMAIN]["config"] = entry.data
 
         imei_log = imei[-4:] if imei else "single-device"
@@ -913,5 +799,6 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
 async def async_reload_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
     """Reload config entry."""
-    await async_unload_entry(hass, entry)
-    await async_setup_entry(hass, entry)
+    # Passer par HA : un unload/setup manuel ne retirait jamais l'écouteur
+    # d'options, qui doublait à chaque enregistrement (1, 2, 4 rechargements…).
+    await hass.config_entries.async_reload(entry.entry_id)

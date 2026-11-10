@@ -1,17 +1,13 @@
 """Automations for the Silence Scooter integration."""
 import logging
-import asyncio
-import subprocess
 
-from datetime import datetime, timedelta
+from datetime import timedelta
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.event import (
     async_track_state_change_event,
     async_track_time_interval,
 )
 from homeassistant.components.number import SERVICE_SET_VALUE
-from homeassistant.helpers.restore_state import RestoreEntity
-from homeassistant.exceptions import HomeAssistantError
 from .const import (
     DOMAIN,
     CONF_CONFIRMATION_DELAY,
@@ -30,7 +26,10 @@ from .const import (
     SENSOR_SCOOTER_AMBIENT_TEMP,
 )
 from homeassistant.util import dt as dt_util
-from .helpers import log_event, update_history, is_date_valid, get_valid_datetime
+from .helpers import (
+    log_event, update_history, is_date_valid, get_valid_datetime,
+    insert_imei_in_entity_id, get_history_file,
+)
 from .errors import ErrorCategory, ErrorSeverity, get_error_detector
 
 STARTUP_TIME = dt_util.utcnow()
@@ -38,35 +37,50 @@ STARTUP_TIME = dt_util.utcnow()
 _LOGGER = logging.getLogger(__name__)
 
 
-def get_config_value(hass: HomeAssistant, key: str, default: any) -> any:
-    """Get configuration value from config_entry with fallback to default."""
+def _tracking_key(imei: str) -> str:
+    """Clé hass.data de l'état de suivi : une par scooter en multi-device."""
+    return f"trip_tracking_state:{imei}" if imei else "trip_tracking_state"
+
+
+def get_config_value(hass: HomeAssistant, key: str, default: any, imei: str = "") -> any:
+    """Get configuration value from config_entry with fallback to default.
+
+    En multi-device (imei fourni), lit la config de CE scooter ; sinon la
+    config globale (la dernière entrée chargée écrasait celle des autres).
+    """
     try:
-        config = hass.data.get(DOMAIN, {}).get("config", {})
+        domain_data = hass.data.get(DOMAIN, {})
+        config = domain_data.get("config", {})
+        if imei:
+            for value in domain_data.values():
+                if isinstance(value, dict) and value.get("imei") == imei and "config" in value:
+                    config = value["config"]
+                    break
         return config.get(key, default)
     except Exception as e:
         _LOGGER.warning("Error getting config value %s: %s, using default %s", key, e, default)
         return default
 
 
-def get_outdoor_temperature_entity_id(hass: HomeAssistant) -> str:
+def get_outdoor_temperature_entity_id(hass: HomeAssistant, imei: str = "", multi_device: bool = False) -> str:
     """Get the outdoor temperature sensor entity ID based on configuration.
 
     Returns:
         Entity ID of the temperature sensor to use (scooter or external)
     """
-    temp_source = get_config_value(hass, CONF_OUTDOOR_TEMP_SOURCE, DEFAULT_OUTDOOR_TEMP_SOURCE)
+    temp_source = get_config_value(hass, CONF_OUTDOOR_TEMP_SOURCE, DEFAULT_OUTDOOR_TEMP_SOURCE, imei)
 
     if temp_source == OUTDOOR_TEMP_SOURCE_EXTERNAL:
         # Use external weather sensor if configured
-        external_entity = get_config_value(hass, CONF_OUTDOOR_TEMP_ENTITY, "")
+        external_entity = get_config_value(hass, CONF_OUTDOOR_TEMP_ENTITY, "", imei)
         if external_entity:
             return external_entity
         else:
             _LOGGER.warning("External temperature source selected but no entity configured, falling back to scooter sensor")
-            return SENSOR_SCOOTER_AMBIENT_TEMP
+            return insert_imei_in_entity_id(SENSOR_SCOOTER_AMBIENT_TEMP, imei, multi_device)
     else:
         # Use scooter ambient temperature sensor (default)
-        return SENSOR_SCOOTER_AMBIENT_TEMP
+        return insert_imei_in_entity_id(SENSOR_SCOOTER_AMBIENT_TEMP, imei, multi_device)
 
 
 def get_sensor_float_value(hass: HomeAssistant, entity_id: str, default: float = 0.0, fallback_entity: str | None = None) -> float:
@@ -227,7 +241,9 @@ async def calculate_trip_duration(
         delta = dt_end - dt_start
         total_duration = delta.total_seconds() / 60
         pause_duration = get_sensor_float_value(hass, entity_id("number.scooter_pause_duration"), 0.0)
-        trip_duration = max(0, round(total_duration - pause_duration))
+        # Au dixième : l'arrondi à la minute donnait « 3 km en 1 min = 180 km/h »
+        # et faisait rejeter de vrais petits trajets.
+        trip_duration = max(0, round(total_duration - pause_duration, 1))
 
         if trip_duration > 1440:
             _LOGGER.warning("Trip duration too long (%.1f min > 24h), capped at 24h", trip_duration)
@@ -400,7 +416,7 @@ async def async_setup_automations(
     #     watchdog quand sensor.silence_scooter_last_update est
     #     unknown/unavailable (garage, restart HA).
     hass.data.setdefault(DOMAIN, {}).setdefault(
-        "trip_tracking_state",
+        _tracking_key(imei),
         {
             "last_trip_start_monotonic": None,
             "odo_tracking_fired": False,
@@ -409,7 +425,7 @@ async def async_setup_automations(
             "pause_is_connectivity_loss": False,
         },
     )
-    _tracking_state = hass.data[DOMAIN]["trip_tracking_state"]
+    _tracking_state = hass.data[DOMAIN][_tracking_key(imei)]
 
     # Backwards-compatible local dict wrappers so the existing closures
     # below keep working without change. They all write/read via the
@@ -536,7 +552,7 @@ async def async_setup_automations(
                 _LOGGER.info("🎯 Auto-initializing energy baseline: %.3f kWh (discharged: %.3f - regenerated: %.3f)",
                             baseline, discharged, regenerated)
 
-                hass.loop.create_task(
+                hass.async_create_task(
                     hass.services.async_call(
                         "number",
                         SERVICE_SET_VALUE,
@@ -579,7 +595,7 @@ async def async_setup_automations(
         if old_state.state == "on" \
             and new_state.state in ("off", "unavailable", "unknown"):            
             # => datetime.scooter_last_moving_time = now()
-            hass.loop.create_task(_update_last_moving_time())
+            hass.async_create_task(_update_last_moving_time())
 
     async def _update_last_moving_time():
         # Use the scooter's last MQTT update timestamp instead of now()
@@ -665,7 +681,6 @@ async def async_setup_automations(
             # restarts. Cost of a false delayed stop: ~7 minutes of "trip
             # still active" after the real shutdown. Cost of a false
             # immediate stop: a legitimate 30-minute ride cut in half.
-            should_stop_immediately = False
 
             # Perte de connectivité vs arrêt réel (status=0, batterie
             # retirée…). Les deux cas ne doivent PAS avoir la même échéance :
@@ -683,7 +698,7 @@ async def async_setup_automations(
             # signal fiable est la FRAÎCHEUR de la télémétrie.
             stale_after = min(
                 60.0,
-                max(20.0, get_config_value(hass, CONF_CONFIRMATION_DELAY, DEFAULT_CONFIRMATION_DELAY) / 4),
+                max(20.0, get_config_value(hass, CONF_CONFIRMATION_DELAY, DEFAULT_CONFIRMATION_DELAY, imei) / 4),
             )
             last_seen = _tracking_state.get("last_telemetry_utc")
             telemetry_age = (
@@ -706,180 +721,147 @@ async def async_setup_automations(
             elif not battery_present:
                 _LOGGER.info("Battery removed -> delayed stop (confirmation)")
 
-            # Définir _immediate_stop AVANT son utilisation (sinon UnboundLocalError)
-            async def _immediate_stop():
-                """Arrêt immédiat du trajet sans délai."""
-                _LOGGER.info("🚨 IMMEDIATE STOP: arrêt immédiat du trajet")
+            _LOGGER.info("DELAYED STOP triggered (2min + 5min timer)")
 
-                # Utiliser last_moving_time au lieu de l'heure actuelle
-                last_moving = hass.states.get(INPUT_DT_LAST_MOVING)
-                if last_moving and last_moving.state not in ["unknown", "unavailable"]:
-                    end_time_str = last_moving.state
+            # Définir les fonctions async AVANT de les utiliser
+            def _start_tolerance_timer(connectivity=False):
+                """Démarre le timer de tolérance (durée configurable).
+
+                connectivity=True : coupure réseau (tunnel, zone blanche,
+                module Astra qui se ré-enregistre) sans arrêt signalé. Le
+                scooter roule très probablement encore : on applique la
+                tolérance dédiée, plus longue que la pause maximale. Le
+                2026-09-14 un commute a été scindé en deux par 8 min de
+                silence à la Porte de la Muette (> 5 min de pause max).
+                La fin du trajet reste calée sur la dernière trame, donc
+                la durée enregistrée ne dépend pas de cette tolérance.
+                """
+                if connectivity:
+                    pause_duration_min = get_config_value(hass, CONF_CONNECTIVITY_LOSS_TOLERANCE, DEFAULT_CONNECTIVITY_LOSS_TOLERANCE, imei)
+                    stop_reason = "connectivity-timeout"
                 else:
-                    # Fallback sur l'heure actuelle si last_moving_time indisponible
-                    end_time_str = dt_util.now().isoformat()
+                    pause_duration_min = get_config_value(hass, CONF_PAUSE_MAX_DURATION, DEFAULT_PAUSE_MAX_DURATION, imei)
+                    stop_reason = "tolerance-timeout"
+                # Convert to seconds
+                duration_seconds = pause_duration_min * 60
 
-                await hass.services.async_call(
+                # Cancel any existing tolerance timer
+                if "tolerance_timer" in scheduled_tasks:
+                    scheduled_tasks["tolerance_timer"].cancel()
+
+                # Schedule the callback that will stop the trip when timer expires
+                async def _on_tolerance_expired():
+                    """Appelé quand le timer de tolérance arrive à expiration."""
+                    scheduled_tasks.pop("tolerance_timer", None)
+                    if not is_trip_active():
+                        _LOGGER.info("⏱️ Timer de tolérance expiré mais trajet déjà clôturé, rien à faire")
+                        return
+                    _LOGGER.info("⏱️ Timer de tolérance terminé (%d min), arrêt définitif du trajet", pause_duration_min)
+                    await do_log_event(hass, f"Trip auto-stopped: {stop_reason} ({pause_duration_min}min)")
+                    await do_stop_trip(hass, imei=imei, multi_device=multi_device, reason=stop_reason)
+
+                task = hass.loop.call_later(duration_seconds, lambda: hass.async_create_task(_on_tolerance_expired()))
+                scheduled_tasks["tolerance_timer"] = task
+                _LOGGER.info(f"✓ Tolerance timer started successfully ({pause_duration_min} min = {duration_seconds}s)")
+
+            async def _confirm_off():
+                """Confirme l'arrêt du trajet après le délai de confirmation."""
+                confirmation_delay = get_config_value(hass, CONF_CONFIRMATION_DELAY, DEFAULT_CONFIRMATION_DELAY, imei)
+                _LOGGER.info(f"⏰ CONFIRM OFF: vérification après {confirmation_delay}s d'attente")
+                scheduled_tasks.pop("trip_off_delay", None)
+
+                # Annulation du timer de tolérance s'il est encore actif
+                tolerance_task = scheduled_tasks.pop("tolerance_timer", None)
+                if tolerance_task:
+                    tolerance_task.cancel()
+                    _LOGGER.debug("Timer de tolérance annulé (arrêt confirmé)")
+
+                if not is_trip_active():
+                    _LOGGER.info("⏰ CONFIRM OFF: trajet déjà clôturé, rien à faire")
+                    return
+
+                # Re-vérifier la fraîcheur : si plus aucune trame n'est
+                # arrivée depuis l'armement, l'arrêt supposé n'est en fait
+                # qu'une coupure réseau. On repasse la main à la tolérance
+                # au lieu de clôturer (sinon le trajet est scindé).
+                last_seen_now = _tracking_state.get("last_telemetry_utc")
+                if last_seen_now:
+                    age_now = (dt_util.utcnow() - last_seen_now).total_seconds()
+                    if age_now > stale_after:
+                        _LOGGER.info(
+                            "⏰ CONFIRM OFF annulé : aucune trame depuis %.0fs "
+                            "(coupure réseau, pas un arrêt) -> tolérance seule",
+                            age_now,
+                        )
+                        _tracking_state["pause_is_connectivity_loss"] = True
+                        _start_tolerance_timer(connectivity=True)
+                        return
+
+                state = hass.states.get(SENSOR_TRIP_STATUS)
+                # On considère unavailable/unknown comme un vrai arrêt aussi
+                if state and state.state in ("off", "unavailable", "unknown"):
+                    _LOGGER.info("✅ CONFIRM OFF: état toujours OFF après 2min -> arrêt du trajet")
+
+                    # ✅ FIX: Ne PAS comptabiliser le délai de confirmation (2 min) comme une pause
+                    # Ce délai est un anti-rebond technique, pas une pause réelle.
+                    # Les vraies pauses sont déjà enregistrées par _record_pause_end()
+                    # qui est appelé lors de la reprise du trajet (trip_status: off → on)
+                    _LOGGER.debug("⏱️ Délai de confirmation (2 min) ignoré - pas une pause réelle")
+
+                    await do_log_event(hass, "Auto stop trip (confirmed after 2min)")
+                    await do_stop_trip(hass, imei=imei, multi_device=multi_device, reason="auto-confirmed")
+                else:
+                    _LOGGER.info("🔄 CONFIRM OFF: état changé -> annulation de l'arrêt")
+
+            # Maintenant qu'on a défini les fonctions, on peut les utiliser
+            # Enregistrer le début de la pause.
+            # On mémorise AUSSI la nature de l'interruption : une perte de
+            # connectivité (le scooter ne répond plus) n'est PAS une pause
+            # — le scooter roule très probablement encore. La déduire de la
+            # durée nette faussait tout : 4 coupures de ~1,5 min sur le
+            # trajet du 2026-07-27 donnaient « 11 km en 11 min à 60 km/h »
+            # pour un trajet réel de 18 min.
+            _tracking_state["pause_is_connectivity_loss"] = connectivity_loss
+            hass.async_create_task(
+                hass.services.async_call(
                     "datetime",
                     "set_value",
                     {
-                        "entity_id": INPUT_DT_END_TIME,
-                        "datetime": end_time_str
+                        "entity_id": entity_id("datetime.scooter_pause_start"),
+                        "datetime": dt_util.now().isoformat()
                     },
                     blocking=True
                 )
+            )
 
-                await do_log_event(hass, "Immediate stop - scooter off/unavailable")
-                await do_stop_trip(hass, imei=imei, multi_device=multi_device, reason="immediate")
+            # Annuler toute tâche précédente (pop obligatoire : une tâche
+            # annulée qui resterait dans le dict ferait croire au watchdog
+            # qu'un arrêt est déjà en cours)
+            previous_task = scheduled_tasks.pop("trip_off_delay", None)
+            if previous_task:
+                previous_task.cancel()
 
-            if should_stop_immediately:
-                _LOGGER.info("IMMEDIATE STOP triggered (scooter off or battery removed)")
-                hass.loop.create_task(_immediate_stop())
-                return
+            if connectivity_loss:
+                # Perte de signal : PAS de délai de confirmation. La
+                # tolérance (pause_max_duration) est la seule échéance de
+                # clôture — si les trames reviennent et que le trajet
+                # repart, handle_stop_timer_if_restart annule le timer et
+                # enregistre la pause ; si le scooter est réellement garé
+                # (garage), la tolérance clôturera avec l'end_time basé sur
+                # last_moving_time, pas sur l'heure d'expiration.
+                _start_tolerance_timer(connectivity=True)
             else:
-                _LOGGER.info("DELAYED STOP triggered (2min + 5min timer)")
+                # Arrêt réel signalé (status=0, batterie retirée…) :
+                # 1) Planifie l'arrêt après le délai de confirmation configurable
+                confirmation_delay = get_config_value(hass, CONF_CONFIRMATION_DELAY, DEFAULT_CONFIRMATION_DELAY, imei)
+                task = hass.loop.call_later(confirmation_delay, lambda: hass.async_create_task(_confirm_off()))
+                scheduled_tasks["trip_off_delay"] = task
 
-                # Définir les fonctions async AVANT de les utiliser
-                def _start_tolerance_timer(connectivity=False):
-                    """Démarre le timer de tolérance (durée configurable).
+                # 2) Démarre le timer de tolérance (filet de sécurité si la
+                # confirmation est annulée sans reprise du trajet)
+                _start_tolerance_timer()
 
-                    connectivity=True : coupure réseau (tunnel, zone blanche,
-                    module Astra qui se ré-enregistre) sans arrêt signalé. Le
-                    scooter roule très probablement encore : on applique la
-                    tolérance dédiée, plus longue que la pause maximale. Le
-                    2026-09-14 un commute a été scindé en deux par 8 min de
-                    silence à la Porte de la Muette (> 5 min de pause max).
-                    La fin du trajet reste calée sur la dernière trame, donc
-                    la durée enregistrée ne dépend pas de cette tolérance.
-                    """
-                    if connectivity:
-                        pause_duration_min = get_config_value(
-                            hass, CONF_CONNECTIVITY_LOSS_TOLERANCE, DEFAULT_CONNECTIVITY_LOSS_TOLERANCE
-                        )
-                        stop_reason = "connectivity-timeout"
-                    else:
-                        pause_duration_min = get_config_value(hass, CONF_PAUSE_MAX_DURATION, DEFAULT_PAUSE_MAX_DURATION)
-                        stop_reason = "tolerance-timeout"
-                    # Convert to seconds
-                    duration_seconds = pause_duration_min * 60
-
-                    # Cancel any existing tolerance timer
-                    if "tolerance_timer" in scheduled_tasks:
-                        scheduled_tasks["tolerance_timer"].cancel()
-
-                    # Schedule the callback that will stop the trip when timer expires
-                    async def _on_tolerance_expired():
-                        """Appelé quand le timer de tolérance arrive à expiration."""
-                        scheduled_tasks.pop("tolerance_timer", None)
-                        if not is_trip_active():
-                            _LOGGER.info("⏱️ Timer de tolérance expiré mais trajet déjà clôturé, rien à faire")
-                            return
-                        _LOGGER.info("⏱️ Timer de tolérance terminé (%d min), arrêt définitif du trajet", pause_duration_min)
-                        await do_log_event(hass, f"Trip auto-stopped: {stop_reason} ({pause_duration_min}min)")
-                        await do_stop_trip(hass, imei=imei, multi_device=multi_device, reason=stop_reason)
-
-                    task = hass.loop.call_later(duration_seconds, lambda: hass.loop.create_task(_on_tolerance_expired()))
-                    scheduled_tasks["tolerance_timer"] = task
-                    _LOGGER.info(f"✓ Tolerance timer started successfully ({pause_duration_min} min = {duration_seconds}s)")
-
-                async def _confirm_off():
-                    """Confirme l'arrêt du trajet après le délai de confirmation."""
-                    confirmation_delay = get_config_value(hass, CONF_CONFIRMATION_DELAY, DEFAULT_CONFIRMATION_DELAY)
-                    _LOGGER.info(f"⏰ CONFIRM OFF: vérification après {confirmation_delay}s d'attente")
-                    scheduled_tasks.pop("trip_off_delay", None)
-
-                    # Annulation du timer de tolérance s'il est encore actif
-                    tolerance_task = scheduled_tasks.pop("tolerance_timer", None)
-                    if tolerance_task:
-                        tolerance_task.cancel()
-                        _LOGGER.debug("Timer de tolérance annulé (arrêt confirmé)")
-
-                    if not is_trip_active():
-                        _LOGGER.info("⏰ CONFIRM OFF: trajet déjà clôturé, rien à faire")
-                        return
-
-                    # Re-vérifier la fraîcheur : si plus aucune trame n'est
-                    # arrivée depuis l'armement, l'arrêt supposé n'est en fait
-                    # qu'une coupure réseau. On repasse la main à la tolérance
-                    # au lieu de clôturer (sinon le trajet est scindé).
-                    last_seen_now = _tracking_state.get("last_telemetry_utc")
-                    if last_seen_now:
-                        age_now = (dt_util.utcnow() - last_seen_now).total_seconds()
-                        if age_now > stale_after:
-                            _LOGGER.info(
-                                "⏰ CONFIRM OFF annulé : aucune trame depuis %.0fs "
-                                "(coupure réseau, pas un arrêt) -> tolérance seule",
-                                age_now,
-                            )
-                            _tracking_state["pause_is_connectivity_loss"] = True
-                            _start_tolerance_timer(connectivity=True)
-                            return
-
-                    state = hass.states.get(SENSOR_TRIP_STATUS)
-                    # On considère unavailable/unknown comme un vrai arrêt aussi
-                    if state and state.state in ("off", "unavailable", "unknown"):
-                        _LOGGER.info("✅ CONFIRM OFF: état toujours OFF après 2min -> arrêt du trajet")
-
-                        # ✅ FIX: Ne PAS comptabiliser le délai de confirmation (2 min) comme une pause
-                        # Ce délai est un anti-rebond technique, pas une pause réelle.
-                        # Les vraies pauses sont déjà enregistrées par _record_pause_end()
-                        # qui est appelé lors de la reprise du trajet (trip_status: off → on)
-                        _LOGGER.debug("⏱️ Délai de confirmation (2 min) ignoré - pas une pause réelle")
-
-                        await do_log_event(hass, "Auto stop trip (confirmed after 2min)")
-                        await do_stop_trip(hass, imei=imei, multi_device=multi_device, reason="auto-confirmed")
-                    else:
-                        _LOGGER.info("🔄 CONFIRM OFF: état changé -> annulation de l'arrêt")
-
-                # Maintenant qu'on a défini les fonctions, on peut les utiliser
-                # Enregistrer le début de la pause.
-                # On mémorise AUSSI la nature de l'interruption : une perte de
-                # connectivité (le scooter ne répond plus) n'est PAS une pause
-                # — le scooter roule très probablement encore. La déduire de la
-                # durée nette faussait tout : 4 coupures de ~1,5 min sur le
-                # trajet du 2026-07-27 donnaient « 11 km en 11 min à 60 km/h »
-                # pour un trajet réel de 18 min.
-                _tracking_state["pause_is_connectivity_loss"] = connectivity_loss
-                hass.loop.create_task(
-                    hass.services.async_call(
-                        "datetime",
-                        "set_value",
-                        {
-                            "entity_id": entity_id("datetime.scooter_pause_start"),
-                            "datetime": dt_util.now().isoformat()
-                        },
-                        blocking=True
-                    )
-                )
-
-                # Annuler toute tâche précédente (pop obligatoire : une tâche
-                # annulée qui resterait dans le dict ferait croire au watchdog
-                # qu'un arrêt est déjà en cours)
-                previous_task = scheduled_tasks.pop("trip_off_delay", None)
-                if previous_task:
-                    previous_task.cancel()
-
-                if connectivity_loss:
-                    # Perte de signal : PAS de délai de confirmation. La
-                    # tolérance (pause_max_duration) est la seule échéance de
-                    # clôture — si les trames reviennent et que le trajet
-                    # repart, handle_stop_timer_if_restart annule le timer et
-                    # enregistre la pause ; si le scooter est réellement garé
-                    # (garage), la tolérance clôturera avec l'end_time basé sur
-                    # last_moving_time, pas sur l'heure d'expiration.
-                    _start_tolerance_timer(connectivity=True)
-                else:
-                    # Arrêt réel signalé (status=0, batterie retirée…) :
-                    # 1) Planifie l'arrêt après le délai de confirmation configurable
-                    confirmation_delay = get_config_value(hass, CONF_CONFIRMATION_DELAY, DEFAULT_CONFIRMATION_DELAY)
-                    task = hass.loop.call_later(confirmation_delay, lambda: hass.loop.create_task(_confirm_off()))
-                    scheduled_tasks["trip_off_delay"] = task
-
-                    # 2) Démarre le timer de tolérance (filet de sécurité si la
-                    # confirmation est annulée sans reprise du trajet)
-                    _start_tolerance_timer()
-
-                _LOGGER.info("📋 Tâches planifiées : %s", list(scheduled_tasks.keys()))
+            _LOGGER.info("📋 Tâches planifiées : %s", list(scheduled_tasks.keys()))
     #
 
     remove_trip_status_off = async_track_state_change_event(
@@ -920,9 +902,9 @@ async def async_setup_automations(
                 # durée nette du trajet)
                 pause_start = hass.states.get(entity_id("datetime.scooter_pause_start"))
                 if pause_start and is_date_valid(pause_start.state):
-                    hass.loop.create_task(_record_pause_end())
+                    hass.async_create_task(_record_pause_end())
 
-                hass.loop.create_task(do_log_event(hass, "Pause stopped, trip restarted"))
+                hass.async_create_task(do_log_event(hass, "Pause stopped, trip restarted"))
     
     async def _reset_pause_start():
         """Remet la sentinelle sur pause_start (pause traitée ou ignorée)."""
@@ -965,7 +947,7 @@ async def async_setup_automations(
                     # 2026-09-14 : les déduire donnait « 4 km en 2 min à
                     # 120 km/h »). Seul un arrêt confirmé (>= délai de
                     # confirmation) est déduit de la durée nette.
-                    confirmation_delay = get_config_value(hass, CONF_CONFIRMATION_DELAY, DEFAULT_CONFIRMATION_DELAY)
+                    confirmation_delay = get_config_value(hass, CONF_CONFIRMATION_DELAY, DEFAULT_CONFIRMATION_DELAY, imei)
                     if 0 <= pause_duration * 60 < confirmation_delay:
                         _LOGGER.info(
                             "Arrêt court (%.1f min < %ds de confirmation) : compté dans le trajet, non déduit",
@@ -977,7 +959,7 @@ async def async_setup_automations(
                     # Clamp de sécurité : une pause ne peut pas dépasser la
                     # tolérance de beaucoup (le timer aurait clôturé). Une
                     # valeur énorme = pause_start périmée (restore, restart).
-                    pause_max_min = get_config_value(hass, CONF_PAUSE_MAX_DURATION, DEFAULT_PAUSE_MAX_DURATION)
+                    pause_max_min = get_config_value(hass, CONF_PAUSE_MAX_DURATION, DEFAULT_PAUSE_MAX_DURATION, imei)
                     pause_cap = max(60.0, pause_max_min * 3)
                     if pause_duration > pause_cap or pause_duration < 0:
                         _LOGGER.warning(
@@ -1034,10 +1016,9 @@ async def async_setup_automations(
         if old_state.state == "off" and new_state.state == "on":
             # => log_event("Manual stop button clicked")
             # => Annuler toutes les tâches d'arrêt en cours
-            # => datetime.scooter_end_time = datetime.scooter_last_moving_time
             # => do_stop_trip
             # => input_boolean.stop_trip_now = off
-            hass.loop.create_task(_process_stop_trip_now())
+            hass.async_create_task(_process_stop_trip_now())
 
     async def _process_stop_trip_now():
         await do_log_event(hass, "Manual stop button clicked")
@@ -1050,19 +1031,6 @@ async def async_setup_automations(
         if scheduled_tasks.get("tolerance_timer"):
             scheduled_tasks["tolerance_timer"].cancel()
             scheduled_tasks.pop("tolerance_timer", None)
-
-        # datetime.scooter_end_time = scooter_last_moving_time
-        last_moving = hass.states.get(INPUT_DT_LAST_MOVING)
-        end_time_value = last_moving.state if last_moving else dt_util.now().isoformat()
-        await hass.services.async_call(
-            "datetime",
-            "set_value",
-            {
-                "entity_id": INPUT_DT_END_TIME,
-                "datetime": end_time_value
-            },
-            blocking=True
-        )
 
         # do_stop_trip
         await do_stop_trip(hass, imei=imei, multi_device=multi_device, reason="Manual button")
@@ -1122,7 +1090,7 @@ async def async_setup_automations(
                     _LOGGER.warning("Could not read scooter status, continuing anyway")
             
             _LOGGER.info("✅ START CONFIRMED: démarrage du trajet (scooter status OK)")
-            hass.loop.create_task(_do_last_start())
+            hass.async_create_task(_do_last_start())
 
     async def _do_last_start():
         # Vérifier une dernière fois qu'un trajet n'est pas déjà en cours
@@ -1244,7 +1212,7 @@ async def async_setup_automations(
         # Toute valeur de vitesse valide = télémétrie fraîche (réf. watchdog)
         _tracking_state["last_telemetry_utc"] = dt_util.utcnow()
 
-        hass.loop.create_task(_do_update_max_speed(current_speed))
+        hass.async_create_task(_do_update_max_speed(current_speed))
 
     async def _do_update_max_speed(current_speed):
         old_max = get_sensor_float_value(hass, SENSOR_MAX_SPEED, 0.0)
@@ -1294,7 +1262,7 @@ async def async_setup_automations(
             if start_dt and (dt_util.now() - start_dt).total_seconds() > 86400:
                 return
 
-        hass.loop.create_task(_do_track_odo(new_odo, old_state))
+        hass.async_create_task(_do_track_odo(new_odo, old_state))
 
     async def _do_track_odo(new_odo: float, old_state):
         # Skip repair logic during the first 5 seconds after a trip start
@@ -1421,7 +1389,7 @@ async def async_setup_automations(
             if start_dt and (dt_util.now() - start_dt).total_seconds() > 86400:
                 return
 
-        hass.loop.create_task(_do_track_battery(new_soc, old_state))
+        hass.async_create_task(_do_track_battery(new_soc, old_state))
 
     async def _do_track_battery(new_soc: float, old_state):
         # Mark that tracking fired at least once for this trip.
@@ -1527,13 +1495,13 @@ async def async_setup_automations(
                 ref_time = max(candidates)
 
                 # Si pas de mise à jour depuis plus de X minutes (configurable)
-                watchdog_delay_min = get_config_value(hass, CONF_WATCHDOG_DELAY, DEFAULT_WATCHDOG_DELAY)
+                watchdog_delay_min = get_config_value(hass, CONF_WATCHDOG_DELAY, DEFAULT_WATCHDOG_DELAY, imei)
                 # Le silence radio est d'abord une coupure réseau possible :
                 # le watchdog ne doit pas clôturer avant la tolérance dédiée,
                 # sinon il scinde un trajet que la tolérance aurait gardé.
                 watchdog_delay_min = max(
                     watchdog_delay_min,
-                    get_config_value(hass, CONF_CONNECTIVITY_LOSS_TOLERANCE, DEFAULT_CONNECTIVITY_LOSS_TOLERANCE),
+                    get_config_value(hass, CONF_CONNECTIVITY_LOSS_TOLERANCE, DEFAULT_CONNECTIVITY_LOSS_TOLERANCE, imei),
                 )
                 watchdog_delay_sec = watchdog_delay_min * 60
                 if (dt_util.utcnow() - ref_time).total_seconds() > watchdog_delay_sec:
@@ -1626,7 +1594,7 @@ async def do_stop_trip(hass: HomeAssistant, imei: str = "", multi_device: bool =
     # setup_automations. Fallback to no-ops if the state isn't there
     # (e.g. very first run before setup_automations initialised it).
     _tracking_state = hass.data.get(DOMAIN, {}).get(
-        "trip_tracking_state",
+        _tracking_key(imei),
         {
             "last_trip_start_monotonic": None,
             "odo_tracking_fired": False,
@@ -1999,7 +1967,7 @@ async def do_update_trips_history(hass: HomeAssistant, imei: str = "", multi_dev
             pass
 
         # Get outdoor temperature from configured source (scooter or external)
-        outdoor_temp_entity_id = get_outdoor_temperature_entity_id(hass)
+        outdoor_temp_entity_id = get_outdoor_temperature_entity_id(hass, imei, multi_device)
         outdoor_temp = hass.states.get(outdoor_temp_entity_id)
         temp_val = float(outdoor_temp.state) if outdoor_temp and outdoor_temp.state not in ["unknown","unavailable"] else 0
 
@@ -2016,6 +1984,7 @@ async def do_update_trips_history(hass: HomeAssistant, imei: str = "", multi_dev
 
         success = await update_history(
             hass,
+            history_file=get_history_file(imei, multi_device),
             avg_speed=avg_val,
             distance=distance_val,
             duration=duration_val,

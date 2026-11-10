@@ -42,44 +42,6 @@ from .const import (
 _LOGGER = logging.getLogger(__name__)
 
 
-def get_energy_sensors(hass: HomeAssistant) -> list[str]:
-    """Get list of available energy/tariff sensors."""
-    sensors = []
-
-    for entity_id in hass.states.async_entity_ids("sensor"):
-        state = hass.states.get(entity_id)
-        if not state:
-            continue
-
-        entity_lower = entity_id.lower()
-        name_lower = state.attributes.get("friendly_name", "").lower()
-
-        if any(keyword in entity_lower or keyword in name_lower
-               for keyword in ["tarif", "price", "prix", "cout", "cost", "kwh"]):
-            sensors.append(entity_id)
-
-    return sorted(sensors)
-
-
-def get_temperature_sensors(hass: HomeAssistant) -> list[str]:
-    """Get list of available temperature sensors."""
-    sensors = []
-
-    for entity_id in hass.states.async_entity_ids("sensor"):
-        state = hass.states.get(entity_id)
-        if not state:
-            continue
-
-        # Check device class or unit
-        device_class = state.attributes.get("device_class")
-        unit = state.attributes.get("unit_of_measurement", "")
-
-        if device_class == "temperature" or unit in ["°C", "°F", "K"]:
-            sensors.append(entity_id)
-
-    return sorted(sensors)
-
-
 def validate_imei(imei: str) -> str:
     """Validate IMEI format.
 
