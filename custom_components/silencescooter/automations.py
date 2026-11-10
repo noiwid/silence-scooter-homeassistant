@@ -1032,8 +1032,12 @@ async def async_setup_automations(
             scheduled_tasks["tolerance_timer"].cancel()
             scheduled_tasks.pop("tolerance_timer", None)
 
-        # do_stop_trip
-        await do_stop_trip(hass, imei=imei, multi_device=multi_device, reason="Manual button")
+        # do_stop_trip — seulement si un trajet est ouvert : sinon il
+        # réécrirait le dernier trajet une seconde fois dans l'historique.
+        if is_trip_active():
+            await do_stop_trip(hass, imei=imei, multi_device=multi_device, reason="Manual button")
+        else:
+            _LOGGER.info("Manual stop ignored: no active trip")
 
         # repasse le switch à off
         await hass.services.async_call(
@@ -1857,7 +1861,10 @@ async def do_update_trips_history(hass: HomeAssistant, imei: str = "", multi_dev
         soft_warnings = []
 
         # Hard reject: superhuman avg speed (physically impossible)
-        if avg_val > 120:
+        # L'odomètre ne compte qu'en km entiers : on lui laisse 1 km de marge,
+        # sinon « 1 km » (peut-être 100 m réels) en 20 s = 180 km/h et un vrai
+        # petit trajet est rejeté.
+        if duration_val > 0 and (distance_val - 1) / duration_val * 60 > 120:
             hard_reject_errors.append(f"Speed too high: {avg_val} km/h > 120 km/h")
 
         # Soft warn: very short trips with high distance

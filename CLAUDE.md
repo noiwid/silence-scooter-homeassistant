@@ -79,4 +79,4 @@ The single mechanism for this is **`helpers.insert_imei_in_entity_id(entity_id, 
 - The README documents `docs/CONFIGURATION.md`, `docs/DEBUGGING.md`, and `docs/FAQ.md`, but **only `docs/ENTITIES.md` and `docs/HISTORY.md` actually exist.** Don't link to the missing ones as if they're present.
 - `.gitignore` excludes `.claude/`, `*.log`, and `*.perso` — local session artifacts won't be committed.
 
-- **Deploy from git, never from the Windows working tree**: the checkout is CRLF (`autocrlf`) and a CRLF `history.sh` fails under bash on the HA host. Use `git archive <ref> custom_components/silencescooter | ssh … tar -x`.
+- **Deploy from git, never from the Windows working tree**: a CRLF `history.sh` fails under bash on the HA host. `.gitattributes` (`* text=auto eol=lf`) makes `git archive <ref> custom_components/silencescooter | ssh … tar -x` emit LF; after deploying, compare md5 on the host with `git show <ref>:<file> | md5sum`.

@@ -1,2 +1,4 @@
-# history.sh tourne sous bash côté HA : des fins de ligne CRLF le cassent
-*.sh text eol=lf
+# Tout en LF dans le dépôt et dans git archive : history.sh tourne sous bash
+# côté HA et un CRLF le casse ; les md5 déployés doivent égaler ceux du dépôt.
+* text=auto eol=lf
+*.png binary

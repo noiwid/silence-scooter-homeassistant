@@ -263,6 +263,25 @@ class ScooterTemplateSensor(SensorEntity, RestoreEntity):
     async def async_added_to_hass(self) -> None:
         """Handle entity added to Home Assistant."""
         await super().async_added_to_hass()
+
+        # Les capteurs de mesure / compteurs (state_class) republient leur
+        # dernier état AVANT le premier calcul. Sans ça, les compteurs dont le
+        # template relit sa propre valeur (scooter_energy_consumption,
+        # scooter_battery_charge_cycles, total_increasing) retombaient à 0 à
+        # chaque redémarrage puis remontaient, ce que les statistiques HA
+        # comptaient comme une nouvelle consommation. Pas de reprise pour les
+        # capteurs d'état (trip_status, is_moving) : un « on » périmé
+        # réapparaîtrait un instant.
+        if self._attr_state_class:
+            last_state = await self.async_get_last_state()
+            if last_state is not None and last_state.state not in ("unknown", "unavailable"):
+                self._attr_native_value = last_state.state
+                try:
+                    self.async_write_ha_state()
+                except ValueError:
+                    # État restauré non numérique pour un capteur numérique
+                    self._attr_native_value = None
+
         await self.async_update()
 
     async def async_update(self) -> None:
@@ -395,20 +414,6 @@ class ScooterTriggerSensor(ScooterTemplateSensor):
     async def async_added_to_hass(self) -> None:
         """Handle entity added to Home Assistant."""
         await super().async_added_to_hass()
-
-        # Un capteur à déclencheur garde sa valeur entre deux déclenchements :
-        # on republie le dernier état AVANT de recalculer. Sans ça,
-        # scooter_energy_consumption (total_increasing) retombait à 0 à chaque
-        # redémarrage puis remontait à ~1000 kWh, ce que les statistiques HA
-        # comptaient comme une nouvelle consommation.
-        last_state = await self.async_get_last_state()
-        if last_state is not None and last_state.state not in ("unknown", "unavailable"):
-            self._attr_native_value = last_state.state
-            try:
-                self.async_write_ha_state()
-            except ValueError:
-                # État restauré non numérique pour un capteur numérique
-                self._attr_native_value = None
 
         await self.async_update()
         for trigger in self._triggers:
