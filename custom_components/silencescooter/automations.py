@@ -21,6 +21,7 @@ from .const import (
     DEFAULT_WATCHDOG_DELAY,
     DEFAULT_CONNECTIVITY_LOSS_TOLERANCE,
     DEFAULT_OUTDOOR_TEMP_SOURCE,
+    DEFAULT_BATTERY_CAPACITY,
     OUTDOOR_TEMP_SOURCE_SCOOTER,
     OUTDOOR_TEMP_SOURCE_EXTERNAL,
     SENSOR_SCOOTER_AMBIENT_TEMP,
@@ -81,6 +82,23 @@ def get_outdoor_temperature_entity_id(hass: HomeAssistant, imei: str = "", multi
     else:
         # Use scooter ambient temperature sensor (default)
         return insert_imei_in_entity_id(SENSOR_SCOOTER_AMBIENT_TEMP, imei, multi_device)
+
+
+def get_energy_gap(hass: HomeAssistant, imei: str = "", multi_device: bool = False) -> float | None:
+    """Écart (kWh) entre le compteur brut du scooter (déchargé − régénéré) et
+    sensor.scooter_energy_consumption. None si une des valeurs est illisible."""
+    values = []
+    for base in (
+        "sensor.silence_scooter_discharged_energy",
+        "sensor.silence_scooter_regenerated_energy",
+        "sensor.scooter_energy_consumption",
+    ):
+        state = hass.states.get(insert_imei_in_entity_id(base, imei, multi_device))
+        try:
+            values.append(float(state.state))
+        except (AttributeError, ValueError, TypeError):
+            return None
+    return values[0] - values[1] - values[2]
 
 
 def get_sensor_float_value(hass: HomeAssistant, entity_id: str, default: float = 0.0, fallback_entity: str | None = None) -> float:
@@ -164,7 +182,13 @@ def determine_trip_end_timestamp(hass: HomeAssistant, imei: str = "", multi_devi
     if last_moving and last_moving.state not in ["unknown", "unavailable"]:
         try:
             from .helpers import is_date_valid
-            if is_date_valid(last_moving.state):
+            # last_moving_time n'est écrit qu'à l'arrêt (is_moving on→off). Si
+            # le scooter est encore en marche (arrêt manuel), la valeur date
+            # d'un arrêt PRÉCÉDENT : durée nulle ou tronquée. On retombe alors
+            # sur l'heure courante.
+            moving_st = hass.states.get(entity_id("sensor.scooter_is_moving"))
+            still_moving = moving_st is not None and moving_st.state == "on"
+            if is_date_valid(last_moving.state) and not still_moving:
                 _LOGGER.info("Using last_moving_time: %s", last_moving.state)
                 return last_moving.state
         except Exception as e:
@@ -313,6 +337,24 @@ async def update_trip_statistics(
 
     # Update energy_consumption_base
     energy_val = get_sensor_float_value(hass, entity_id("sensor.scooter_energy_consumption"), 0.0)
+
+    # Le template scooter_energy_consumption refuse toute hausse > 5.6 kWh
+    # (pic du compteur brut). Un vrai retard plus grand (HA ou serveur coupés
+    # plusieurs jours) resterait donc figé pour toujours. Si l'écart avec le
+    # compteur brut était déjà là au départ ET l'est encore à l'arrivée, ce
+    # n'est pas un pic d'une trame : on écrit la valeur brute dans la base,
+    # que le template rattrape (base > capteur) au relevé suivant.
+    gap_start = hass.data.get(DOMAIN, {}).get(_tracking_key(imei), {}).get("energy_gap_at_start")
+    gap_end = get_energy_gap(hass, imei, multi_device)
+    if (
+        gap_start is not None and gap_end is not None
+        and min(gap_start, gap_end) > DEFAULT_BATTERY_CAPACITY
+    ):
+        _LOGGER.warning(
+            "Energy counter %.1f kWh behind the scooter for a whole trip: catching up (%.3f -> %.3f kWh)",
+            gap_end, energy_val, energy_val + gap_end,
+        )
+        energy_val += gap_end
     await hass.services.async_call(
         "number",
         SERVICE_SET_VALUE,
@@ -1152,6 +1194,18 @@ async def async_setup_automations(
             },
             blocking=True
         )
+        # odo_fin repart du même point : handle_track_odo ne fait que le
+        # monter, donc un seul relevé aberrant trop haut restait pour tous
+        # les trajets suivants (distances de centaines de km).
+        await hass.services.async_call(
+            "number",
+            "set_value",
+            {
+                "entity_id": NUMBER_ODO_FIN,
+                "value": odo_val
+            },
+            blocking=True
+        )
 
         # (5) datetime.scooter_start_time => now
         now_str = dt_util.now().isoformat()
@@ -1190,6 +1244,7 @@ async def async_setup_automations(
         odo_tracking_fired["value"] = False
         battery_tracking_fired["value"] = False
         _tracking_state["pause_is_connectivity_loss"] = False
+        _tracking_state["energy_gap_at_start"] = get_energy_gap(hass, imei, multi_device)
 
     remove_last_start = async_track_state_change_event(
         hass, [SENSOR_IS_MOVING], handle_scooter_last_start
@@ -1469,6 +1524,21 @@ async def async_setup_automations(
             # Vérifier s'il y a un trajet en cours
             if not is_trip_active():
                 return  # Pas de trajet en cours
+
+            # Trajet ouvert, scooter à l'arrêt, et plus aucun minuteur d'arrêt :
+            # ils vivent en mémoire et sont perdus si HA redémarre (ou si
+            # l'intégration est rechargée) pendant l'arrêt. Sans ce filet, le
+            # trajet restait ouvert tant que le scooter émettait, et le trajet
+            # suivant fusionnait avec lui. last_changed repart au redémarrage,
+            # donc la pause maximale est comptée depuis celui-ci.
+            status_st = hass.states.get(SENSOR_TRIP_STATUS)
+            if not scheduled_tasks and status_st is not None and status_st.state != "on":
+                pause_max_min = get_config_value(hass, CONF_PAUSE_MAX_DURATION, DEFAULT_PAUSE_MAX_DURATION, imei)
+                if (dt_util.utcnow() - status_st.last_changed).total_seconds() > pause_max_min * 60:
+                    _LOGGER.info("🔔 Watchdog: trajet ouvert sans minuteur d'arrêt depuis >%s min, clôture", pause_max_min)
+                    await do_log_event(hass, "Watchdog: Auto stop trip (stop timers lost)")
+                    await do_stop_trip(hass, imei=imei, multi_device=multi_device, reason="watchdog-timers-lost")
+                    return
             
             # Référence de fraîcheur = la plus récente de :
             #  - sensor.silence_scooter_last_update (si exploitable),

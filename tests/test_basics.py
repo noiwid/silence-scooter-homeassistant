@@ -34,6 +34,54 @@ class NumberCaps(unittest.TestCase):
             self.assertGreaterEqual(numbers[key]["max"], 100000, key)
 
 
+try:
+    import jinja2
+except ImportError:  # pragma: no cover
+    jinja2 = None
+
+
+@unittest.skipUnless(jinja2, "jinja2 requis")
+class EnergyTemplate(unittest.TestCase):
+    """scooter_energy_consumption : compteur à vie, hausse plafonnée à 5.6 kWh."""
+
+    def _render(self, base, current, discharged, regenerated):
+        states = {
+            "sensor.silence_scooter_discharged_energy": discharged,
+            "sensor.silence_scooter_regenerated_energy": regenerated,
+            "number.scooter_energy_consumption_base": base,
+            "sensor.scooter_energy_consumption": current,
+        }
+        template = _load_definitions().TRIGGER_SENSORS["scooter_energy_consumption"]["value_template"]
+        env = jinja2.Environment()
+        env.globals["states"] = lambda entity_id: str(states[entity_id])
+        return float(env.from_string(template).render().strip())
+
+    def test_normal_increase(self):
+        self.assertEqual(self._render(1000, 1000, 1100.5, 100), 1000.5)
+
+    def test_spike_right_after_a_trip_is_rejected(self):
+        # base == capteur (cas de chaque fin de trajet / redémarrage) : +50 kWh
+        self.assertEqual(self._render(1000, 1000, 1150, 100), 1000)
+
+    def test_spike_mid_trip_is_rejected(self):
+        self.assertEqual(self._render(990, 1000, 1150, 100), 1000)
+
+    def test_fresh_install_takes_first_reading(self):
+        self.assertEqual(self._render(0, 0, 1154.4, 100), 1054.4)
+
+    def test_catch_up_when_engine_moved_the_base_ahead(self):
+        self.assertEqual(self._render(1010, 1000, 1110.2, 100), 1010.2)
+
+    def test_catch_up_ignores_a_spike(self):
+        self.assertEqual(self._render(1010, 1000, 1200, 100), 1010)
+
+    def test_never_decreases(self):
+        self.assertEqual(self._render(1000, 1000, 1090, 100), 1000)
+
+    def test_keeps_value_when_scooter_offline(self):
+        self.assertEqual(self._render(1000, 1000, "unknown", "unknown"), 1000)
+
+
 @unittest.skipUnless(
     all(shutil.which(tool) for tool in ("bash", "jq", "bc")), "bash, jq et bc requis"
 )
@@ -56,6 +104,16 @@ class HistoryScript(unittest.TestCase):
             self.assertEqual([t["start_time"][:10] for t in trips], ["2026-01-02", "2026-01-01"])
             self.assertEqual(float(trips[1]["efficiency_wh_km"]), 56.0)  # 5 % de 5600 Wh sur 5 km
             self.assertEqual(trips[0]["efficiency_wh_km"], "0")  # distance nulle : pas de division
+
+    def test_empty_history_is_not_silently_kept_empty(self):
+        """Un history.json vide passait pour valide : chaque trajet suivant
+        était perdu, code retour 0."""
+        with tempfile.TemporaryDirectory() as tmp:
+            history = Path(tmp) / "history.json"
+            history.write_text("")
+            result = self._run(history, "2026-01-01T10:00:00+01:00", "5.0")
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(len(json.loads(history.read_text())), 1)
 
     def test_corrupt_history_is_preserved(self):
         with tempfile.TemporaryDirectory() as tmp:

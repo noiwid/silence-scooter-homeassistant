@@ -351,17 +351,24 @@ TRIGGER_SENSORS = {
                     {% set current_value = safe_current %}
                     {% if new_value < 0 %}
                         {{ current_value }}
-                    {% elif current_value == initial_value %}
-                        {# Branche d'initialisation / post-redémarrage. Une
-                           BAISSE ici signifie des valeurs MQTT retained
-                           périmées rejouées au restart (le compteur vie-
-                           entière ne recule jamais) : on garde la valeur
-                           restaurée plutôt que de faire reculer les meters. #}
-                        {% if new_value >= current_value %}
+                    {% elif initial_value == 0 and new_value > current_value %}
+                        {# Base jamais initialisée (installation neuve) : on
+                           prend le premier relevé tel quel. #}
+                        {{ new_value | round(3) }}
+                    {% elif initial_value > current_value %}
+                        {# Le moteur a écrit une base en avance sur le capteur
+                           (rattrapage après un trajet entier de retard, voir
+                           update_trip_statistics) : on repart de la base. #}
+                        {% if new_value >= initial_value and (new_value - initial_value) <= max_variation %}
                             {{ new_value | round(3) }}
                         {% else %}
-                            {{ current_value }}
+                            {{ initial_value }}
                         {% endif %}
+                    {# Sinon la hausse est plafonnée dans tous les cas : le
+                       premier relevé après un trajet ou un redémarrage passait
+                       sans plafond, et un pic du compteur brut figeait le
+                       capteur trop haut. Une baisse (valeurs MQTT périmées
+                       rejouées) garde la valeur courante. #}
                     {% elif new_value > current_value and (new_value - current_value) <= max_variation %}
                         {{ new_value | round(3) }}
                     {% else %}

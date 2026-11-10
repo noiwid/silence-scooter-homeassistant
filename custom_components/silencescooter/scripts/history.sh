@@ -84,7 +84,10 @@ if [ ! -f "$JSON_FILE" ]; then
     exit 4
 fi
 
-if ! jq . "$JSON_FILE" > /dev/null 2>&1; then
+# Un fichier VIDE passe `jq .` sans erreur, puis la fusion ne produit rien et
+# écrasait history.json par du vide à chaque trajet, code retour 0. On exige
+# donc un tableau JSON.
+if ! jq -e 'type == "array"' "$JSON_FILE" > /dev/null 2>&1; then
     # Fichier corrompu : on le PRÉSERVE pour récupération manuelle au lieu de
     # l'écraser (l'ancien comportement remplaçait silencieusement des mois
     # d'historique par le seul nouveau trajet).
@@ -103,7 +106,7 @@ cp -f "$JSON_FILE" "${JSON_FILE}.bak" 2> /dev/null
 
 # Ajouter le nouveau trajet en premier
 if jq --argjson new_trip "$NEW_TRIP" '. as $arr | [$new_trip] + $arr' "$JSON_FILE" > "$TMP_FILE" \
-    && jq . "$TMP_FILE" > /dev/null 2>&1 \
+    && jq -e 'type == "array" and length > 0' "$TMP_FILE" > /dev/null 2>&1 \
     && mv "$TMP_FILE" "$JSON_FILE"; then
     exit 0
 fi
