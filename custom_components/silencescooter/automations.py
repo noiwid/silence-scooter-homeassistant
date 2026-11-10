@@ -1581,7 +1581,13 @@ async def do_stop_trip(hass: HomeAssistant, imei: str = "", multi_device: bool =
         await set_writable_sensor_value(hass, SENSOR_LAST_TRIP_BATT_CONSUMPTION, batt_consumption)
 
         # 9) Update trip statistics using helper
-        await update_trip_statistics(hass, distance_val, batt_consumption, imei=imei, multi_device=multi_device)
+        # A stats failure (e.g. a number out of range) must not lose the trip:
+        # history.json is written in step 11, so log and carry on.
+        try:
+            await update_trip_statistics(hass, distance_val, batt_consumption, imei=imei, multi_device=multi_device)
+        except Exception as e:
+            _LOGGER.error("update_trip_statistics failed, trip still recorded: %s", e, exc_info=True)
+            await do_log_event(hass, f"Trip statistics update failed: {e}")
 
         # 10) Update entities
         await hass.services.async_call(
