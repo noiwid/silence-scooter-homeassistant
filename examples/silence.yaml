@@ -149,6 +149,15 @@ mqtt:
       device:
         identifiers: ["869123456789012"]
 
+    # Time of the reading itself (server >= 2026-11). Last-Update is the
+    # arrival time; the integration uses this one to date trip start / end.
+    - name: "Silence Scooter Record Time 9012"
+      unique_id: silencescooter_869123456789012_record_time
+      state_topic: "home/silence-server/869123456789012/status/record-time"
+      value_template: "{{ (value | as_datetime | as_local).isoformat() }}"
+      device:
+        identifiers: ["869123456789012"]
+
     - name: "Silence Scooter Inverter Temperature 9012"
       unique_id: silencescooter_869123456789012_inverter_temperature
       state_topic: "home/silence-server/869123456789012/status/inverterTemp"

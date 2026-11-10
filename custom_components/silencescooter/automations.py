@@ -431,6 +431,36 @@ async def async_setup_automations(
 
     # Nouvelles constantes ajoutées
     SENSOR_SCOOTER_LAST_UPDATE = entity_id("sensor.silence_scooter_last_update")
+    SENSOR_SCOOTER_RECORD_TIME = entity_id("sensor.silence_scooter_record_time")
+
+    def get_record_time(not_before=None):
+        """Heure de MESURE du dernier relevé du scooter, ou None.
+
+        Publiée par le serveur (topic record-time, serveur >= 2026-11). Quand
+        la liaison est mauvaise, le module livre ses relevés par paquets avec
+        5 à 10 min de retard : dater le départ et l'arrivée à l'heure de
+        réception a enregistré un trajet de 22 min comme 29,5 min
+        (2026-11-10). Sans ce capteur (ancien serveur), on retombe sur
+        l'heure de réception, comme avant.
+        """
+        state = hass.states.get(SENSOR_SCOOTER_RECORD_TIME)
+        if state is None or state.state in ("unknown", "unavailable"):
+            return None
+        try:
+            record_dt = dt_util.parse_datetime(state.state)
+        except (ValueError, TypeError):
+            return None
+        if record_dt is None:
+            return None
+        record_dt = dt_util.as_local(record_dt)
+        now = dt_util.now()
+        # Dans le futur, ou trop vieux pour décrire le trajet en cours
+        # (le module rejoue parfois des relevés de la veille).
+        if record_dt > now + timedelta(minutes=1) or record_dt < now - timedelta(hours=6):
+            return None
+        if not_before is not None and record_dt < not_before:
+            return None
+        return record_dt
     BINARY_SENSOR_BATTERY_IN = entity_id("binary_sensor.silence_scooter_battery_in")
 
     #
@@ -640,11 +670,20 @@ async def async_setup_automations(
             hass.async_create_task(_update_last_moving_time())
 
     async def _update_last_moving_time():
+        # Heure de mesure du dernier relevé si le serveur la publie et qu'elle
+        # appartient au trajet en cours (pas antérieure au départ).
+        start_st = hass.states.get(INPUT_DT_START_TIME)
+        start_dt = get_valid_datetime(start_st.state) if start_st else None
+        record_dt = get_record_time(not_before=start_dt)
+
         # Use the scooter's last MQTT update timestamp instead of now()
         # This avoids adding ~5min of artificial delay in the garage scenario
         # where the scooter goes unavailable without sending status=0
         last_update_state = hass.states.get(SENSOR_SCOOTER_LAST_UPDATE)
-        if last_update_state and last_update_state.state not in ["unknown", "unavailable"]:
+        if record_dt is not None:
+            timestamp_str = record_dt.isoformat()
+            _LOGGER.info("Last moving time = record time: %s", timestamp_str)
+        elif last_update_state and last_update_state.state not in ["unknown", "unavailable"]:
             try:
                 last_update_dt = dt_util.parse_datetime(last_update_state.state)
                 if last_update_dt and last_update_dt.year > 2000:
@@ -1207,8 +1246,9 @@ async def async_setup_automations(
             blocking=True
         )
 
-        # (5) datetime.scooter_start_time => now
-        now_str = dt_util.now().isoformat()
+        # (5) datetime.scooter_start_time => heure de mesure du relevé qui a
+        # déclenché le départ (publiée avant le status par le serveur), sinon now
+        now_str = (get_record_time() or dt_util.now()).isoformat()
         await hass.services.async_call(
             "datetime",
             "set_value",
@@ -1462,13 +1502,15 @@ async def async_setup_automations(
             blocking=True,
         )
 
-        # Skip repair during grace period after trip start or after HA restart.
-        import time as _time
-        from datetime import timedelta
-        start_mono = last_trip_start_monotonic.get("value")
-        within_grace = start_mono is not None and (_time.monotonic() - start_mono) < 10.0
+        # Skip repair after HA restart only. PAS de délai de grâce après le
+        # départ : le vrai SoC arrive souvent quelques millisecondes après le
+        # status qui déclenche le trajet (même rafale MQTT). Le 2026-11-10 le
+        # départ a capturé 25 % (valeur d'avant l'échange de batterie), 98 %
+        # est arrivé 15 ms plus tard, la grâce de 10 s a bloqué la réparation
+        # et le trajet a été enregistré à 0 % consommé. Les conditions
+        # ci-dessous (saut > 10 %, debut ≈ ancienne lecture) suffisent.
         within_startup = (dt_util.utcnow() - STARTUP_TIME) < timedelta(seconds=10)
-        if within_grace or within_startup:
+        if within_startup:
             return
 
         # Repair debut if we detect a "stale -> real" jump at reconnect.

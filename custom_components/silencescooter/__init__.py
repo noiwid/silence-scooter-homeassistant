@@ -114,6 +114,13 @@ async def publish_mqtt_discovery_configs(hass: HomeAssistant, imei: str, multi_d
                 "device_class": "timestamp",
                 "value_template": "{{ (value | as_datetime | as_local).isoformat() }}"
             },
+            # Heure de MESURE du relevé (serveur >= 2026-11) ; last-update est
+            # l'heure de réception. Voir get_record_time dans automations.py.
+            "record-time": {
+                "name": "Record Time",
+                "device_class": "timestamp",
+                "value_template": "{{ (value | as_datetime | as_local).isoformat() }}"
+            },
 
             # Battery sensors
             "SOCbatteria": {
