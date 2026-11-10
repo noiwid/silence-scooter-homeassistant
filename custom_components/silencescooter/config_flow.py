@@ -17,18 +17,24 @@ from .const import (
     CONF_CONFIRMATION_DELAY,
     CONF_PAUSE_MAX_DURATION,
     CONF_WATCHDOG_DELAY,
+    CONF_CONNECTIVITY_LOSS_TOLERANCE,
     CONF_USE_TRACKED_DISTANCE,
     CONF_OUTDOOR_TEMP_SOURCE,
     CONF_OUTDOOR_TEMP_ENTITY,
     CONF_MULTI_DEVICE,
+    CONF_DEVICE_TRACKER,
+    CONF_TRACKER_MIN_DISTANCE,
     DEFAULT_TARIFF_SENSOR,
     DEFAULT_CONFIRMATION_DELAY,
     DEFAULT_PAUSE_MAX_DURATION,
     DEFAULT_WATCHDOG_DELAY,
+    DEFAULT_CONNECTIVITY_LOSS_TOLERANCE,
     DEFAULT_USE_TRACKED_DISTANCE,
     DEFAULT_OUTDOOR_TEMP_SOURCE,
     DEFAULT_OUTDOOR_TEMP_ENTITY,
     DEFAULT_MULTI_DEVICE,
+    DEFAULT_DEVICE_TRACKER,
+    DEFAULT_TRACKER_MIN_DISTANCE,
     OUTDOOR_TEMP_SOURCE_SCOOTER,
     OUTDOOR_TEMP_SOURCE_EXTERNAL,
 )
@@ -242,6 +248,14 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 default=DEFAULT_MULTI_DEVICE,
             ): selector.BooleanSelector(),
             vol.Optional(
+                CONF_DEVICE_TRACKER,
+                default=DEFAULT_DEVICE_TRACKER,
+            ): selector.BooleanSelector(),
+            vol.Optional(
+                CONF_TRACKER_MIN_DISTANCE,
+                default=DEFAULT_TRACKER_MIN_DISTANCE,
+            ): vol.All(vol.Coerce(int), vol.Range(min=0, max=500)),
+            vol.Optional(
                 CONF_CONFIRMATION_DELAY,
                 default=DEFAULT_CONFIRMATION_DELAY,
             ): vol.All(vol.Coerce(int), vol.Range(min=30, max=600)),
@@ -252,6 +266,10 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             vol.Optional(
                 CONF_WATCHDOG_DELAY,
                 default=DEFAULT_WATCHDOG_DELAY,
+            ): vol.All(vol.Coerce(int), vol.Range(min=1, max=60)),
+            vol.Optional(
+                CONF_CONNECTIVITY_LOSS_TOLERANCE,
+                default=DEFAULT_CONNECTIVITY_LOSS_TOLERANCE,
             ): vol.All(vol.Coerce(int), vol.Range(min=1, max=60)),
         })
 
@@ -409,6 +427,14 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
                 default=current_data.get(CONF_MULTI_DEVICE, DEFAULT_MULTI_DEVICE),
             ): selector.BooleanSelector(),
             vol.Optional(
+                CONF_DEVICE_TRACKER,
+                default=current_data.get(CONF_DEVICE_TRACKER, DEFAULT_DEVICE_TRACKER),
+            ): selector.BooleanSelector(),
+            vol.Optional(
+                CONF_TRACKER_MIN_DISTANCE,
+                default=current_data.get(CONF_TRACKER_MIN_DISTANCE, DEFAULT_TRACKER_MIN_DISTANCE),
+            ): vol.All(vol.Coerce(int), vol.Range(min=0, max=500)),
+            vol.Optional(
                 CONF_CONFIRMATION_DELAY,
                 default=current_data.get(CONF_CONFIRMATION_DELAY, DEFAULT_CONFIRMATION_DELAY),
             ): vol.All(vol.Coerce(int), vol.Range(min=30, max=600)),
@@ -419,6 +445,10 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
             vol.Optional(
                 CONF_WATCHDOG_DELAY,
                 default=current_data.get(CONF_WATCHDOG_DELAY, DEFAULT_WATCHDOG_DELAY),
+            ): vol.All(vol.Coerce(int), vol.Range(min=1, max=60)),
+            vol.Optional(
+                CONF_CONNECTIVITY_LOSS_TOLERANCE,
+                default=current_data.get(CONF_CONNECTIVITY_LOSS_TOLERANCE, DEFAULT_CONNECTIVITY_LOSS_TOLERANCE),
             ): vol.All(vol.Coerce(int), vol.Range(min=1, max=60)),
         })
 

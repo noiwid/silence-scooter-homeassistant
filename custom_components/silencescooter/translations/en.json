@@ -10,9 +10,12 @@
           "outdoor_temp_entity": "External temperature sensor",
           "use_tracked_distance": "Use manual tracked counters (resettable after scooter mods)",
           "multi_device": "Multi-scooter mode (adds IMEI to entity names)",
+          "device_tracker_enabled": "Create the device_tracker entity (GPS position)",
+          "tracker_min_distance": "Minimum distance between two GPS points (metres)",
           "confirmation_delay": "Stop confirmation delay (seconds)",
           "pause_max_duration": "Maximum pause duration (minutes)",
-          "watchdog_delay": "Offline watchdog delay (minutes)"
+          "watchdog_delay": "Offline watchdog delay (minutes)",
+          "connectivity_loss_tolerance": "Connectivity loss tolerance (minutes)"
         },
         "data_description": {
           "tariff_sensor": "Select your dynamic tariff sensor (or leave sensor.tarif_base_ttc to use the default one)",
@@ -20,9 +23,12 @@
           "outdoor_temp_entity": "Select an external temperature sensor (required if 'External weather sensor' is selected above)",
           "use_tracked_distance": "✅ Enabled: Statistics based on manual counters (resettable after scooter prep/mods)\n❌ Disabled: Statistics based on global odometer (ODO) and MQTT energy counters",
           "multi_device": "Enable if you have or plan to have multiple scooters. Entities will be named 'sensor.silence_scooter_9012_speed' instead of 'sensor.silence_scooter_speed' for better grouping.",
+          "device_tracker_enabled": "Native GPS tracker fed by the MQTT latitude/longitude sensors (replaces the deprecated device_tracker.see service). Uncheck if you track the scooter another way (Traccar, OwnTracks…).",
+          "tracker_min_distance": "A point closer than this distance to the previous one is ignored: smooths the trace when parked or at red lights. 0 = no filtering. Impossible jumps (> 120 km/h) are always rejected.",
           "confirmation_delay": "Filters sensor oscillations and network micro-cuts before considering the scooter stopped (recommended: 120s, increase in weak zones)",
           "pause_max_duration": "Max time with scooter OFF before trip ends. Quick errand < 5min = pause, > 5min = end",
-          "watchdog_delay": "If no communication during this duration, the trip stops (e.g.: garage without network)"
+          "watchdog_delay": "If no communication during this duration, the trip stops (e.g.: garage without network)",
+          "connectivity_loss_tolerance": "When the scooter stops communicating (tunnel, dead zone, module re-registering) without having reported a stop, the trip stays open for this long before being closed, with an end time set to the last frame received. Set it above the maximum pause duration (recommended: 15 min). The watchdog waits at least this long."
         }
       }
     },
@@ -52,9 +58,12 @@
           "outdoor_temp_entity": "External temperature sensor",
           "use_tracked_distance": "Use manual tracked counters (resettable after scooter mods)",
           "multi_device": "Multi-scooter mode (adds IMEI to entity names)",
+          "device_tracker_enabled": "Create the device_tracker entity (GPS position)",
+          "tracker_min_distance": "Minimum distance between two GPS points (metres)",
           "confirmation_delay": "Stop confirmation delay (seconds)",
           "pause_max_duration": "Maximum pause duration (minutes)",
-          "watchdog_delay": "Offline watchdog delay (minutes)"
+          "watchdog_delay": "Offline watchdog delay (minutes)",
+          "connectivity_loss_tolerance": "Connectivity loss tolerance (minutes)"
         },
         "data_description": {
           "tariff_sensor": "Select your dynamic tariff sensor (or leave sensor.tarif_base_ttc to use the default one)",
@@ -62,9 +71,12 @@
           "outdoor_temp_entity": "Select an external temperature sensor (required if 'External weather sensor' is selected above)",
           "use_tracked_distance": "✅ Enabled: Statistics based on manual counters (resettable after scooter prep/mods)\n❌ Disabled: Statistics based on global odometer (ODO) and MQTT energy counters",
           "multi_device": "Enable if you have or plan to have multiple scooters. Entities will be named 'sensor.silence_scooter_9012_speed' instead of 'sensor.silence_scooter_speed' for better grouping.",
+          "device_tracker_enabled": "Native GPS tracker fed by the MQTT latitude/longitude sensors (replaces the deprecated device_tracker.see service). Uncheck if you track the scooter another way (Traccar, OwnTracks…).",
+          "tracker_min_distance": "A point closer than this distance to the previous one is ignored: smooths the trace when parked or at red lights. 0 = no filtering. Impossible jumps (> 120 km/h) are always rejected.",
           "confirmation_delay": "Filters sensor oscillations and network micro-cuts before considering the scooter stopped (recommended: 120s, increase in weak zones)",
           "pause_max_duration": "Max time with scooter OFF before trip ends. Quick errand < 5min = pause, > 5min = end",
-          "watchdog_delay": "If no communication during this duration, the trip stops (e.g.: garage without network)"
+          "watchdog_delay": "If no communication during this duration, the trip stops (e.g.: garage without network)",
+          "connectivity_loss_tolerance": "When the scooter stops communicating (tunnel, dead zone, module re-registering) without having reported a stop, the trip stays open for this long before being closed, with an end time set to the last frame received. Set it above the maximum pause duration (recommended: 15 min). The watchdog waits at least this long."
         }
       }
     },

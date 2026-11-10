@@ -148,6 +148,7 @@ mqtt:
 | **Confirmation Delay** | 120 seconds | Anti-bounce delay before confirming trip stop. Prevents false stops from brief signal loss or sensor oscillations. |
 | **Pause Max Duration** | 5 minutes | Maximum pause duration before ending trip. Pauses shorter than this (e.g., quick errands) keep the trip active. |
 | **Watchdog Delay** | 5 minutes | Offline detection timeout. Automatically ends trip if scooter doesn't communicate for this duration (e.g., parked in underground garage without signal). |
+| **Connectivity Loss Tolerance** | 15 minutes | How long a trip stays open when the scooter goes silent (tunnel, dead zone, telemetry module re-registering) without having reported a stop. Must exceed the pause max duration; the end time is always the last frame received, so the recorded duration does not depend on it. The watchdog waits at least this long. |
 | **Use Tracked Distance** | `false` | When enabled, uses internal tracked distance instead of ODO delta. Useful if ODO sensor has issues. |
 
 **💡 Tip:** The Watchdog Delay ensures trips are automatically closed even when the scooter loses connectivity (garage, tunnel, etc.), preventing "stuck" trips that never end.
@@ -294,7 +295,10 @@ Once configured, the integration creates **39+ entities** organized into several
 - `switch.stop_trip_now` - Manual trip stop button (turn ON to stop current trip)
 
 ### 📍 Device Tracker
-- `device_tracker.silence_scooter` - GPS location tracker with route history
+- `device_tracker.silence_scooter` - Native GPS tracker fed by the MQTT latitude/longitude sensors (battery level, `last_fix`, route history on the map card). Points closer than the configured minimum distance (default 15 m) and physically impossible jumps (> 120 km/h) are filtered out so the trace stays smooth. Can be disabled in the integration options if you track the scooter another way (Traccar, OwnTracks…).
+
+> **Upgrading from ≤ 1.3.7:** the tracker used to be created through the deprecated `device_tracker.see` service and lived in `known_devices.yaml`. Remove the `silence_scooter:` block from that file (or the whole file if it is the only entry) and restart, otherwise the native entity is registered as `device_tracker.silence_scooter_2` and your dashboards keep pointing at the dead legacy tracker.
+
 ### Quick Summary
 
 | Category | Count | Description |

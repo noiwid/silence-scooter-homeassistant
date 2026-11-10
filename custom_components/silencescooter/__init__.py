@@ -8,16 +8,18 @@ from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import config_validation as cv
+from homeassistant.util import slugify
 import homeassistant.helpers.device_registry as dr
 import homeassistant.helpers.entity_registry as er
 
 from .const import (
     DOMAIN, PLATFORMS, CONF_IMEI, CONF_MULTI_DEVICE, DEFAULT_MULTI_DEVICE,
-    DEFAULT_ELECTRICITY_PRICE, MANUFACTURER,
+    DEFAULT_ELECTRICITY_PRICE, MANUFACTURER, CONF_TARIFF_SENSOR,
     PERSISTENT_DATA_PATH, HISTORY_FILE, LOG_FILE,
     LEGACY_HISTORY_FILE, LEGACY_LOG_FILE,
 )
 from .errors import ErrorDetector, ErrorCategory, ErrorSeverity, get_error_detector
+from .helpers import insert_imei_in_entity_id
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -46,12 +48,20 @@ def _migrate_persistent_data() -> None:
             _LOGGER.error("Failed to migrate %s -> %s: %s", legacy, new, e)
 
 
-async def publish_mqtt_discovery_configs(hass: HomeAssistant, imei: str) -> None:
+async def publish_mqtt_discovery_configs(hass: HomeAssistant, imei: str, multi_device: bool = False) -> None:
     """Publish MQTT Discovery configs for all sensors/buttons for this IMEI.
 
     This implements automatic MQTT Discovery (Solution B) to simplify user
     configuration. Instead of manually configuring 80+ MQTT entities per scooter,
     this function publishes discovery configs automatically.
+
+    IMPORTANT: les object_id sont dérivés de « silence_scooter_<slug(name)> »
+    via insert_imei_in_entity_id — la MÊME convention que celle utilisée par
+    le moteur (automations.py) et les templates. L'ancien schéma
+    « silencescooter_<clé_mqtt>_<imei> » produisait des entity_id que le
+    moteur ne lisait jamais : une installation 100 % Discovery ne détectait
+    aucun trajet. Les unique_id ne changent pas, donc les installations
+    existantes conservent leurs entity_id actuels.
     """
     # Check if MQTT is available
     if "mqtt" not in hass.config.components:
@@ -442,7 +452,9 @@ async def publish_mqtt_discovery_configs(hass: HomeAssistant, imei: str) -> None
                 "state_topic": f"home/silence-server/{imei}/status/{sensor_key}",
                 "unique_id": f"{DOMAIN}_{imei}_{sensor_key}",
                 "device": device_info,
-                "object_id": f"{DOMAIN}_{sensor_key}_{imei_short}"
+                "object_id": insert_imei_in_entity_id(
+                    f"silence_scooter_{slugify(sensor_config['name'])}", imei, multi_device
+                )
             }
 
             # Add optional fields
@@ -470,7 +482,9 @@ async def publish_mqtt_discovery_configs(hass: HomeAssistant, imei: str) -> None
                 "state_topic": f"home/silence-server/{imei}/status/{sensor_key}",
                 "unique_id": f"{DOMAIN}_{imei}_{sensor_key}",
                 "device": device_info,
-                "object_id": f"{DOMAIN}_{sensor_key}_{imei_short}"
+                "object_id": insert_imei_in_entity_id(
+                    f"silence_scooter_{slugify(sensor_config['name'])}", imei, multi_device
+                )
             }
 
             # Add optional fields
@@ -494,7 +508,9 @@ async def publish_mqtt_discovery_configs(hass: HomeAssistant, imei: str) -> None
                 "command_topic": f"home/silence-server/{imei}/command/{button_key}",
                 "unique_id": f"{DOMAIN}_{imei}_{button_key}",
                 "device": device_info,
-                "object_id": f"{DOMAIN}_{button_key}_{imei_short}"
+                "object_id": insert_imei_in_entity_id(
+                    f"silence_scooter_command_{slugify(button_config['name'])}", imei, multi_device
+                )
             }
 
             if "icon" in button_config:
@@ -563,7 +579,28 @@ async def async_setup_services(hass: HomeAssistant) -> None:
         monthly_value = call.data.get("monthly", 2.26)
         yearly_value = call.data.get("yearly", 2.26)
         source_value_param = call.data.get("source_value")
-        electricity_price = DEFAULT_ELECTRICITY_PRICE  # EUR/kWh
+
+        # Prix de l'électricité : d'abord le capteur tarif configuré dans
+        # l'intégration, sinon le défaut codé en dur. L'ancien code ignorait
+        # totalement la config et convertissait les EUR au prix par défaut,
+        # faussant la restauration pour tout tarif différent de 0.215 €/kWh.
+        electricity_price = DEFAULT_ELECTRICITY_PRICE  # EUR/kWh (fallback)
+        tariff_entity = hass.data.get(DOMAIN, {}).get("config", {}).get(CONF_TARIFF_SENSOR, "")
+        if tariff_entity:
+            tariff_state = hass.states.get(tariff_entity)
+            if tariff_state and tariff_state.state not in ["unknown", "unavailable"]:
+                try:
+                    tariff_price = float(tariff_state.state)
+                    if 0.01 <= tariff_price <= 5:
+                        electricity_price = tariff_price
+                        _LOGGER.info("Using configured tariff: %.4f EUR/kWh (%s)",
+                                     electricity_price, tariff_entity)
+                    else:
+                        _LOGGER.warning("Configured tariff %.4f out of range, using default %.3f",
+                                        tariff_price, DEFAULT_ELECTRICITY_PRICE)
+                except (ValueError, TypeError):
+                    _LOGGER.warning("Configured tariff sensor %s unreadable, using default %.3f",
+                                    tariff_entity, DEFAULT_ELECTRICITY_PRICE)
 
         # Determine which entities to update based on device_id
         if device_id:
@@ -817,7 +854,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
         # Publish MQTT Discovery configs when IMEI is available
         if imei:
-            await publish_mqtt_discovery_configs(hass, imei)
+            await publish_mqtt_discovery_configs(hass, imei, multi_device)
 
         # Register services (only once for all instances)
         await async_setup_services(hass)

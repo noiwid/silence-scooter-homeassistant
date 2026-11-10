@@ -115,7 +115,10 @@ INPUT_NUMBERS = {
     "scooter_energy_consumption_base": {
         "name": "Base consommation énergie scooter",
         "min": 0,
-        "max": 1000,
+        # 2026-09-11 : 1000 kWh était atteint après ~17 000 km (60 Wh/km) et
+        # faisait échouer number.set_value dans update_trip_statistics à
+        # chaque fin de trajet. Même plafond que tracked_distance.
+        "max": 100000,
         "step": 0.001,
         "unit_of_measurement": "kWh",
         "initial": 0,
@@ -320,7 +323,16 @@ TRIGGER_SENSORS = {
                     {% if new_value < 0 %}
                         {{ current_value }}
                     {% elif current_value == initial_value %}
-                        {{ new_value | round(3) }}
+                        {# Branche d'initialisation / post-redémarrage. Une
+                           BAISSE ici signifie des valeurs MQTT retained
+                           périmées rejouées au restart (le compteur vie-
+                           entière ne recule jamais) : on garde la valeur
+                           restaurée plutôt que de faire reculer les meters. #}
+                        {% if new_value >= current_value %}
+                            {{ new_value | round(3) }}
+                        {% else %}
+                            {{ current_value }}
+                        {% endif %}
                     {% elif new_value > current_value and (new_value - current_value) <= max_variation %}
                         {{ new_value | round(3) }}
                     {% else %}

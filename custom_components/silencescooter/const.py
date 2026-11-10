@@ -27,6 +27,7 @@ PLATFORMS = [
     Platform.NUMBER,
     Platform.DATETIME,
     Platform.SWITCH,
+    Platform.DEVICE_TRACKER,
 ]
 
 CONF_NAME = "name"
@@ -36,9 +37,12 @@ CONF_TARIFF_SENSOR = "tariff_sensor"
 CONF_CONFIRMATION_DELAY = "confirmation_delay"
 CONF_PAUSE_MAX_DURATION = "pause_max_duration"
 CONF_WATCHDOG_DELAY = "watchdog_delay"
+CONF_CONNECTIVITY_LOSS_TOLERANCE = "connectivity_loss_tolerance"
 CONF_USE_TRACKED_DISTANCE = "use_tracked_distance"
 CONF_OUTDOOR_TEMP_SOURCE = "outdoor_temp_source"
 CONF_OUTDOOR_TEMP_ENTITY = "outdoor_temp_entity"
+CONF_DEVICE_TRACKER = "device_tracker_enabled"
+CONF_TRACKER_MIN_DISTANCE = "tracker_min_distance"
 
 DEFAULT_ELECTRICITY_PRICE = 0.215
 DEFAULT_BATTERY_CAPACITY = 5.6  # kWh - S01. S02/S03 = 2.0 kWh (configurable via config_flow)
@@ -47,10 +51,21 @@ DEFAULT_TARIFF_SENSOR = ""
 DEFAULT_CONFIRMATION_DELAY = 120
 DEFAULT_PAUSE_MAX_DURATION = 5
 DEFAULT_WATCHDOG_DELAY = 5
+# Coupure réseau (tunnel, zone blanche, module qui se ré-enregistre) alors
+# que le scooter n'a pas signalé d'arrêt : le trajet reste ouvert ce temps-là.
+# 2026-09-14 : commute scindé en deux par 8 min de silence > 5 min de pause max.
+DEFAULT_CONNECTIVITY_LOSS_TOLERANCE = 15  # minutes
 DEFAULT_USE_TRACKED_DISTANCE = False
 DEFAULT_OUTDOOR_TEMP_SOURCE = "scooter"
 DEFAULT_OUTDOOR_TEMP_ENTITY = ""
 DEFAULT_MULTI_DEVICE = False
+DEFAULT_DEVICE_TRACKER = True
+DEFAULT_TRACKER_MIN_DISTANCE = 15  # mètres entre deux points GPS acceptés
+
+# Filtre du device_tracker natif (voir device_tracker.py)
+TRACKER_MAX_SPEED_KMH = 120.0  # même plafond physique que la validation de l'historique
+TRACKER_RESYNC_AFTER_REJECTS = 3  # rejets consécutifs avant d'accepter le point quand même
+TRACKER_DEBOUNCE_SECONDS = 1.0  # lat et lon arrivent en deux événements MQTT
 
 # Outdoor temperature sources
 OUTDOOR_TEMP_SOURCE_SCOOTER = "scooter"

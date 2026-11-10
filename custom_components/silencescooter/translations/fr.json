@@ -10,9 +10,12 @@
           "outdoor_temp_entity": "Sensor de température externe",
           "use_tracked_distance": "Utiliser les compteurs manuels (réinitialisables après modif scooter)",
           "multi_device": "Mode multi-scooters (ajoute l'IMEI aux noms des entités)",
+          "device_tracker_enabled": "Créer l'entité device_tracker (position GPS)",
+          "tracker_min_distance": "Distance minimale entre deux points GPS (mètres)",
           "confirmation_delay": "Délai de confirmation d'arrêt (secondes)",
           "pause_max_duration": "Durée maximale d'une pause (minutes)",
-          "watchdog_delay": "Délai watchdog hors-ligne (minutes)"
+          "watchdog_delay": "Délai watchdog hors-ligne (minutes)",
+          "connectivity_loss_tolerance": "Tolérance sur perte de connectivité (minutes)"
         },
         "data_description": {
           "tariff_sensor": "Sélectionnez votre sensor de tarif dynamique (ou laissez sensor.tarif_base_ttc pour utiliser celui par défaut)",
@@ -20,9 +23,12 @@
           "outdoor_temp_entity": "Sélectionnez un capteur de température externe (requis si 'Sensor météo externe' est sélectionné ci-dessus)",
           "use_tracked_distance": "✅ Activé : Statistiques basées sur compteurs manuels (réinitialisables après prépa/modif scooter)\n❌ Désactivé : Statistiques basées sur l'odomètre global (ODO) et compteurs MQTT énergie",
           "multi_device": "Cochez si vous avez ou prévoyez d'avoir plusieurs scooters. Les entités seront nommées 'sensor.silence_scooter_9012_speed' au lieu de 'sensor.silence_scooter_speed' pour un meilleur regroupement.",
+          "device_tracker_enabled": "Tracker GPS natif alimenté par les capteurs MQTT latitude/longitude (remplace l'ancien service device_tracker.see, obsolète). Décochez si vous suivez le scooter autrement (Traccar, OwnTracks…).",
+          "tracker_min_distance": "Un point plus proche que cette distance du précédent est ignoré : lisse la trace à l'arrêt et aux feux rouges. 0 = aucun filtrage. Les sauts impossibles (> 120 km/h) sont toujours rejetés.",
           "confirmation_delay": "Filtre les oscillations capteurs et micro-coupures réseau avant de considérer le scooter arrêté (recommandé: 120s, augmentez en zone faible)",
           "pause_max_duration": "Temps max avec scooter ÉTEINT avant fin de trajet. Course rapide < 5min = pause, > 5min = fin",
-          "watchdog_delay": "Si aucune communication pendant cette durée, le trajet s'arrête (ex: garage sans réseau)"
+          "watchdog_delay": "Si aucune communication pendant cette durée, le trajet s'arrête (ex: garage sans réseau)",
+          "connectivity_loss_tolerance": "Quand le scooter ne communique plus (tunnel, zone blanche, module qui se reconnecte) sans avoir signalé d'arrêt, le trajet reste ouvert pendant cette durée avant d'être clôturé, avec une fin calée sur la dernière trame reçue. À régler au-dessus de la durée maximale d'une pause (recommandé : 15 min). Le watchdog attend au moins cette durée."
         }
       }
     },
@@ -52,9 +58,12 @@
           "outdoor_temp_entity": "Sensor de température externe",
           "use_tracked_distance": "Utiliser les compteurs manuels (réinitialisables après modif scooter)",
           "multi_device": "Mode multi-scooters (ajoute l'IMEI aux noms des entités)",
+          "device_tracker_enabled": "Créer l'entité device_tracker (position GPS)",
+          "tracker_min_distance": "Distance minimale entre deux points GPS (mètres)",
           "confirmation_delay": "Délai de confirmation d'arrêt (secondes)",
           "pause_max_duration": "Durée maximale d'une pause (minutes)",
-          "watchdog_delay": "Délai watchdog hors-ligne (minutes)"
+          "watchdog_delay": "Délai watchdog hors-ligne (minutes)",
+          "connectivity_loss_tolerance": "Tolérance sur perte de connectivité (minutes)"
         },
         "data_description": {
           "tariff_sensor": "Sélectionnez votre sensor de tarif dynamique (ou laissez sensor.tarif_base_ttc pour utiliser celui par défaut)",
@@ -62,9 +71,12 @@
           "outdoor_temp_entity": "Sélectionnez un capteur de température externe (requis si 'Sensor météo externe' est sélectionné ci-dessus)",
           "use_tracked_distance": "✅ Activé : Statistiques basées sur compteurs manuels (réinitialisables après prépa/modif scooter)\n❌ Désactivé : Statistiques basées sur l'odomètre global (ODO) et compteurs MQTT énergie",
           "multi_device": "Cochez si vous avez ou prévoyez d'avoir plusieurs scooters. Les entités seront nommées 'sensor.silence_scooter_9012_speed' au lieu de 'sensor.silence_scooter_speed' pour un meilleur regroupement.",
+          "device_tracker_enabled": "Tracker GPS natif alimenté par les capteurs MQTT latitude/longitude (remplace l'ancien service device_tracker.see, obsolète). Décochez si vous suivez le scooter autrement (Traccar, OwnTracks…).",
+          "tracker_min_distance": "Un point plus proche que cette distance du précédent est ignoré : lisse la trace à l'arrêt et aux feux rouges. 0 = aucun filtrage. Les sauts impossibles (> 120 km/h) sont toujours rejetés.",
           "confirmation_delay": "Filtre les oscillations capteurs et micro-coupures réseau avant de considérer le scooter arrêté (recommandé: 120s, augmentez en zone faible)",
           "pause_max_duration": "Temps max avec scooter ÉTEINT avant fin de trajet. Course rapide < 5min = pause, > 5min = fin",
-          "watchdog_delay": "Si aucune communication pendant cette durée, le trajet s'arrête (ex: garage sans réseau)"
+          "watchdog_delay": "Si aucune communication pendant cette durée, le trajet s'arrête (ex: garage sans réseau)",
+          "connectivity_loss_tolerance": "Quand le scooter ne communique plus (tunnel, zone blanche, module qui se reconnecte) sans avoir signalé d'arrêt, le trajet reste ouvert pendant cette durée avant d'être clôturé, avec une fin calée sur la dernière trame reçue. À régler au-dessus de la durée maximale d'une pause (recommandé : 15 min). Le watchdog attend au moins cette durée."
         }
       }
     },
