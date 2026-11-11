@@ -979,6 +979,62 @@ async def async_setup_automations(
         hass, [SENSOR_TRIP_STATUS], handle_trip_status_off
     )
 
+    # 2bis. Statut « éteint » reçu pendant une tolérance « perte de signal »
+    #    Le 2026-11-11 l'arrivée au marché a été livrée en retard : statut
+    #    unavailable, puis 0 deux minutes après, et le trajet a quand même
+    #    attendu les 15 min de la tolérance. Un statut 0 MESURÉ à l'instant
+    #    prouve l'arrêt : on repasse au délai de confirmation. Un relevé
+    #    ancien (arriéré rejoué par le module) ne prouve rien, d'où le
+    #    contrôle de l'heure de mesure ; sans ce capteur, rien ne change.
+    @callback
+    def handle_off_status_after_signal_loss(event):
+        # Écoute aussi l'heure de mesure : l'ordre d'arrivée des deux capteurs
+        # n'est pas garanti, et un relevé parké suit toutes les ~15 s.
+        raw_state = hass.states.get(SENSOR_SCOOTER_STATUS)
+        if (
+            not raw_state
+            or raw_state.state not in ("0", "0.0")
+            or not _tracking_state.get("pause_is_connectivity_loss")
+            or "tolerance_timer" not in scheduled_tasks
+            or "trip_off_delay" in scheduled_tasks
+            or not is_trip_active()
+            or get_record_time(timedelta(seconds=60)) is None
+        ):
+            return
+
+        confirmation_delay = get_config_value(hass, CONF_CONFIRMATION_DELAY, DEFAULT_CONFIRMATION_DELAY, imei)
+        _LOGGER.info(
+            "Statut 0 reçu après une perte de signal -> arrêt réel, confirmation dans %ss",
+            confirmation_delay,
+        )
+
+        async def _confirm_real_stop():
+            scheduled_tasks.pop("trip_off_delay", None)
+            trip_status = hass.states.get(SENSOR_TRIP_STATUS)
+            if not is_trip_active() or (trip_status and trip_status.state == "on"):
+                return
+            # Plus aucune trame depuis : même doute que dans _confirm_off
+            # (statut 0 transitoire puis coupure en roulant). La tolérance
+            # reste armée ; un relevé frais réarmera cette confirmation.
+            last_seen = _tracking_state.get("last_telemetry_utc")
+            if not last_seen or (dt_util.utcnow() - last_seen).total_seconds() > 60:
+                _LOGGER.info("Confirmation abandonnée : plus de trame, la tolérance décide")
+                return
+            tolerance_task = scheduled_tasks.pop("tolerance_timer", None)
+            if tolerance_task:
+                tolerance_task.cancel()
+            await do_log_event(hass, "Auto stop trip (status 0 after signal loss)")
+            await do_stop_trip(hass, imei=imei, multi_device=multi_device, reason="auto-confirmed")
+
+        # Annulé par handle_stop_timer_if_restart si le scooter repart
+        scheduled_tasks["trip_off_delay"] = hass.loop.call_later(
+            confirmation_delay, lambda: hass.async_create_task(_confirm_real_stop())
+        )
+
+    remove_off_status_after_signal_loss = async_track_state_change_event(
+        hass, [SENSOR_SCOOTER_STATUS, SENSOR_SCOOTER_RECORD_TIME], handle_off_status_after_signal_loss
+    )
+
     # 3. "Scooter - Annuler les tâches d'arrêt si le scooter redémarre"
     #    => sensor.scooter_trip_status to 'on' : annule trip_off_delay + tolerance_timer
     #
@@ -1734,6 +1790,7 @@ async def async_setup_automations(
         remove_energy_baseline_init,
         remove_tracker_dernier_mouvement,
         remove_trip_status_off,
+        remove_off_status_after_signal_loss,
         remove_stop_timer_if_restart,
         remove_stop_trip_now,
         remove_last_start,
