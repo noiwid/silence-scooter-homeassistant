@@ -4,8 +4,8 @@
 JSON_FILE="${JSON_FILE:-/config/silencescooter/history.json}"
 
 # Vérifier si le nombre correct d'arguments est passé
-if [ "$#" -ne 8 ]; then
-    echo "Usage: $0 avg_speed distance duration start_time end_time max_speed battery outdoor_temp"
+if [ "$#" -ne 8 ] && [ "$#" -ne 9 ]; then
+    echo "Usage: $0 avg_speed distance duration start_time end_time max_speed battery outdoor_temp [energy_wh]"
     exit 1
 fi
 
@@ -26,6 +26,8 @@ AVG_SPEED="$1"
 MAX_SPEED="$6"
 BATTERY="$7"
 OUTDOOR_TEMP="$8"
+# Énergie du trajet en Wh, mesurée par l'intégration ; absente ou 0 => estimée
+ENERGY_WH="${9:-0}"
 
 TARGET_DIR=$(dirname "$JSON_FILE")
 
@@ -43,13 +45,18 @@ if command -v flock > /dev/null 2>&1; then
 fi
 
 # Calcul de l'efficacité énergétique (Wh/km)
-# Capacité batterie = 5.6 kWh = 5600 Wh
-# Efficacité = (Battery% / 100 * 5600) / Distance
+# Efficacité = énergie mesurée / Distance ; sans énergie mesurée :
+# (Battery% / 100 * 5600) / Distance (capacité nominale 5.6 kWh, surestime
+# sur une batterie usée)
 # NOTE: Use high precision (scale=10) for intermediate calculations to avoid rounding errors
 EFFICIENCY="0"
 if [ "$(echo "$DISTANCE > 0" | bc)" -eq 1 ]; then
     # Calculate with high precision, then round to 1 decimal
-    EFFICIENCY=$(echo "scale=10; result = ($BATTERY / 100 * 5600) / $DISTANCE; scale=1; result / 1" | bc)
+    if [ "$(echo "$ENERGY_WH > 0" | bc)" -eq 1 ]; then
+        EFFICIENCY=$(echo "scale=10; result = $ENERGY_WH / $DISTANCE; scale=1; result / 1" | bc)
+    else
+        EFFICIENCY=$(echo "scale=10; result = ($BATTERY / 100 * 5600) / $DISTANCE; scale=1; result / 1" | bc)
+    fi
 fi
 
 # Créer l'entrée JSON

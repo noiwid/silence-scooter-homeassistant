@@ -200,7 +200,8 @@ async def update_history(hass: HomeAssistant, **kwargs):
             _sanitize_timestamp(end_time),
             str(float(max_speed)),
             str(float(battery)),
-            str(float(outdoor_temp))
+            str(float(outdoor_temp)),
+            str(round(float(kwargs.get("energy_wh", 0)), 1))
         ]
 
         _LOGGER.debug("Executing command: %s", cmd)

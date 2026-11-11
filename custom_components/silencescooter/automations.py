@@ -2167,8 +2167,23 @@ async def do_update_trips_history(hass: HomeAssistant, imei: str = "", multi_dev
         # (efficiences ×10 dans l'historique) ; debut ET fin indisponibles →
         # battery=0 (≈48 % des trajets historiques).
 
-        _LOGGER.info("Calling update_history: distance=%.1f, duration=%.0f, avg_speed=%.1f",
-                     distance_val, duration_val, avg_val)
+        # Énergie du trajet pour le Wh/km : MESURÉE par le compteur du
+        # scooter entre le départ et l'arrivée. Le calcul d'origine
+        # (% consommés × 5,6 kWh) surestime de 15-20 % sur une batterie usée
+        # (60,6 Wh/km affichés pour 50 mesurés le 2026-11-10). Compteur
+        # illisible ou immobile : % × capacité réelle estimée ; à défaut
+        # history.sh garde % × 5,6 kWh.
+        start_energy = hass.data.get(DOMAIN, {}).get(_tracking_key(imei), {}).get("energy_at_start")
+        end_energy = get_sensor_float_value(hass, entity_id("sensor.scooter_energy_consumption"), 0.0)
+        capacity = get_sensor_float_value(hass, entity_id("sensor.scooter_battery_capacity"), 0.0)
+        energy_wh = 0.0
+        if start_energy and 0 < end_energy - start_energy <= DEFAULT_BATTERY_CAPACITY:
+            energy_wh = (end_energy - start_energy) * 1000
+        elif 3.0 <= capacity <= 7.0:
+            energy_wh = battery_consumed / 100 * capacity * 1000
+
+        _LOGGER.info("Calling update_history: distance=%.1f, duration=%.0f, avg_speed=%.1f, energy=%.0f Wh",
+                     distance_val, duration_val, avg_val, energy_wh)
 
         success = await update_history(
             hass,
@@ -2180,7 +2195,8 @@ async def do_update_trips_history(hass: HomeAssistant, imei: str = "", multi_dev
             end_time=end_time_str,
             max_speed=max_val,
             battery=battery_consumed,
-            outdoor_temp=temp_val
+            outdoor_temp=temp_val,
+            energy_wh=energy_wh
         )
 
         if success:

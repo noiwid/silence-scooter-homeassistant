@@ -65,7 +65,7 @@ The single mechanism for this is **`helpers.insert_imei_in_entity_id(entity_id, 
 - `helpers.py` — `insert_imei_in_entity_id`, `get_device_info`, date validators (`is_date_valid` rejects the `1970` sentinel), `log_event`, and `update_history` (the subprocess bridge to `history.sh`).
 - `errors.py` — `ErrorDetector`, one instance per config entry, with category/severity enums and rolling-window pattern detection; surfaced through `ScooterErrorDetectionSensor`. Get the active detector via `get_error_detector(hass[, entry_id])`.
 - `config_flow.py` — UI config + options flow; discovers candidate tariff/temperature sensors by keyword/device-class.
-- `scripts/history.sh` — bash/`jq` appender that prepends a trip to `history.json`. Path comes from the `JSON_FILE` env var set by `helpers.update_history`; it also computes `efficiency_wh_km` using a hard-coded **5.6 kWh** pack capacity.
+- `scripts/history.sh` — bash/`jq` appender that prepends a trip to `history.json`. Path comes from the `JSON_FILE` env var set by `helpers.update_history`; it also computes `efficiency_wh_km` from the trip energy passed as 9th argument (measured by the engine), falling back to a hard-coded **5.6 kWh** pack capacity.
 - `examples/silence.yaml` — fallback **manual** MQTT config (only needed if Discovery is disabled). `lovelace_silence*.yaml` — example dashboards (FR/EN).
 - `translations/` + `strings.json` — config-flow i18n (FR/EN).
 

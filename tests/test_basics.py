@@ -151,8 +151,8 @@ class EnergyTemplate(unittest.TestCase):
     all(shutil.which(tool) for tool in ("bash", "jq", "bc")), "bash, jq et bc requis"
 )
 class HistoryScript(unittest.TestCase):
-    def _run(self, history, start, distance):
-        args = ["30.0", distance, "10.0", start, start, "50.0", "5.0", "12.0"]
+    def _run(self, history, start, distance, *energy_wh):
+        args = ["30.0", distance, "10.0", start, start, "50.0", "5.0", "12.0", *energy_wh]
         return subprocess.run(
             ["bash", str(COMPONENT / "scripts" / "history.sh"), *args],
             env={**os.environ, "JSON_FILE": str(history)},
@@ -169,6 +169,15 @@ class HistoryScript(unittest.TestCase):
             self.assertEqual([t["start_time"][:10] for t in trips], ["2026-01-02", "2026-01-01"])
             self.assertEqual(float(trips[1]["efficiency_wh_km"]), 56.0)  # 5 % de 5600 Wh sur 5 km
             self.assertEqual(trips[0]["efficiency_wh_km"], "0")  # distance nulle : pas de division
+
+    def test_measured_energy_wins_over_the_nominal_capacity(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            history = Path(tmp) / "history.json"
+            self._run(history, "2026-01-01T10:00:00+01:00", "12.0", "602.0")
+            self._run(history, "2026-01-02T10:00:00+01:00", "5.0", "0.0")
+            trips = json.loads(history.read_text())
+            self.assertEqual(float(trips[1]["efficiency_wh_km"]), 50.1)  # 602 Wh sur 12 km
+            self.assertEqual(float(trips[0]["efficiency_wh_km"]), 56.0)  # pas de mesure : 5 % de 5600 Wh
 
     def test_empty_history_is_not_silently_kept_empty(self):
         """Un history.json vide passait pour valide : chaque trajet suivant

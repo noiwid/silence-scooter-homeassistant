@@ -37,11 +37,15 @@ Each trip includes the following fields:
 
 ### Efficiency Calculation
 
-Energy efficiency is automatically calculated by the `history.sh` script using the formula:
+Since v1.3.9, efficiency uses the energy **measured** by the scooter's own counter during the trip:
 
-    Efficiency (Wh/km) = (Battery% / 100 × 5600 Wh) / Distance (km)
+    Efficiency (Wh/km) = Energy used during the trip (Wh) / Distance (km)
 
-> **Note:** Battery capacity is 5.6 kWh (5600 Wh).
+If the counter could not be read, the energy is estimated as `Battery% × real capacity`
+(`sensor.scooter_battery_capacity`), and as a last resort `Battery% × 5600 Wh`.
+
+> **Note:** Trips recorded before v1.3.9 all use `Battery% × 5600 Wh` (nominal 5.6 kWh),
+> which overestimates by 15-20 % on a worn battery. They are not recalculated.
 
 ## Full Example File
 
