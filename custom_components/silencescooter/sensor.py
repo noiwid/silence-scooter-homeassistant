@@ -186,7 +186,8 @@ async def async_setup_entry(
                         {{% set tracked_dist = states('number.scooter_tracked_distance') | float(0) %}}
                         {{% set tracked_batt = states('number.scooter_tracked_battery_used') | float(0) %}}
                         {{% set price_per_kwh = states('{configured_tariff_sensor}') | float(0.215) %}}
-                        {{% set battery_capacity = 5.6 %}}
+                        {{% set capacity = states('sensor.scooter_battery_capacity') | float(0) %}}
+                        {{% set battery_capacity = capacity if 3 <= capacity <= 7 else 5.6 %}}
                         {{% if tracked_dist > 0 %}}
                             {{{{ ((tracked_batt / 100 * battery_capacity * price_per_kwh / {charger_efficiency}) / tracked_dist) | round(3) }}}}
                         {{% else %}}
