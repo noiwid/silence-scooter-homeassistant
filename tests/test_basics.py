@@ -102,6 +102,42 @@ class BatteryCapacityTemplate(unittest.TestCase):
 
 
 @unittest.skipUnless(jinja2, "jinja2 requis")
+class CostTemplates(unittest.TestCase):
+    """Coût = énergie chargée x tarif / rendement du chargeur."""
+
+    def _render(self, template, states):
+        env = jinja2.Environment()
+        env.globals["states"] = lambda entity_id: str(states.get(entity_id, "unknown"))
+        env.filters["float"] = lambda v, default=0: _to_float(v, default)
+        return float(env.from_string(template).render().strip())
+
+    def test_period_cost_uses_charged_energy_and_charger_losses(self):
+        d = _load_definitions()
+        template = d.ENERGY_COST_SENSORS["scooter_energy_cost_monthly"]["value_template"]
+        states = {"sensor.scooter_energy_charged_monthly": 9, "sensor.tarif_base_ttc": 0.2}
+        self.assertEqual(self._render(template, states), 2.0)  # 9 kWh / 0,90 x 0,20 €
+        # le réglage remplace ce texte dans sensor.py : il doit rester présent
+        for key in d.ENERGY_COST_SENSORS:
+            self.assertIn("charger_efficiency = 0.90", d.ENERGY_COST_SENSORS[key]["value_template"])
+            self.assertIn(key.replace("cost", "charged"), d.UTILITY_METERS)
+
+    def test_cost_per_km_from_lifetime_charged_energy(self):
+        d = _load_definitions()
+        template = d.USAGE_STATISTICS_SENSORS["scooter_cost_per_km"]["value_template"]
+        self.assertIn("charger_efficiency = 0.90", template)
+        states = {"sensor.silence_scooter_odo": 18000, "sensor.silence_scooter_charged_energy": 1153.66,
+                  "sensor.tarif_base_ttc": 0.2001}
+        self.assertEqual(self._render(template, states), 0.014)
+
+
+def _to_float(value, default):
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return default
+
+
+@unittest.skipUnless(jinja2, "jinja2 requis")
 class EnergyTemplate(unittest.TestCase):
     """scooter_energy_consumption : compteur à vie, hausse plafonnée à 5.6 kWh."""
 

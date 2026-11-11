@@ -6,6 +6,7 @@
         "description": "Configurez les paramètres de détection des trajets et du tarif électrique.",
         "data": {
           "tariff_sensor": "Sensor de tarif électrique (€/kWh)",
+          "charger_efficiency": "Rendement du chargeur (%)",
           "outdoor_temp_source": "Source température extérieure",
           "outdoor_temp_entity": "Sensor de température externe",
           "use_tracked_distance": "Utiliser les compteurs manuels (réinitialisables après modif scooter)",
@@ -19,6 +20,7 @@
         },
         "data_description": {
           "tariff_sensor": "Sélectionnez votre sensor de tarif dynamique (ou laissez sensor.tarif_base_ttc pour utiliser celui par défaut)",
+          "charger_efficiency": "Part de l'électricité prise au mur qui arrive dans la batterie. Sert au calcul des coûts. 90 % est une valeur courante ; mesurez une recharge avec une prise connectée pour l'affiner",
           "outdoor_temp_source": "Choisissez le capteur de température pour l'historique des trajets : capteur intégré du scooter (disponible quand connecté) ou un capteur météo externe",
           "outdoor_temp_entity": "Sélectionnez un capteur de température externe (requis si 'Sensor météo externe' est sélectionné ci-dessus)",
           "use_tracked_distance": "✅ Activé : Statistiques basées sur compteurs manuels (réinitialisables après prépa/modif scooter)\n❌ Désactivé : Statistiques basées sur l'odomètre global (ODO) et compteurs MQTT énergie",
@@ -54,6 +56,7 @@
         "description": "Modifiez les paramètres de détection des trajets et du tarif électrique.",
         "data": {
           "tariff_sensor": "Sensor de tarif électrique (€/kWh)",
+          "charger_efficiency": "Rendement du chargeur (%)",
           "outdoor_temp_source": "Source température extérieure",
           "outdoor_temp_entity": "Sensor de température externe",
           "use_tracked_distance": "Utiliser les compteurs manuels (réinitialisables après modif scooter)",
@@ -67,6 +70,7 @@
         },
         "data_description": {
           "tariff_sensor": "Sélectionnez votre sensor de tarif dynamique (ou laissez sensor.tarif_base_ttc pour utiliser celui par défaut)",
+          "charger_efficiency": "Part de l'électricité prise au mur qui arrive dans la batterie. Sert au calcul des coûts. 90 % est une valeur courante ; mesurez une recharge avec une prise connectée pour l'affiner",
           "outdoor_temp_source": "Choisissez le capteur de température pour l'historique des trajets : capteur intégré du scooter (disponible quand connecté) ou un capteur météo externe",
           "outdoor_temp_entity": "Sélectionnez un capteur de température externe (requis si 'Sensor météo externe' est sélectionné ci-dessus)",
           "use_tracked_distance": "✅ Activé : Statistiques basées sur compteurs manuels (réinitialisables après prépa/modif scooter)\n❌ Désactivé : Statistiques basées sur l'odomètre global (ODO) et compteurs MQTT énergie",

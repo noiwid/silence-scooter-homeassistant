@@ -6,6 +6,7 @@
         "description": "Configure trip detection parameters and electricity tariff.",
         "data": {
           "tariff_sensor": "Electricity tariff sensor (€/kWh)",
+          "charger_efficiency": "Charger efficiency (%)",
           "outdoor_temp_source": "Outdoor temperature source",
           "outdoor_temp_entity": "External temperature sensor",
           "use_tracked_distance": "Use manual tracked counters (resettable after scooter mods)",
@@ -19,6 +20,7 @@
         },
         "data_description": {
           "tariff_sensor": "Select your dynamic tariff sensor (or leave sensor.tarif_base_ttc to use the default one)",
+          "charger_efficiency": "Share of the electricity drawn from the wall that reaches the battery. Used for the cost sensors. 90% is a common value; measure one charge with a smart plug to refine it",
           "outdoor_temp_source": "Choose the temperature sensor for trip history: scooter's built-in sensor (available when connected) or an external weather sensor",
           "outdoor_temp_entity": "Select an external temperature sensor (required if 'External weather sensor' is selected above)",
           "use_tracked_distance": "✅ Enabled: Statistics based on manual counters (resettable after scooter prep/mods)\n❌ Disabled: Statistics based on global odometer (ODO) and MQTT energy counters",
@@ -54,6 +56,7 @@
         "description": "Modify trip detection parameters and electricity tariff.",
         "data": {
           "tariff_sensor": "Electricity tariff sensor (€/kWh)",
+          "charger_efficiency": "Charger efficiency (%)",
           "outdoor_temp_source": "Outdoor temperature source",
           "outdoor_temp_entity": "External temperature sensor",
           "use_tracked_distance": "Use manual tracked counters (resettable after scooter mods)",
@@ -67,6 +70,7 @@
         },
         "data_description": {
           "tariff_sensor": "Select your dynamic tariff sensor (or leave sensor.tarif_base_ttc to use the default one)",
+          "charger_efficiency": "Share of the electricity drawn from the wall that reaches the battery. Used for the cost sensors. 90% is a common value; measure one charge with a smart plug to refine it",
           "outdoor_temp_source": "Choose the temperature sensor for trip history: scooter's built-in sensor (available when connected) or an external weather sensor",
           "outdoor_temp_entity": "Select an external temperature sensor (required if 'External weather sensor' is selected above)",
           "use_tracked_distance": "✅ Enabled: Statistics based on manual counters (resettable after scooter prep/mods)\n❌ Disabled: Statistics based on global odometer (ODO) and MQTT energy counters",

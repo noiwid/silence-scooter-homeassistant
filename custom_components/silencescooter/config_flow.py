@@ -14,6 +14,7 @@ from .const import (
     DOMAIN,
     CONF_IMEI,
     CONF_TARIFF_SENSOR,
+    CONF_CHARGER_EFFICIENCY,
     CONF_CONFIRMATION_DELAY,
     CONF_PAUSE_MAX_DURATION,
     CONF_WATCHDOG_DELAY,
@@ -25,6 +26,7 @@ from .const import (
     CONF_DEVICE_TRACKER,
     CONF_TRACKER_MIN_DISTANCE,
     DEFAULT_TARIFF_SENSOR,
+    DEFAULT_CHARGER_EFFICIENCY,
     DEFAULT_CONFIRMATION_DELAY,
     DEFAULT_PAUSE_MAX_DURATION,
     DEFAULT_WATCHDOG_DELAY,
@@ -174,6 +176,10 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     multiple=False,
                 )
             ),
+            vol.Optional(
+                CONF_CHARGER_EFFICIENCY,
+                default=DEFAULT_CHARGER_EFFICIENCY,
+            ): vol.All(vol.Coerce(int), vol.Range(min=50, max=100)),
             vol.Optional(
                 CONF_OUTDOOR_TEMP_SOURCE,
                 default=DEFAULT_OUTDOOR_TEMP_SOURCE,
@@ -355,6 +361,10 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
                     multiple=False,
                 )
             ),
+            vol.Optional(
+                CONF_CHARGER_EFFICIENCY,
+                default=current_data.get(CONF_CHARGER_EFFICIENCY, DEFAULT_CHARGER_EFFICIENCY),
+            ): vol.All(vol.Coerce(int), vol.Range(min=50, max=100)),
             vol.Optional(
                 CONF_OUTDOOR_TEMP_SOURCE,
                 default=current_data.get(CONF_OUTDOOR_TEMP_SOURCE, DEFAULT_OUTDOOR_TEMP_SOURCE),

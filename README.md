@@ -143,6 +143,7 @@ mqtt:
 | Parameter | Default | Description |
 |-----------|---------|-------------|
 | **Tariff Sensor** | `sensor.tarif_base_ttc` | (Optional) Electricity tariff sensor for cost calculation. Can be any sensor providing EUR/kWh rate. |
+| **Charger Efficiency** | 90 % | Share of the electricity drawn from the wall that reaches the battery. Costs = energy charged into the battery × tariff ÷ this efficiency. The scooter cannot measure it: 90 % is a common value, refine it by measuring one full charge with a smart plug. |
 | **Outdoor Temperature Source** | Scooter sensor | Choose between scooter's built-in ambient temperature sensor or an external weather sensor for trip history. |
 | **External Temperature Sensor** | - | (Required if external source selected) Select a temperature sensor entity from your Home Assistant installation. |
 | **Confirmation Delay** | 120 seconds | Anti-bounce delay before confirming trip stop. Prevents false stops from brief signal loss or sensor oscillations. |

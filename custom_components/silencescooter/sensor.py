@@ -24,6 +24,8 @@ from .const import (
     DOMAIN,
     CONF_IMEI,
     CONF_TARIFF_SENSOR,
+    CONF_CHARGER_EFFICIENCY,
+    DEFAULT_CHARGER_EFFICIENCY,
     CONF_USE_TRACKED_DISTANCE,
     CONF_MULTI_DEVICE,
     DEFAULT_TARIFF_SENSOR,
@@ -98,6 +100,13 @@ async def async_setup_entry(
         entities.append(ScooterDefaultTariffSensor(hass, imei, multi_device))
         configured_tariff_sensor = "sensor.silencescooter_default_electricity_price"
 
+    charger_efficiency = config_entry.data.get(
+        CONF_CHARGER_EFFICIENCY, DEFAULT_CHARGER_EFFICIENCY
+    ) / 100
+    efficiency_default, efficiency_set = (
+        "charger_efficiency = 0.90", f"charger_efficiency = {charger_efficiency}"
+    )
+
     use_tracked_distance = config_entry.data.get(
         CONF_USE_TRACKED_DISTANCE, DEFAULT_USE_TRACKED_DISTANCE
     )
@@ -141,7 +150,7 @@ async def async_setup_entry(
         if "value_template" in config_copy:
             config_copy["value_template"] = config_copy["value_template"].replace(
                 "sensor.tarif_base_ttc", configured_tariff_sensor
-            )
+            ).replace(efficiency_default, efficiency_set)
             config_copy["value_template"] = adapt_template_for_multi_device(config_copy["value_template"])
         entities.append(ScooterTemplateSensor(hass, sensor_id, config_copy, imei, multi_device))
 
@@ -156,7 +165,7 @@ async def async_setup_entry(
         if "value_template" in config_copy:
             config_copy["value_template"] = config_copy["value_template"].replace(
                 "sensor.tarif_base_ttc", configured_tariff_sensor
-            )
+            ).replace(efficiency_default, efficiency_set)
             config_copy["value_template"] = adapt_template_for_multi_device(config_copy["value_template"])
             if use_tracked_distance:
                 if sensor_id == "scooter_distance_per_charge":
@@ -171,14 +180,15 @@ async def async_setup_entry(
                         {% endif %}
                     """
                 elif sensor_id == "scooter_cost_per_km":
-                    # Tracked mode: (battery% / 100 * capacity * price) / distance
+                    # Tracked mode: (battery% / 100 * capacity * price / charger) / distance
+                    # (les pertes de la batterie elle-même ne sont pas comptées ici)
                     config_copy["value_template"] = f"""
                         {{% set tracked_dist = states('number.scooter_tracked_distance') | float(0) %}}
                         {{% set tracked_batt = states('number.scooter_tracked_battery_used') | float(0) %}}
                         {{% set price_per_kwh = states('{configured_tariff_sensor}') | float(0.215) %}}
                         {{% set battery_capacity = 5.6 %}}
                         {{% if tracked_dist > 0 %}}
-                            {{{{ ((tracked_batt / 100 * battery_capacity * price_per_kwh) / tracked_dist) | round(3) }}}}
+                            {{{{ ((tracked_batt / 100 * battery_capacity * price_per_kwh / {charger_efficiency}) / tracked_dist) | round(3) }}}}
                         {{% else %}}
                             0
                         {{% endif %}}
@@ -580,6 +590,7 @@ class ScooterUtilityMeterSensor(SensorEntity, RestoreEntity):
 
         self._source = config["source"]
         self._cycle = config["cycle"]
+        self._max_step = config.get("max_step")
         self._last_reset = None
         self._last_source_value = None
         self._cycle_start_value = None
@@ -738,6 +749,29 @@ class ScooterUtilityMeterSensor(SensorEntity, RestoreEntity):
                     self.entity_id, source_value, self._last_source_value,
                     source_value - self._last_source_value,
                 )
+                return
+
+            # shortcut: une hausse légitime au-delà de max_step gèle le compteur
+            # jusqu'au redémarrage, à revoir si un scooter reste des semaines
+            # sans se connecter.
+            if (
+                self._max_step
+                and self._last_source_value
+                and source_value > self._last_source_value + self._max_step
+            ):
+                _LOGGER.warning(
+                    "%s: Rejecting source spike (source=%.3f, last=%.3f)",
+                    self.entity_id, source_value, self._last_source_value,
+                )
+                return
+            # Source brute : un ancien relevé rejoué (valeur plus basse) ne doit
+            # pas passer par la branche « consommation négative », qui remet la
+            # période à zéro.
+            if (
+                self._max_step
+                and self._cycle_start_value
+                and source_value < self._cycle_start_value + float(self._attr_native_value or 0) - 0.001
+            ):
                 return
 
             # IMPORTANT: If source is 0 and we have a restored cycle_start_value > 0,

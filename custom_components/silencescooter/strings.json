@@ -7,6 +7,7 @@
         "data": {
           "imei": "IMEI (optionnel, 14-15 chiffres)",
           "tariff_sensor": "Sensor de tarif électrique (€/kWh)",
+          "charger_efficiency": "Rendement du chargeur (%)",
           "use_tracked_distance": "Utiliser les compteurs manuels (réinitialisables après modif scooter)",
           "multi_device": "Configuration multi-scooters (ajoute l'IMEI aux noms des entités)",
           "device_tracker_enabled": "Créer l'entité device_tracker (position GPS)",
@@ -18,6 +19,7 @@
         },
         "data_description": {
           "tariff_sensor": "Sélectionnez votre sensor de tarif dynamique (ou laissez sensor.tarif_base_ttc pour utiliser celui par défaut)",
+          "charger_efficiency": "Part de l'électricité prise au mur qui arrive dans la batterie. Sert au calcul des coûts. 90 % est une valeur courante ; mesurez une recharge avec une prise connectée pour l'affiner",
           "use_tracked_distance": "✅ Activé : Statistiques basées sur compteurs manuels (réinitialisables après prépa/modif scooter)\n❌ Désactivé : Statistiques basées sur l'odomètre global (ODO) et compteurs MQTT énergie",
           "multi_device": "Cochez si vous avez ou prévoyez d'avoir plusieurs scooters. Les entités seront nommées 'sensor.silence_scooter_9012_speed' au lieu de 'sensor.silence_scooter_speed' pour un meilleur regroupement.",
           "device_tracker_enabled": "Tracker GPS natif alimenté par les capteurs MQTT latitude/longitude (remplace l'ancien service device_tracker.see, obsolète). Décochez si vous suivez le scooter autrement (Traccar, OwnTracks…).",
@@ -59,6 +61,7 @@
         "description": "Modifiez les paramètres de détection des trajets et du tarif électrique.",
         "data": {
           "tariff_sensor": "Sensor de tarif électrique (€/kWh)",
+          "charger_efficiency": "Rendement du chargeur (%)",
           "use_tracked_distance": "Utiliser les compteurs manuels (réinitialisables après modif scooter)",
           "multi_device": "Configuration multi-scooters (ajoute l'IMEI aux noms des entités)",
           "device_tracker_enabled": "Créer l'entité device_tracker (position GPS)",
@@ -70,6 +73,7 @@
         },
         "data_description": {
           "tariff_sensor": "Sélectionnez votre sensor de tarif dynamique (ou laissez sensor.tarif_base_ttc pour utiliser celui par défaut)",
+          "charger_efficiency": "Part de l'électricité prise au mur qui arrive dans la batterie. Sert au calcul des coûts. 90 % est une valeur courante ; mesurez une recharge avec une prise connectée pour l'affiner",
           "use_tracked_distance": "✅ Activé : Statistiques basées sur compteurs manuels (réinitialisables après prépa/modif scooter)\n❌ Désactivé : Statistiques basées sur l'odomètre global (ODO) et compteurs MQTT énergie",
           "multi_device": "Cochez si vous avez ou prévoyez d'avoir plusieurs scooters. Les entités seront nommées 'sensor.silence_scooter_9012_speed' au lieu de 'sensor.silence_scooter_speed' pour un meilleur regroupement.",
           "device_tracker_enabled": "Tracker GPS natif alimenté par les capteurs MQTT latitude/longitude (remplace l'ancien service device_tracker.see, obsolète). Décochez si vous suivez le scooter autrement (Traccar, OwnTracks…).",

@@ -94,7 +94,10 @@ These sensors use Jinja2 templates to compute their values.
 | `sensor.scooter_end_time_relative`   | Scooter – Last Trip               | –     | Relative time since last trip ("X ago")                  |
 
 ### Energy Cost Sensors  
-These sensors automatically compute energy costs based on the configured tariff.
+These sensors compute what the charging costs at the wall: energy charged into the battery
+(the scooter's own "charged energy" counter, per period) × tariff ÷ charger efficiency.
+The counter only moves while charging and the scooter is usually offline then, so a
+charge shows up when the scooter next connects (typically at the start of the next trip).
 
 | Entity ID                             | Name                                 | Unit | State Class | Description                          |
 |--------------------------------------|--------------------------------------|------|-------------|--------------------------------------|
@@ -103,7 +106,9 @@ These sensors automatically compute energy costs based on the configured tariff.
 | `sensor.scooter_energy_cost_monthly` | Scooter – Monthly recharge cost      | €    | measurement | Monthly energy cost for recharging    |
 | `sensor.scooter_energy_cost_yearly`  | Scooter – Yearly recharge cost       | €    | measurement | Yearly energy cost for recharging     |
 
-> **Note**: The default tariff is 0.215 €/kWh but can be customized via the `tariff_sensor` configuration parameter.  
+> **Note**: The default tariff is 0.215 €/kWh but can be customized via the `tariff_sensor` configuration parameter.
+> The charger efficiency (`charger_efficiency`, default 90 %) is an assumption, not a measurement: set it from a smart-plug reading.
+> Before v1.3.9 the costs were based on the net energy used while riding, which ignored battery (~9 %) and charger losses.  
 
 ### Battery Health Sensors  
 These sensors monitor the health of the battery.
@@ -123,7 +128,7 @@ These sensors provide usage statistics.
 | Entity ID                           | Name                         | Unit | State Class | Description                                              |
 |-----------------------------------|------------------------------|------|-------------|----------------------------------------------------------|
 | `sensor.scooter_distance_per_charge`| Usage – Distance per charge  | km   | measurement  | Average distance per full charge cycle                   |
-| `sensor.scooter_cost_per_km`        | Usage – Cost per kilometre   | €/km | measurement  | Average cost per kilometre travelled                      |
+| `sensor.scooter_cost_per_km`        | Usage – Cost per kilometre   | €/km | measurement  | Lifetime charged energy × tariff ÷ charger efficiency, per kilometre |
 | `sensor.scooter_average_trip_distance`| Usage – Average trip distance | km | measurement  | Average distance over the whole trip history              |
 
 ### Utility Meters  
@@ -136,7 +141,12 @@ These sensors are counters that reset automatically according to their cycle.
 | `sensor.scooter_energy_consumption_monthly` | Scooter Energy Consumption Monthly | monthly | `sensor.scooter_energy_consumption`   | Monthly consumption (resets on the 1st)           |
 | `sensor.scooter_energy_consumption_yearly`  | Scooter Energy Consumption Yearly  | yearly  | `sensor.scooter_energy_consumption`   | Yearly consumption (resets on Jan 1)              |
 
-> **Note**: These counters can be restored manually via the `silencescooter.restore_energy_costs` service.  
+| `sensor.scooter_energy_charged_daily`   | Scooter Energy Charged Daily   | daily   | `sensor.silence_scooter_charged_energy` | Energy charged into the battery today (basis of the cost sensors) |
+| `sensor.scooter_energy_charged_weekly`  | Scooter Energy Charged Weekly  | weekly  | `sensor.silence_scooter_charged_energy` | Same, this week |
+| `sensor.scooter_energy_charged_monthly` | Scooter Energy Charged Monthly | monthly | `sensor.silence_scooter_charged_energy` | Same, this month |
+| `sensor.scooter_energy_charged_yearly`  | Scooter Energy Charged Yearly  | yearly  | `sensor.silence_scooter_charged_energy` | Same, this year |
+
+> **Note**: The `silencescooter.restore_energy_costs` service restores the cost sensors by re-basing the `energy_charged` counters.  
 
 ### Writable Sensors  
 These special sensors can be modified by the integration and retain their value even when the scooter is offline.

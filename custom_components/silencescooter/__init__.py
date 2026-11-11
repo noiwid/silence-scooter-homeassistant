@@ -15,6 +15,7 @@ import homeassistant.helpers.entity_registry as er
 from .const import (
     DOMAIN, PLATFORMS, CONF_IMEI, CONF_MULTI_DEVICE, DEFAULT_MULTI_DEVICE,
     DEFAULT_ELECTRICITY_PRICE, MANUFACTURER, CONF_TARIFF_SENSOR,
+    CONF_CHARGER_EFFICIENCY, DEFAULT_CHARGER_EFFICIENCY,
     PERSISTENT_DATA_PATH, HISTORY_FILE, LOG_FILE,
     LEGACY_HISTORY_FILE, LEGACY_LOG_FILE,
 )
@@ -562,7 +563,11 @@ async def async_setup_services(hass: HomeAssistant) -> None:
             imei, multi = "", False
 
         # Même convention d'identifiants que le moteur (IMEI inséré après "scooter_")
-        source_entity_id = insert_imei_in_entity_id("sensor.scooter_energy_consumption", imei, multi)
+        # Les coûts reposent sur l'énergie chargée (voir ENERGY_COST_SENSORS)
+        source_entity_id = insert_imei_in_entity_id("sensor.silence_scooter_charged_energy", imei, multi)
+        charger_efficiency = hass.data.get(DOMAIN, {}).get("config", {}).get(
+            CONF_CHARGER_EFFICIENCY, DEFAULT_CHARGER_EFFICIENCY
+        ) / 100
 
         # Get source value
         if source_value_param is not None:
@@ -605,8 +610,8 @@ async def async_setup_services(hass: HomeAssistant) -> None:
             ("daily", daily_value), ("weekly", weekly_value),
             ("monthly", monthly_value), ("yearly", yearly_value),
         ):
-            kwh = eur / electricity_price
-            target_id = insert_imei_in_entity_id(f"sensor.scooter_energy_consumption_{cycle}", imei, multi)
+            kwh = eur * charger_efficiency / electricity_price
+            target_id = insert_imei_in_entity_id(f"sensor.scooter_energy_charged_{cycle}", imei, multi)
             targets[target_id] = {"consumption": kwh, "cycle_start": source_value - kwh}
 
         # Find and update sensor objects via hass.data[DOMAIN]["sensors"]

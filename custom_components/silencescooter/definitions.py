@@ -517,15 +517,21 @@ TEMPLATE_SENSORS = {
     }
 }
 
+# Coût = énergie entrée dans la batterie à la recharge (compteur « chargée »
+# du scooter, qui ne bouge pas en roulant) x tarif / rendement du chargeur.
+# L'ancien calcul partait de l'énergie nette consommée en roulant et ignorait
+# les pertes de la batterie (~9 %) et du chargeur. "charger_efficiency = 0.90"
+# et "sensor.tarif_base_ttc" sont remplacés par la configuration (sensor.py).
 ENERGY_COST_SENSORS = {
     "scooter_energy_cost_daily": {
         "name": "Coût quotidien de la recharge",
         "unit_of_measurement": "€",
         "state_class": "measurement",
         "value_template": """
-            {% set consumption = states('sensor.scooter_energy_consumption_daily') | float(0) %}
+            {% set charged = states('sensor.scooter_energy_charged_daily') | float(0) %}
             {% set price_per_kwh = states('sensor.tarif_base_ttc') | float(0.215) %}
-            {{ (consumption * price_per_kwh) | round(2) }}
+            {% set charger_efficiency = 0.90 %}
+            {{ (charged * price_per_kwh / charger_efficiency) | round(2) }}
         """
     },
     "scooter_energy_cost_weekly": {
@@ -533,9 +539,10 @@ ENERGY_COST_SENSORS = {
         "unit_of_measurement": "€",
         "state_class": "measurement",
         "value_template": """
-            {% set consumption = states('sensor.scooter_energy_consumption_weekly') | float(0) %}
+            {% set charged = states('sensor.scooter_energy_charged_weekly') | float(0) %}
             {% set price_per_kwh = states('sensor.tarif_base_ttc') | float(0.215) %}
-            {{ (consumption * price_per_kwh) | round(2) }}
+            {% set charger_efficiency = 0.90 %}
+            {{ (charged * price_per_kwh / charger_efficiency) | round(2) }}
         """
     },
     "scooter_energy_cost_monthly": {
@@ -543,9 +550,10 @@ ENERGY_COST_SENSORS = {
         "unit_of_measurement": "€",
         "state_class": "measurement",
         "value_template": """
-            {% set consumption = states('sensor.scooter_energy_consumption_monthly') | float(0) %}
+            {% set charged = states('sensor.scooter_energy_charged_monthly') | float(0) %}
             {% set price_per_kwh = states('sensor.tarif_base_ttc') | float(0.215) %}
-            {{ (consumption * price_per_kwh) | round(2) }}
+            {% set charger_efficiency = 0.90 %}
+            {{ (charged * price_per_kwh / charger_efficiency) | round(2) }}
         """
     },
     "scooter_energy_cost_yearly": {
@@ -553,9 +561,10 @@ ENERGY_COST_SENSORS = {
         "unit_of_measurement": "€",
         "state_class": "measurement",
         "value_template": """
-            {% set consumption = states('sensor.scooter_energy_consumption_yearly') | float(0) %}
+            {% set charged = states('sensor.scooter_energy_charged_yearly') | float(0) %}
             {% set price_per_kwh = states('sensor.tarif_base_ttc') | float(0.215) %}
-            {{ (consumption * price_per_kwh) | round(2) }}
+            {% set charger_efficiency = 0.90 %}
+            {{ (charged * price_per_kwh / charger_efficiency) | round(2) }}
         """
     }
 }
@@ -679,11 +688,11 @@ USAGE_STATISTICS_SENSORS = {
         "icon": "mdi:currency-eur",
         "value_template": """
             {% set odo = states('sensor.silence_scooter_odo') | float(0) %}
-            {% set consumed = states('sensor.silence_scooter_discharged_energy') | float(0) %}
-            {% set regenerated = states('sensor.silence_scooter_regenerated_energy') | float(0) %}
+            {% set charged = states('sensor.silence_scooter_charged_energy') | float(0) %}
             {% set price_per_kwh = states('sensor.tarif_base_ttc') | float(0.215) %}
+            {% set charger_efficiency = 0.90 %}
             {% if odo > 0 %}
-                {{ (((consumed - regenerated) * price_per_kwh) / odo) | round(3) }}
+                {{ ((charged * price_per_kwh / charger_efficiency) / odo) | round(3) }}
             {% else %}
                 0
             {% endif %}
@@ -722,5 +731,31 @@ UTILITY_METERS = {
         "source": "sensor.scooter_energy_consumption",
         "cycle": "yearly",
         "name": "Scooter Energy Consumption Yearly"
+    },
+    # max_step : le scooter n'émet rien pendant la recharge, plusieurs recharges
+    # peuvent arriver d'un seul saut ; au-delà c'est un pic du compteur brut.
+    "scooter_energy_charged_daily": {
+        "source": "sensor.silence_scooter_charged_energy",
+        "cycle": "daily",
+        "name": "Scooter Energy Charged Daily",
+        "max_step": 50
+    },
+    "scooter_energy_charged_weekly": {
+        "source": "sensor.silence_scooter_charged_energy",
+        "cycle": "weekly",
+        "name": "Scooter Energy Charged Weekly",
+        "max_step": 50
+    },
+    "scooter_energy_charged_monthly": {
+        "source": "sensor.silence_scooter_charged_energy",
+        "cycle": "monthly",
+        "name": "Scooter Energy Charged Monthly",
+        "max_step": 50
+    },
+    "scooter_energy_charged_yearly": {
+        "source": "sensor.silence_scooter_charged_energy",
+        "cycle": "yearly",
+        "name": "Scooter Energy Charged Yearly",
+        "max_step": 50
     }
 }

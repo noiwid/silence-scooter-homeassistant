@@ -16,10 +16,9 @@ reset_tracked_counters:
 restore_energy_costs:
   name: Restaurer les coûts énergétiques
   description: >
-    Restaure les valeurs des compteurs de coûts énergétiques (jour/semaine/mois/année)
-    après une réinitialisation. Ce service modifie le fichier .storage/core.restore_state
-    et nécessite un redémarrage de Home Assistant pour prendre effet.
-    Un backup automatique est créé avant toute modification.
+    Restaure les coûts énergétiques (jour/semaine/mois/année) après une
+    réinitialisation, en recalant les compteurs d'énergie chargée
+    (sensor.scooter_energy_charged_*) dont ils sont tirés. Effet immédiat.
   fields:
     device_id:
       name: Device
@@ -83,7 +82,7 @@ restore_energy_costs:
     source_value:
       name: Valeur source (manuel)
       description: >
-        Valeur actuelle de sensor.scooter_energy_consumption en kWh.
+        Valeur actuelle de sensor.silence_scooter_charged_energy en kWh.
         Obligatoire si le scooter est éteint/hors ligne.
         Utilise la valeur de cycle_start_value visible dans les logs (ex: 724.692)
       required: false

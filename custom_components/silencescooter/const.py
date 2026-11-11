@@ -34,6 +34,7 @@ CONF_NAME = "name"
 CONF_ICON = "icon"
 CONF_UNIT = "unit_of_measurement"
 CONF_TARIFF_SENSOR = "tariff_sensor"
+CONF_CHARGER_EFFICIENCY = "charger_efficiency"
 CONF_CONFIRMATION_DELAY = "confirmation_delay"
 CONF_PAUSE_MAX_DURATION = "pause_max_duration"
 CONF_WATCHDOG_DELAY = "watchdog_delay"
@@ -48,6 +49,9 @@ DEFAULT_ELECTRICITY_PRICE = 0.215
 DEFAULT_BATTERY_CAPACITY = 5.6  # kWh - S01. S02/S03 = 2.0 kWh (configurable via config_flow)
 MANUFACTURER = "Silence"
 DEFAULT_TARIFF_SENSOR = ""
+# Rendement du chargeur (%), entre la prise et la batterie. Non mesurable par
+# le scooter : 90 % est une valeur courante, à régler avec une prise connectée.
+DEFAULT_CHARGER_EFFICIENCY = 90
 DEFAULT_CONFIRMATION_DELAY = 120
 DEFAULT_PAUSE_MAX_DURATION = 5
 DEFAULT_WATCHDOG_DELAY = 5
